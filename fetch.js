@@ -161,38 +161,31 @@ function collectRaceLinks(html, baseUrl) {
 async function main() {
   const races = [];
 
-  // ---- 第1段: pid列挙で各場の1Rを取得しつつ、ページ内のレースタブ(2R〜12R)のリンクを収穫 ----
+  // ---- 第1段: 全国共通の場コード(pid)×レース番号(rno)を直接指定して取得 ----
+  // 検索で確認済みのURL仕様: /keirin/yoso/?rdt=YYYY-MM-DD&pid=場コード&rno=レース番号
+  const VENUE_PIDS = [11,12,13,21,22,23,24,25,26,27,28,31,32,34,35,36,37,38,42,43,44,45,46,47,48,51,53,54,55,56,61,62,63,71,73,74,75,81,83,84,85,86,87];
   const jst = new Date(Date.now() + 9 * 3600 * 1000);
   const rdt = jst.toISOString().slice(0, 10);
-  console.log("phase1: pid列挙(場の発見)", rdt);
-  const raceLinks = new Set();
-  const fetched = new Set();
-  for (let pid = 1; pid <= 120; pid++) {
-    if (Date.now() - startedAt > DEADLINE_MS) { console.log("deadline(第1段)"); break; }
-    const url = `https://gamboo.jp/keirin/yoso/?rdt=${rdt}&pid=${pid}`;
-    try {
-      await sleep(WAIT_MS);
-      const html = await get(url);
-      fetched.add(url);
-      if (processRace(html, url, races)) {
-        collectRaceLinks(html, url).forEach((u) => raceLinks.add(u));
-      }
-    } catch (e) { /* 存在しないpidはスキップ */ }
-  }
-  console.log("phase1 done:", races.length, "races /", raceLinks.size, "links harvested");
-
-  // ---- 第1.5段: 収穫した全レースリンク(2R以降)を取得 ----
-  for (const url of raceLinks) {
+  console.log("phase1: 場コード×rno列挙", rdt);
+  for (const pid of VENUE_PIDS) {
     if (races.length >= MAX_RACES) break;
-    if (Date.now() - startedAt > DEADLINE_MS) { console.log("deadline(第1.5段)"); break; }
-    if (fetched.has(url)) continue;
-    try {
-      await sleep(WAIT_MS);
-      fetched.add(url);
-      await fetchRace(url, races);
-    } catch (e) { /* skip */ }
+    if (Date.now() - startedAt > DEADLINE_MS) { console.log("deadline"); break; }
+    let venueMiss = 0;
+    for (let rno = 1; rno <= 12; rno++) {
+      if (Date.now() - startedAt > DEADLINE_MS) break;
+      const url = `https://gamboo.jp/keirin/yoso/?rdt=${rdt}&pid=${pid}&rno=${rno}`;
+      try {
+        await sleep(WAIT_MS);
+        const html = await get(url);
+        const ok = processRace(html, url, races);
+        if (ok) venueMiss = 0; else venueMiss++;
+      } catch (e) { venueMiss++; }
+      // rno=1,2と連続で無効ならこの場は非開催と判断して次の場へ
+      if (rno <= 2 && venueMiss >= 2) break;
+      if (venueMiss >= 3) break; // 途中で3連続無効=最終レースを越えた
+    }
   }
-  console.log("phase1.5 done:", races.length, "races");
+  console.log("phase1 done:", races.length, "races");
 
   // ---- 第2段(予備): 取得が少ない場合のみ従来のリンク巡回 ----
   if (races.length < 30) {
