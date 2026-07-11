@@ -1,45 +1,55 @@
 // ============================================================
-// 本日のレース結果を取得し、予想との答え合わせを history.json に蓄積、
-// 集計を stats.json に書き出す(GitHub Actions から実行)
+// GambooBETの払戻金一覧(日別1ページ)から全レース結果を取得し、
+// 予想との答え合わせを history.json / stats.json に蓄積する
 // 使い方: node results.js
 // ============================================================
 const fs = require("fs");
 const path = require("path");
 
 const UA = "keirin-local-app (personal use)";
-const WAIT_MS = 400;
-const FETCH_TIMEOUT = 10000;
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const FETCH_TIMEOUT = 15000;
 
 async function get(url) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT);
   try {
     const res = await fetch(url, { headers: { "User-Agent": UA, "Accept-Language": "ja" }, signal: ctrl.signal });
-    if (!res.ok) throw new Error(res.status);
+    if (!res.ok) throw new Error(res.status + " " + url);
     return await res.text();
   } finally { clearTimeout(t); }
 }
 
-function stripTags(html) {
-  return html.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/&nbsp;/g, " ");
-}
+const strip = (h) => h.replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+const sameDigits = (a, b) => a.split("").sort().join("") === b.split("").sort().join("");
 
-// 結果ページ候補(上から順に試す)。3連単の払戻が読めたページを採用
-const CANDS = [
-  (d8, dH, pid, rno) => `https://gamboo.jp/keirin/bet/raceinfo?rdt=${d8}&pid=${pid}&rno=${rno}`,
-  (d8, dH, pid, rno) => `https://gamboo.jp/keirin/result/?rdt=${dH}&pid=${pid}&rno=${rno}`,
-  (d8, dH, pid, rno) => `https://gamboo.jp/keirin/yoso/result?rdt=${dH}&pid=${pid}&rno=${rno}`,
-];
-
-// テキストから払戻(=着順)を抽出。3連単 x-y-z ¥n が取れれば成立
-function parseResult(text) {
-  const p3 = text.match(/3連単[\s\S]{0,60}?([1-9])[-=]([1-9])[-=]([1-9])[\s\S]{0,40}?([\d,]+)\s*円/);
-  if (!p3) return null;
-  const out = { first: +p3[1], second: +p3[2], third: +p3[3], p3pay: +p3[4].replace(/,/g, "") };
-  const p2 = text.match(/2車単[\s\S]{0,60}?([1-9])[-=]([1-9])[\s\S]{0,40}?([\d,]+)\s*円/);
-  if (p2) { out.p2first = +p2[1]; out.p2second = +p2[2]; out.p2pay = +p2[3].replace(/,/g, ""); }
+// 払戻一覧HTML → { "場名_nR": {first,second,third,p3pay} }
+function parseHaraiList(html) {
+  const out = {};
+  let venue = null;
+  const re = /([぀-ヿ一-龥]{2,5})競輪|<tr[^>]*>([\s\S]*?)<\/tr>/g;
+  let m;
+  while ((m = re.exec(html))) {
+    if (m[1]) { venue = m[1]; continue; }
+    if (!venue) continue;
+    const tokens = strip(m[2]).split(/\s+/).filter(Boolean);
+    if (!tokens.length) continue;
+    const rm = tokens[0].match(/^(\d{1,2})R$/);
+    if (!rm) continue;
+    // 未確定行(発走時刻 20:45 等)はスキップ
+    const fin = tokens[1];
+    if (!fin || !/^\d{3}$/.test(fin)) continue;
+    // 同着行: 着順の直後に同じ数字構成の3桁が続く場合は読み飛ばす
+    let i = 2;
+    while (i < tokens.length && /^\d{3}$/.test(tokens[i]) && sameDigits(tokens[i], fin)) i++;
+    // 次の数値トークン(カンマ許容)が3連単払戻
+    let pay = null;
+    for (; i < tokens.length; i++) {
+      const v = tokens[i].replace(/,/g, "");
+      if (/^\d+$/.test(v)) { pay = +v; break; }
+    }
+    if (pay == null) continue;
+    out[venue + "_" + rm[1] + "R"] = { first: +fin[0], second: +fin[1], third: +fin[2], p3pay: pay };
+  }
   return out;
 }
 
@@ -56,48 +66,43 @@ async function main() {
   const histPath = path.join(dir, "history.json");
   const hist = fs.existsSync(histPath) ? JSON.parse(fs.readFileSync(histPath, "utf8")) : { entries: [] };
   const done = new Set(hist.entries.map((e) => e.id));
-  let dumped = false, added = 0;
 
+  // races.json内の日付を集めて、日付ごとに払戻一覧を1回取得
+  const dates = [...new Set(races.map((x) => ((x.url || "").match(/rdt=([\d-]+)/) || [])[1]).values())].filter(Boolean);
+  const results = {};
+  for (const dH of dates) {
+    const [y, mo, d] = dH.split("-");
+    const url = `https://keirin.kdreams.jp/gamboo/keirin-kaisai/harai-list/${y}/${mo}/${d}/`;
+    try {
+      const html = await get(url);
+      Object.assign(results, parseHaraiList(html));
+      console.log("払戻一覧取得:", dH, Object.keys(results).length, "レース確定");
+    } catch (e) { console.error("harai-list skip:", url, e.message); }
+  }
+
+  let added = 0;
   for (const x of races) {
-    const um = (x.url || "").match(/rdt=([\d-]+).*?pid=(\d+).*?rno=(\d+)/);
-    if (!um) continue;
-    const dH = um[1], pid = um[2], rno = um[3];
+    const dH = ((x.url || "").match(/rdt=([\d-]+)/) || [])[1];
+    if (!dH) continue;
     const d8 = dH.replace(/-/g, "");
     const id = d8 + "_" + x.key;
     if (done.has(id)) continue;
-
-    let result = null;
-    for (const mk of CANDS) {
-      const url = mk(d8, dH, pid, rno);
-      try {
-        await sleep(WAIT_MS);
-        const html = await get(url);
-        const text = stripTags(html);
-        result = parseResult(text);
-        if (result) break;
-        if (!dumped) { // 最初の1件だけ診断: 払戻周辺のテキスト
-          dumped = true;
-          const i = text.indexOf("払戻");
-          console.log("DEBUG url:", url);
-          console.log("DEBUG 払戻周辺>>>", i >= 0 ? text.slice(i, i + 500).replace(/\s+/g, " ") : "(払戻の文字なし) 先頭:" + text.slice(0, 300).replace(/\s+/g, " "), "<<<");
-        }
-      } catch (e) { /* 次候補へ */ }
-    }
-    if (!result) continue; // 未確定(発走前)や取得不可はスキップ、次回実行で拾う
-
-    const f = result.first, s = result.second, t = result.third;
-    const e = {
+    const r = results[x.place + "_" + x.raceNo];
+    if (!r) continue; // 未確定は次回実行で拾う
+    const { first: f, second: s, third: t, p3pay } = r;
+    hist.entries.push({
       id, date: d8, place: x.place, raceNo: x.raceNo, klass: x.klass,
       score: x.score, verdict: x.verdict, pattern: x.pattern,
-      f, s, t, p2pay: result.p2pay || null, p3pay: result.p3pay,
+      f, s, t, p3pay,
       suji: sujiHit(x.lines, f, s),
-      honmeiWin: x.marksCars && x.marksCars[0] === f,
-      honmeiRen: x.marksCars && (x.marksCars[0] === f || x.marksCars[0] === s),
+      honmeiWin: !!(x.marksCars && x.marksCars[0] === f),
+      honmeiRen: !!(x.marksCars && (x.marksCars[0] === f || x.marksCars[0] === s)),
       n2cnt: (x.nishatan || []).length, n2hit: (x.nishatan || []).includes(f + "-" + s),
       n3cnt: (x.sanrentan || []).length, n3hit: (x.sanrentan || []).includes(f + "-" + s + "-" + t),
-    };
-    hist.entries.push(e); added++;
-    console.log("RESULT:", x.place, x.raceNo, f + "-" + s + "-" + t, "スジ:" + (e.suji ? "○" : "×"), "◎1着:" + (e.honmeiWin ? "○" : "×"));
+    });
+    added++;
+    console.log("RESULT:", x.place, x.raceNo, f + "-" + s + "-" + t, p3pay + "円",
+      "スジ:" + (sujiHit(x.lines, f, s) ? "○" : "×"));
   }
 
   if (hist.entries.length > 8000) hist.entries = hist.entries.slice(-8000);
@@ -106,15 +111,14 @@ async function main() {
 
   // ---- 集計 → stats.json ----
   const E = hist.entries;
-  const n = E.length || 1;
   const rate = (a, b) => (b ? +(a / b * 100).toFixed(1) : 0);
   const buckets = {};
   for (const b of ["◎スジ堅い", "○スジ寄り", "△互角", "×荒れ含み"]) {
     const g = E.filter((e) => e.verdict === b);
     buckets[b] = { n: g.length, sujiRate: rate(g.filter((e) => e.suji).length, g.length) };
   }
-  const n2bet = E.reduce((a, e) => a + e.n2cnt, 0), n2ret = E.reduce((a, e) => a + (e.n2hit && e.p2pay ? e.p2pay : 0), 0);
-  const n3bet = E.reduce((a, e) => a + e.n3cnt, 0), n3ret = E.reduce((a, e) => a + (e.n3hit ? e.p3pay : 0), 0);
+  const n3bet = E.reduce((a, e) => a + e.n3cnt, 0);
+  const n3ret = E.reduce((a, e) => a + (e.n3hit ? e.p3pay : 0), 0);
   const stats = {
     updatedAt: new Date().toISOString(),
     total: E.length,
@@ -122,11 +126,11 @@ async function main() {
     honmeiRen: rate(E.filter((e) => e.honmeiRen).length, E.length),
     sujiOverall: rate(E.filter((e) => e.suji).length, E.length),
     buckets,
-    nishatan: { hit: rate(E.filter((e) => e.n2hit).length, E.length), roi: rate(n2ret, n2bet * 100) },
+    nishatan: { hit: rate(E.filter((e) => e.n2hit).length, E.length), roi: null },
     sanrentan: { hit: rate(E.filter((e) => e.n3hit).length, E.length), roi: rate(n3ret, n3bet * 100) },
   };
   fs.writeFileSync(path.join(dir, "stats.json"), JSON.stringify(stats));
-  console.log("stats:", JSON.stringify(stats.buckets));
+  console.log("stats:", JSON.stringify(stats));
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
