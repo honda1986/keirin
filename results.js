@@ -22,31 +22,35 @@ async function get(url) {
 const strip = (h) => h.replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
 const sameDigits = (a, b) => a.split("").sort().join("") === b.split("").sort().join("");
 
-// 払戻一覧(HTMLまたはmarkdown表)→ { "場名_nR": {first,second,third,p3pay} }
-// 場名は「○○競輪」の competition 部分(例: 前橋)をキーにする
-function parseHaraiList(text) {
+// 払戻一覧HTML → { "場名_nR": {first,second,third,p3pay} }
+// 実構造(GambooBET): 各場は「○○競輪」見出し、各行は
+//   <td class="race">1R</td>
+//   <td class="order"><p class="num"><span class="n4">4</span>...</p></td>   ← 着順(順序が1着2着3着)
+//   <td class="refund">9,040</td>                                            ← 3連単配当
+function parseHaraiList(html) {
   const out = {};
-  const lines = text.split(/\r?\n/);
-  let venue = null;
-  for (const raw of lines) {
-    const line = raw.trim();
-    // 見出し: 「### 前橋競輪 2日目」または「前橋競輪」を含む行
-    const vm = line.match(/([぀-ヿ一-龥]{2,5})競輪/);
-    if (vm && (line.startsWith("#") || line.startsWith("-") || line.includes("###") || /日目|初日|最終日/.test(line))) {
-      venue = vm[1]; continue;
+  // 場ブロックごとに分割(「○○競輪」の出現位置で区切る)
+  const venueRe = /([぀-ヿ一-龥]{2,5})競輪/g;
+  const marks = [];
+  let vm;
+  while ((vm = venueRe.exec(html))) marks.push({ name: vm[1], idx: vm.index });
+  for (let k = 0; k < marks.length; k++) {
+    const venue = marks[k].name;
+    const block = html.slice(marks[k].idx, k + 1 < marks.length ? marks[k + 1].idx : undefined);
+    // 各レース行: race セル 〜 refund セル
+    const rowRe = /class="race"[^>]*>\s*(\d{1,2})R[\s\S]*?class="order"[\s\S]*?<\/td>[\s\S]*?class="refund"[^>]*>\s*([\d,]+)/g;
+    let rm;
+    while ((rm = rowRe.exec(block))) {
+      const rno = rm[1];
+      const payStr = rm[2].replace(/,/g, "");
+      // orderセル内の span 群から着順(spanの並び順)を取得
+      const orderChunk = block.slice(rm.index, rm.index + rm[0].length);
+      const spans = [...orderChunk.matchAll(/<span[^>]*class="n\d"[^>]*>\s*(\d)\s*<\/span>/g)].map((x) => +x[1]);
+      if (spans.length < 3 || !/^\d+$/.test(payStr)) continue;
+      const key = venue + "_" + rno + "R";
+      if (out[key]) continue; // 同着の2段目は無視(先頭採用)
+      out[key] = { first: spans[0], second: spans[1], third: spans[2], p3pay: +payStr };
     }
-    // markdown表の行: | 1R | 437 | 9,040 | 31 | ... |
-    if (!venue || line.indexOf("|") === -1) continue;
-    const cells = line.split("|").map((c) => c.trim()).filter((c) => c !== "");
-    if (cells.length < 3) continue;
-    const rm = cells[0].match(/^(\d{1,2})R$/);
-    if (!rm) continue;
-    const fin = cells[1].replace(/<br\s*\/?>/gi, " ").trim().split(/\s+/)[0];
-    if (!/^\d{3}$/.test(fin)) continue; // 未確定(発走時刻)はスキップ
-    // 3連単配当セル(同着は "15,220 18,450" の先頭)
-    const payCell = (cells[2] || "").split(/\s+/)[0].replace(/,/g, "");
-    if (!/^\d+$/.test(payCell)) continue;
-    out[venue + "_" + rm[1] + "R"] = { first: +fin[0], second: +fin[1], third: +fin[2], p3pay: +payCell };
   }
   return out;
 }
@@ -80,7 +84,7 @@ async function main() {
     const url = `https://keirin.kdreams.jp/gamboo/keirin-kaisai/harai-list/${y}/${mo}/${d}/`;
     try {
       const html = await get(url);
-      if (!global.__dbg) {
+      if (false && !global.__dbg) {
         global.__dbg = true;
         console.log("DEBUG htmlLen:", html.length);
         console.log("DEBUG has<table>:", /<table/i.test(html), " has<tr>:", /<tr/i.test(html), " has競輪:", /競輪/.test(html));
@@ -90,15 +94,7 @@ async function main() {
         const ri = html.search(/1\s*R|１Ｒ/);
         console.log("DEBUG 1R周辺>>>", ri >= 0 ? html.slice(ri - 40, ri + 400).replace(/\s+/g, " ") : "(1Rなし)", "<<<");
       }
-      // HTMLのテーブルを「| セル | セル |」の行に整形してparseに渡す(markdown/HTML両対応)
-      const md = html
-        .replace(/<(td|th)[^>]*>/gi, "| ")
-        .replace(/<\/(td|th)>/gi, " ")
-        .replace(/<\/tr>/gi, " |\n")
-        .replace(/<h[1-6][^>]*>/gi, "\n### ")
-        .replace(/<[^>]+>/g, " ")
-        .replace(/&amp;/g, "&").replace(/&nbsp;/g, " ");
-      Object.assign(results, parseHaraiList(md));
+      Object.assign(results, parseHaraiList(html));
       console.log("払戻一覧取得:", dH, "→", Object.keys(results).length, "レース確定");
     } catch (e) { console.error("harai-list skip:", url, e.message); }
   }
