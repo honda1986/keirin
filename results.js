@@ -22,33 +22,31 @@ async function get(url) {
 const strip = (h) => h.replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
 const sameDigits = (a, b) => a.split("").sort().join("") === b.split("").sort().join("");
 
-// 払戻一覧HTML → { "場名_nR": {first,second,third,p3pay} }
-function parseHaraiList(html) {
+// 払戻一覧(HTMLまたはmarkdown表)→ { "場名_nR": {first,second,third,p3pay} }
+// 場名は「○○競輪」の competition 部分(例: 前橋)をキーにする
+function parseHaraiList(text) {
   const out = {};
+  const lines = text.split(/\r?\n/);
   let venue = null;
-  const re = /([぀-ヿ一-龥]{2,5})競輪|<tr[^>]*>([\s\S]*?)<\/tr>/g;
-  let m;
-  while ((m = re.exec(html))) {
-    if (m[1]) { venue = m[1]; continue; }
-    if (!venue) continue;
-    const tokens = strip(m[2]).split(/\s+/).filter(Boolean);
-    if (!tokens.length) continue;
-    const rm = tokens[0].match(/^(\d{1,2})R$/);
-    if (!rm) continue;
-    // 未確定行(発走時刻 20:45 等)はスキップ
-    const fin = tokens[1];
-    if (!fin || !/^\d{3}$/.test(fin)) continue;
-    // 同着行: 着順の直後に同じ数字構成の3桁が続く場合は読み飛ばす
-    let i = 2;
-    while (i < tokens.length && /^\d{3}$/.test(tokens[i]) && sameDigits(tokens[i], fin)) i++;
-    // 次の数値トークン(カンマ許容)が3連単払戻
-    let pay = null;
-    for (; i < tokens.length; i++) {
-      const v = tokens[i].replace(/,/g, "");
-      if (/^\d+$/.test(v)) { pay = +v; break; }
+  for (const raw of lines) {
+    const line = raw.trim();
+    // 見出し: 「### 前橋競輪 2日目」または「前橋競輪」を含む行
+    const vm = line.match(/([぀-ヿ一-龥]{2,5})競輪/);
+    if (vm && (line.startsWith("#") || line.startsWith("-") || line.includes("###") || /日目|初日|最終日/.test(line))) {
+      venue = vm[1]; continue;
     }
-    if (pay == null) continue;
-    out[venue + "_" + rm[1] + "R"] = { first: +fin[0], second: +fin[1], third: +fin[2], p3pay: pay };
+    // markdown表の行: | 1R | 437 | 9,040 | 31 | ... |
+    if (!venue || line.indexOf("|") === -1) continue;
+    const cells = line.split("|").map((c) => c.trim()).filter((c) => c !== "");
+    if (cells.length < 3) continue;
+    const rm = cells[0].match(/^(\d{1,2})R$/);
+    if (!rm) continue;
+    const fin = cells[1].replace(/<br\s*\/?>/gi, " ").trim().split(/\s+/)[0];
+    if (!/^\d{3}$/.test(fin)) continue; // 未確定(発走時刻)はスキップ
+    // 3連単配当セル(同着は "15,220 18,450" の先頭)
+    const payCell = (cells[2] || "").split(/\s+/)[0].replace(/,/g, "");
+    if (!/^\d+$/.test(payCell)) continue;
+    out[venue + "_" + rm[1] + "R"] = { first: +fin[0], second: +fin[1], third: +fin[2], p3pay: +payCell };
   }
   return out;
 }
@@ -68,15 +66,30 @@ async function main() {
   const done = new Set(hist.entries.map((e) => e.id));
 
   // races.json内の日付を集めて、日付ごとに払戻一覧を1回取得
-  const dates = [...new Set(races.map((x) => ((x.url || "").match(/rdt=([\d-]+)/) || [])[1]).values())].filter(Boolean);
+  const baseDates = [...new Set(races.map((x) => ((x.url || "").match(/rdt=([\d-]+)/) || [])[1]).values())].filter(Boolean);
+  // races.jsonの日付 + その前日 も一覧を見る(ナイター開催は結果一覧が前日ページに載るため)
+  const dateSet = new Set(baseDates);
+  for (const dH of baseDates) {
+    const dt = new Date(dH + "T00:00:00Z"); dt.setUTCDate(dt.getUTCDate() - 1);
+    dateSet.add(dt.toISOString().slice(0, 10));
+  }
+  const dates = [...dateSet];
   const results = {};
   for (const dH of dates) {
     const [y, mo, d] = dH.split("-");
     const url = `https://keirin.kdreams.jp/gamboo/keirin-kaisai/harai-list/${y}/${mo}/${d}/`;
     try {
       const html = await get(url);
-      Object.assign(results, parseHaraiList(html));
-      console.log("払戻一覧取得:", dH, Object.keys(results).length, "レース確定");
+      // HTMLのテーブルを「| セル | セル |」の行に整形してparseに渡す(markdown/HTML両対応)
+      const md = html
+        .replace(/<(td|th)[^>]*>/gi, "| ")
+        .replace(/<\/(td|th)>/gi, " ")
+        .replace(/<\/tr>/gi, " |\n")
+        .replace(/<h[1-6][^>]*>/gi, "\n### ")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&amp;/g, "&").replace(/&nbsp;/g, " ");
+      Object.assign(results, parseHaraiList(md));
+      console.log("払戻一覧取得:", dH, "→", Object.keys(results).length, "レース確定");
     } catch (e) { console.error("harai-list skip:", url, e.message); }
   }
 
