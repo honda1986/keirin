@@ -80,6 +80,16 @@ async function main() {
     const url = `https://keirin.kdreams.jp/gamboo/keirin-kaisai/harai-list/${y}/${mo}/${d}/`;
     try {
       const html = await get(url);
+      if (!global.__dbg) {
+        global.__dbg = true;
+        console.log("DEBUG htmlLen:", html.length);
+        console.log("DEBUG has<table>:", /<table/i.test(html), " has<tr>:", /<tr/i.test(html), " has競輪:", /競輪/.test(html));
+        const gi = html.indexOf("競輪");
+        console.log("DEBUG 競輪周辺>>>", gi >= 0 ? html.slice(gi - 20, gi + 900).replace(/\s+/g, " ") : "(競輪なし)", "<<<");
+        // 「1R」を含む箇所の生HTML
+        const ri = html.search(/1\s*R|１Ｒ/);
+        console.log("DEBUG 1R周辺>>>", ri >= 0 ? html.slice(ri - 40, ri + 400).replace(/\s+/g, " ") : "(1Rなし)", "<<<");
+      }
       // HTMLのテーブルを「| セル | セル |」の行に整形してparseに渡す(markdown/HTML両対応)
       const md = html
         .replace(/<(td|th)[^>]*>/gi, "| ")
