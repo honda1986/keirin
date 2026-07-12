@@ -12,8 +12,8 @@ const { parseCard, predict, sujiExpect } = require("./engine.js");
 const { T, TRACK_NAMES } = require("./bankdata.js");
 
 const UA = "keirin-local-app (personal use; backfill)";
-const CONCURRENCY = 4;          // 同時リクエスト数
-const WAIT_MS = 250;            // 各ワーカー内の最小間隔
+const CONCURRENCY = 3;          // 同時リクエスト数
+const WAIT_MS = 400;            // 各ワーカー内の最小間隔
 const FETCH_TIMEOUT = 15000;
 const MAX_RETRY = 2;            // レート制限(429/503)時のリトライ回数
 const DEADLINE_MS = 5.5 * 60 * 60 * 1000; // 5.5時間(Actions上限6時間の手前)で打ち切り
@@ -188,7 +188,13 @@ async function main() {
       let pr = null;
       try {
         const gh = await get(item.url);
-        if (!/基本出走データ/.test(gh)) { gEmpty++; if (!global.__gdbg) { global.__gdbg = true; console.log("DEBUG gamboo url:", item.url, "len:", gh.length, "has基本出走:", /基本出走/.test(gh), "head:", gh.slice(0, 200).replace(/\s+/g, " ")); } }
+        if (gh.length === 0 || !/基本出走データ/.test(gh)) {
+          gEmpty++;
+          if (gh.length === 0) { global.__emptyStreak = (global.__emptyStreak || 0) + 1; }
+          if (!global.__gdbg) { global.__gdbg = true; console.log("DEBUG gamboo url:", item.url, "len:", gh.length, "has基本出走:", /基本出走/.test(gh)); }
+          // 空ページ(len0)が15連続=ブロック兆候 → 30秒クールダウン
+          if ((global.__emptyStreak || 0) >= 15) { console.log("ブロック兆候: 30秒待機"); await sleep(30000); global.__emptyStreak = 0; }
+        } else { global.__emptyStreak = 0; }
         pr = predictOne(gh, item.url);
         if (pr) gOk++;
       } catch (e) { gErr[e.message] = (gErr[e.message] || 0) + 1; }
