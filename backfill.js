@@ -182,10 +182,16 @@ async function main() {
       }
     }
     let dayAdded = 0;
+    let gErr = {}, gOk = 0, gEmpty = 0;
     await pool(urls, async (item) => {
       if (Date.now() - startedAt > DEADLINE_MS) return;
       let pr = null;
-      try { pr = predictOne(await get(item.url), item.url); } catch (e) { pr = null; }
+      try {
+        const gh = await get(item.url);
+        if (!/基本出走データ/.test(gh)) { gEmpty++; if (!global.__gdbg) { global.__gdbg = true; console.log("DEBUG gamboo url:", item.url, "len:", gh.length, "has基本出走:", /基本出走/.test(gh), "head:", gh.slice(0, 200).replace(/\s+/g, " ")); } }
+        pr = predictOne(gh, item.url);
+        if (pr) gOk++;
+      } catch (e) { gErr[e.message] = (gErr[e.message] || 0) + 1; }
       if (!pr) return;
       const res = results[pr.place + "_" + pr.raceNo];
       if (!res) return;
@@ -201,7 +207,7 @@ async function main() {
       });
       done.add(eid); added++; dayAdded++;
     });
-    console.log(dH, "→", dayAdded, "レース追加 (累計" + hist.entries.length + ")");
+    console.log(dH, "→", dayAdded, "レース追加 (予想成功" + gOk + " 空" + gEmpty + " エラー" + JSON.stringify(gErr) + ")");
   }
 
   if (hist.entries.length > 20000) hist.entries = hist.entries.slice(-20000);
