@@ -48,14 +48,29 @@ const PATTERNS = {
   "1着1-2/2着1-3/3着1-5": (r) => perms3([r[0], r[1]], [r[0], r[1], r[2]], [r[0], r[1], r[2], r[3], r[4]]),
 };
 
-// フィルタ定義(どのレースを買うか)
+// フィルタ定義(どのレースを買うか)。e.score=期待度%, e.p3pay=3連単配当, e.verdict/klass/place
 const FILTERS = {
   "全レース": () => true,
-  "×除外(◎○△のみ)": (e) => e.verdict !== "×荒れ含み",
-  "◎○のみ(スジ寄り以上)": (e) => e.verdict === "◎スジ堅い" || e.verdict === "○スジ寄り",
+  "×除外": (e) => e.verdict !== "×荒れ含み",
+  "◎○のみ": (e) => e.verdict === "◎スジ堅い" || e.verdict === "○スジ寄り",
   "◎のみ": (e) => e.verdict === "◎スジ堅い",
-  "S級除外": (e) => e.klass !== "s",
-  "×除外+S級除外": (e) => e.verdict !== "×荒れ含み" && e.klass !== "s",
+  // 期待度スコアの閾値(判定バケットより細かく)
+  "スコア55+": (e) => (e.score || 0) >= 55,
+  "スコア58+": (e) => (e.score || 0) >= 58,
+  "スコア60+": (e) => (e.score || 0) >= 60,
+  "スコア62+": (e) => (e.score || 0) >= 62,
+  // 配当ゾーン(3連単配当。当たったレースの配当なので事前フィルタではないが傾向把握用)
+  // ※注: p3payは結果配当。買う前には分からないが「どの配当帯が的中に寄与するか」を見る参考
+  // クラス
+  "S級のみ": (e) => e.klass === "s",
+  "A級のみ": (e) => e.klass === "a12",
+  "チャレンジのみ": (e) => e.klass === "challenge",
+  "ガールズのみ": (e) => e.klass === "girls",
+  "ガールズ除外": (e) => e.klass !== "girls",
+  // 複合
+  "◎のみ+ガ除外": (e) => e.verdict === "◎スジ堅い" && e.klass !== "girls",
+  "スコア58+かつガ除外": (e) => (e.score || 0) >= 58 && e.klass !== "girls",
+  "◎○+ガ除外": (e) => (e.verdict === "◎スジ堅い" || e.verdict === "○スジ寄り") && e.klass !== "girls",
 };
 
 function evaluate(patternFn, filterFn) {
@@ -82,7 +97,7 @@ const results = [];
 for (const [pname, pfn] of Object.entries(PATTERNS)) {
   for (const [fname, ffn] of Object.entries(FILTERS)) {
     const r = evaluate(pfn, ffn);
-    if (r.races < 20) continue; // サンプル過少は除外
+    if (r.races < 15) continue; // サンプル過少は除外
     results.push({ pattern: pname, filter: fname, ...r });
   }
 }
@@ -90,9 +105,9 @@ for (const [pname, pfn] of Object.entries(PATTERNS)) {
 // 回収率の高い順
 results.sort((a, b) => b.roi - a.roi);
 
-console.log("\n===== 回収率トップ15 =====");
+console.log("\n===== 回収率トップ25 =====");
 console.log("回収率  的中率  平均点  レース数  収支     | パターン × フィルタ");
-for (const r of results.slice(0, 15)) {
+for (const r of results.slice(0, 25)) {
   console.log(
     String(r.roi).padStart(5) + "%  " +
     String(r.hitRate).padStart(5) + "%  " +
