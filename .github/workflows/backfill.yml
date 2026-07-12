@@ -1,0 +1,39 @@
+name: 過去レース収集
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: '過去何日ぶんを収集するか(例: 30)'
+        required: false
+        default: '3'
+      from:
+        description: '開始日 YYYY-MM-DD(任意・toとセット)'
+        required: false
+      to:
+        description: '終了日 YYYY-MM-DD(任意・fromとセット)'
+        required: false
+permissions:
+  contents: write
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 過去レース収集
+        run: |
+          if [ -n "${{ github.event.inputs.from }}" ] && [ -n "${{ github.event.inputs.to }}" ]; then
+            node backfill.js "${{ github.event.inputs.from }}" "${{ github.event.inputs.to }}"
+          else
+            node backfill.js "${{ github.event.inputs.days }}"
+          fi
+      - name: コミット
+        run: |
+          git config user.name "race-bot"
+          git config user.email "actions@github.com"
+          git add history.json stats.json
+          git diff --cached --quiet || git commit -m "backfill"
+          git push
