@@ -12,8 +12,8 @@ const { parseCard, predict, sujiExpect } = require("./engine.js");
 const { T, TRACK_NAMES } = require("./bankdata.js");
 
 const UA = "keirin-local-app (personal use; backfill)";
-const CONCURRENCY = 8;          // 同時リクエスト数
-const WAIT_MS = 120;            // 各ワーカー内の最小間隔
+const CONCURRENCY = 4;          // 同時リクエスト数
+const WAIT_MS = 250;            // 各ワーカー内の最小間隔
 const FETCH_TIMEOUT = 15000;
 const MAX_RETRY = 2;            // レート制限(429/503)時のリトライ回数
 const DEADLINE_MS = 5.5 * 60 * 60 * 1000; // 5.5時間(Actions上限6時間の手前)で打ち切り
@@ -194,7 +194,12 @@ async function main() {
       } catch (e) { gErr[e.message] = (gErr[e.message] || 0) + 1; }
       if (!pr) return;
       const res = results[pr.place + "_" + pr.raceNo];
-      if (!res) return;
+      if (!res) {
+        if (!global.__mdbg) { global.__mdbg = true;
+          console.log("DEBUG 照合NG 予想キー:", pr.place + "_" + pr.raceNo, "/ 結果側キー例:", Object.keys(results).slice(0, 8).join(", "));
+        }
+        return;
+      }
       const eid = dH.replace(/-/g, "") + "_" + pr.place + "_" + pr.raceNo;
       if (done.has(eid)) return;
       const { first: f, second: s, third: t, p3pay } = res;
