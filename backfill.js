@@ -161,11 +161,18 @@ async function main() {
     // 1) その日の払戻一覧を1回取得
     const [y, mo, d] = dH.split("-");
     let results = {};
+    const hurl = `https://keirin.kdreams.jp/gamboo/keirin-kaisai/harai-list/${y}/${mo}/${d}/`;
     try {
-      const hhtml = await get(`https://keirin.kdreams.jp/gamboo/keirin-kaisai/harai-list/${y}/${mo}/${d}/`);
+      const hhtml = await get(hurl);
       results = parseHaraiList(hhtml);
-    } catch (e) { console.error("harai skip:", dH, e.message); continue; }
-    if (!Object.keys(results).length) { console.log(dH, "確定レースなし(スキップ)"); continue; }
+      if (!global.__hdbg) {
+        global.__hdbg = true;
+        console.log("DEBUG harai url:", hurl);
+        console.log("DEBUG htmlLen:", hhtml.length, "has競輪:", /競輪/.test(hhtml), "hasrefund:", /class="refund"/.test(hhtml), "parsed:", Object.keys(results).length);
+        console.log("DEBUG head:", hhtml.slice(0, 300).replace(/\s+/g, " "));
+      }
+    } catch (e) { console.error("harai skip:", dH, "err=", e.message); continue; }
+    if (!Object.keys(results).length) { console.log(dH, "確定レースなし(parsed 0)"); continue; }
 
     // 2) 全pid × 全R(1..12)を候補化。全国の全開催場を確実にカバーし、結果一覧に無いものは後で捨てる
     const urls = [];
