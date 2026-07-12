@@ -118,6 +118,7 @@ async function main() {
       honmeiRen: !!(x.marksCars && (x.marksCars[0] === f || x.marksCars[0] === s)),
       n2cnt: (x.nishatan || []).length, n2hit: (x.nishatan || []).includes(f + "-" + s),
       n3cnt: (x.sanrentan || []).length, n3hit: (x.sanrentan || []).includes(f + "-" + s + "-" + t),
+      ranks: x.marksCars || [],
     });
     added++;
     console.log("RESULT:", x.place, x.raceNo, f + "-" + s + "-" + t, p3pay + "円",
