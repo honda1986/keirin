@@ -12,21 +12,45 @@ const { parseCard, predict, sujiExpect } = require("./engine.js");
 const { T, TRACK_NAMES } = require("./bankdata.js");
 
 const UA = "keirin-local-app (personal use; backfill)";
-const WAIT_MS = 350;
+const CONCURRENCY = 8;          // 同時リクエスト数
+const WAIT_MS = 120;            // 各ワーカー内の最小間隔
 const FETCH_TIMEOUT = 15000;
+const MAX_RETRY = 2;            // レート制限(429/503)時のリトライ回数
 const DEADLINE_MS = 5.5 * 60 * 60 * 1000; // 5.5時間(Actions上限6時間の手前)で打ち切り
 const startedAt = Date.now();
 const VENUE_PIDS = [11,12,13,21,22,23,24,25,26,27,28,31,32,34,35,36,37,38,42,43,44,45,46,47,48,51,53,54,55,56,61,62,63,71,73,74,75,81,83,84,85,86,87];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-async function get(url) {
+async function getOnce(url) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT);
   try {
     const res = await fetch(url, { headers: { "User-Agent": UA, "Accept-Language": "ja" }, signal: ctrl.signal });
+    if (res.status === 429 || res.status === 503) { const e = new Error(res.status); e.retryable = true; throw e; }
     if (!res.ok) throw new Error(res.status);
     return await res.text();
   } finally { clearTimeout(t); }
+}
+async function get(url) {
+  for (let attempt = 0; ; attempt++) {
+    try { return await getOnce(url); }
+    catch (e) {
+      if (e.retryable && attempt < MAX_RETRY) { await sleep(1500 * (attempt + 1)); continue; }
+      throw e;
+    }
+  }
+}
+// 汎用の並列プール: items を worker で同時CONCURRENCY本処理
+async function pool(items, worker) {
+  let i = 0;
+  const runners = Array.from({ length: Math.min(CONCURRENCY, items.length) }, async () => {
+    while (i < items.length) {
+      const idx = i++;
+      await worker(items[idx], idx);
+      await sleep(WAIT_MS);
+    }
+  });
+  await Promise.all(runners);
 }
 
 // ---- 出走データHTML → 並び抽出(fetch.jsと同ロジック) ----
@@ -143,34 +167,33 @@ async function main() {
     } catch (e) { console.error("harai skip:", dH, e.message); continue; }
     if (!Object.keys(results).length) { console.log(dH, "確定レースなし(スキップ)"); continue; }
 
-    // 2) 場×レースを走査して予想→照合
-    let dayAdded = 0;
+    // 2) 全pid × 全R(1..12)を候補化。全国の全開催場を確実にカバーし、結果一覧に無いものは後で捨てる
+    const urls = [];
     for (const pid of VENUE_PIDS) {
-      if (Date.now() - startedAt > DEADLINE_MS) break;
-      let miss = 0;
       for (let rno = 1; rno <= 12; rno++) {
-        const id = dH.replace(/-/g, "") + "_pid" + pid + "_" + rno;
-        if (done.has(id)) { miss = 0; continue; }
-        const url = `https://gamboo.jp/keirin/yoso/?rdt=${dH}&pid=${pid}&rno=${rno}`;
-        let pr = null;
-        try { await sleep(WAIT_MS); pr = predictOne(await get(url), url); } catch (e) { pr = null; }
-        if (!pr) { miss++; if (rno <= 2 && miss >= 2) break; if (miss >= 3) break; continue; }
-        miss = 0;
-        const res = results[pr.place + "_" + pr.raceNo];
-        if (!res) continue; // 結果が一覧にない(欠場・非開催)
-        const { first: f, second: s, third: t, p3pay } = res;
-        const eid = dH.replace(/-/g, "") + "_" + pr.place + "_" + pr.raceNo;
-        if (done.has(eid)) continue;
-        hist.entries.push({
-          id: eid, date: dH.replace(/-/g, ""), place: pr.place, raceNo: pr.raceNo, klass: pr.klass,
-          score: pr.score, verdict: pr.verdict, pattern: pr.pattern, f, s, t, p3pay,
-          suji: sujiHit(pr.lines, f, s),
-          honmeiWin: pr.marksCars[0] === f, honmeiRen: pr.marksCars[0] === f || pr.marksCars[0] === s,
-          n3cnt: pr.sanrentan.length, n3hit: pr.sanrentan.includes(f + "-" + s + "-" + t),
-        });
-        done.add(eid); added++; dayAdded++;
+        urls.push({ pid, rno, url: `https://gamboo.jp/keirin/yoso/?rdt=${dH}&pid=${pid}&rno=${rno}` });
       }
     }
+    let dayAdded = 0;
+    await pool(urls, async (item) => {
+      if (Date.now() - startedAt > DEADLINE_MS) return;
+      let pr = null;
+      try { pr = predictOne(await get(item.url), item.url); } catch (e) { pr = null; }
+      if (!pr) return;
+      const res = results[pr.place + "_" + pr.raceNo];
+      if (!res) return;
+      const eid = dH.replace(/-/g, "") + "_" + pr.place + "_" + pr.raceNo;
+      if (done.has(eid)) return;
+      const { first: f, second: s, third: t, p3pay } = res;
+      hist.entries.push({
+        id: eid, date: dH.replace(/-/g, ""), place: pr.place, raceNo: pr.raceNo, klass: pr.klass,
+        score: pr.score, verdict: pr.verdict, pattern: pr.pattern, f, s, t, p3pay,
+        suji: sujiHit(pr.lines, f, s),
+        honmeiWin: pr.marksCars[0] === f, honmeiRen: pr.marksCars[0] === f || pr.marksCars[0] === s,
+        n3cnt: pr.sanrentan.length, n3hit: pr.sanrentan.includes(f + "-" + s + "-" + t),
+      });
+      done.add(eid); added++; dayAdded++;
+    });
     console.log(dH, "→", dayAdded, "レース追加 (累計" + hist.entries.length + ")");
   }
 
