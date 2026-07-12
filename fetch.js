@@ -35,28 +35,6 @@ async function get(url) {
 }
 
 // 全角英数字→半角(タイトルの「１２Ｒ」対策)
-function zenToHan(s) {
-  return s.replace(/[０-９Ａ-Ｚａ-ｚ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
-}
-
-// 並び予想エリアをHTMLから直接抽出し「63・147・25」形式に正規化
-// (テキスト変換だと数字間の区切りが失われ全員単騎扱いになるため)
-function extractNarabi(html) {
-  const i = html.indexOf("並び予想");
-  if (i === -1) return null;
-  let seg = html.slice(i, i + 3000);
-  const stop = seg.search(/情報元|注目レース/);
-  if (stop > 0) seg = seg.slice(0, stop);
-  // 区切りらしき要素(クラス名にmiddle/point/sep/dot等、または画像)を「・」に
-  seg = seg.replace(/<[^>]*(middle|point|sep|dot|arrow|santen)[^>]*>/gi, "・")
-           .replace(/<img[^>]*>/gi, "・")
-           .replace(/<[^>]+>/g, "");   // 残りのタグは詰めて消す(数字の連続を保つ)
-  seg = zenToHan(seg).replace(/&[a-z#0-9]+;/gi, "・");
-  const groups = seg.match(/[1-9]+/g);
-  return groups && groups.length ? groups : null;
-}
-
-// HTML → パーサーが読めるテキストへ(コピペ相当に変換)
 function htmlToText(html) {
   let s = html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
