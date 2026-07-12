@@ -215,6 +215,7 @@ async function main() {
         suji: sujiHit(pr.lines, f, s),
         honmeiWin: pr.marksCars[0] === f, honmeiRen: pr.marksCars[0] === f || pr.marksCars[0] === s,
         n3cnt: pr.sanrentan.length, n3hit: pr.sanrentan.includes(f + "-" + s + "-" + t),
+        ranks: pr.marksCars,
       });
       done.add(eid); added++; dayAdded++;
     });
