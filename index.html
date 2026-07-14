@@ -1,0 +1,1381 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>競輪ローカル予想</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0E1517; color: #EAF2EF; font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif; }
+  header { padding: 18px 16px 12px; border-bottom: 1px solid #26363B; background: linear-gradient(180deg,#131D20,#0E1517); }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  .eyebrow { font-size: 10px; letter-spacing: .3em; color: #F2C230; margin-bottom: 4px; }
+  h1 { margin: 0; font-size: 21px; font-weight: 900; }
+  .lede { margin: 4px 0 0; font-size: 11px; color: #8CA3A0; }
+  main { max-width: 720px; margin: 0 auto; padding: 14px 12px 40px; }
+  .card { background: #162023; border: 1px solid #26363B; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+  .card.hl { border-color: #F2C230; }
+  .card h2 { margin: 0 0 10px; font-size: 13px; font-weight: 700; color: #F2C230; letter-spacing: .08em; }
+  textarea { width: 100%; min-height: 140px; background: #1C282C; color: #EAF2EF; border: 1px solid #26363B; border-radius: 10px; padding: 12px; font-size: 13px; line-height: 1.6; font-family: inherit; resize: vertical; }
+  select { width: 100%; margin-top: 10px; padding: 9px 10px; font-size: 13px; font-weight: 700; border-radius: 8px; border: 1px solid #26363B; background: #1C282C; color: #EAF2EF; font-family: inherit; }
+  button.run { width: 100%; margin-top: 12px; padding: 13px 0; font-size: 15px; font-weight: 900; border-radius: 10px; border: none; cursor: pointer; background: #F2C230; color: #10181A; font-family: inherit; letter-spacing: .1em; }
+  .io-row { display: flex; gap: 8px; margin-top: 8px; }
+  .io-btn { flex: 1; padding: 9px 0; font-size: 13px; font-weight: 700; border-radius: 8px; border: 1px solid #26363B; background: #1C282C; color: #EAF2EF; font-family: inherit; cursor: pointer; }
+  .io-btn:active { background: #26363B; }
+  .io-btn.done { border-color: #5FC08B; color: #5FC08B; }
+  textarea:focus, select:focus, button:focus { outline: 2px solid #F2C230; outline-offset: 2px; }
+  .err { margin: 10px 0 0; font-size: 12px; color: #E4726B; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; font-size: 12px; }
+  .chip { background: #1C282C; border-radius: 8px; padding: 4px 9px; }
+  .note { margin: 8px 0 0; font-size: 12px; color: #8CA3A0; line-height: 1.7; }
+  .lines { display: flex; gap: 8px; flex-wrap: wrap; }
+  .linebox { display: flex; gap: 3px; align-items: center; background: #1C282C; border-radius: 8px; padding: 5px 8px; border: 1px solid #26363B; }
+  .linebox.lead { border-color: #E4572E; }
+  .carno { width: 24px; height: 24px; border-radius: 6px; background: #F2C230; color: #10181A; font-weight: 900; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+  .carno.tanki { background: #5E7573; }
+  .tag { font-size: 10px; color: #8CA3A0; }
+  .tag.lead { color: #E4572E; font-weight: 700; }
+  table { border-collapse: collapse; font-size: 11px; width: 100%; font-variant-numeric: tabular-nums; }
+  th { padding: 4px 6px; text-align: right; border-bottom: 1px solid #26363B; font-weight: 500; color: #8CA3A0; }
+  th.l, td.l { text-align: left; }
+  td { padding: 5px 6px; text-align: right; border-bottom: 1px solid #26363B; }
+  tr.top { background: #241F10; }
+  .tbl-scroll { overflow-x: auto; margin: 0 -4px; }
+  .tenkai { margin: 0; font-size: 13.5px; line-height: 1.9; }
+  .bankfit { margin: 10px 0 0; font-size: 12px; color: #8CA3A0; line-height: 1.7; border-left: 3px solid #F2C230; padding-left: 10px; }
+  .mark-row { display: flex; gap: 10px; align-items: flex-start; background: #1C282C; border: 1px solid #26363B; border-radius: 10px; padding: 9px 12px; margin-bottom: 8px; }
+  .mark-row.top { background: #241F10; border-color: #F2C230; }
+  .mark { font-size: 20px; font-weight: 900; width: 28px; text-align: center; }
+  .mname { font-size: 14px; font-weight: 900; }
+  .mname .no { color: #F2C230; }
+  .mname .role { font-size: 11px; font-weight: 500; color: #8CA3A0; }
+  .mreason { font-size: 12px; color: #8CA3A0; line-height: 1.6; }
+  .bets { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .bet2 { font-size: 15px; font-weight: 900; background: #1C282C; border: 1px solid #F2C230; border-radius: 8px; padding: 7px 14px; }
+  .bet3 { font-size: 14px; font-weight: 700; background: #1C282C; border: 1px solid #26363B; border-radius: 8px; padding: 6px 12px; }
+  .caution { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-size: 12px; color: #8CA3A0; line-height: 1.6; }
+  .conf { font-weight: 700; }
+  footer { font-size: 10px; color: #5E7573; line-height: 1.8; margin-top: 16px; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <div class="eyebrow">KEIRIN LOCAL PREDICTION</div>
+  <h1>競輪ローカル予想</h1>
+  <p class="lede">出走表を貼るだけ。端末内の採点モデル×バンク特性で即時予想(通信不要・オフライン動作)</p>
+</div></header>
+<main>
+  <section class="card">
+    <h2>① 出走表を貼り付け</h2>
+    <textarea id="src" placeholder="Gamboo「基本出走データ」またはWINTICKETの出走表ページを全選択コピーして貼り付け…&#10;推奨: Gamboo基本出走データ(現/前得点・上がりタイム・並びが揃い、研究所048の補正が効きます)"></textarea>
+    <div class="io-row">
+      <button class="io-btn" id="paste">📋 貼り付け</button>
+      <button class="io-btn" id="clear">✕ クリア</button>
+    </div>
+    <select id="track"><option value="">競輪場(自動検出)</option></select>
+    <button class="run" id="run">予想する(即時)</button>
+    <p class="err hidden" id="err"></p>
+  </section>
+  <section class="card" id="searchCard">
+    <h2>🔍 スジレース検索(1・2着がラインで決まりそうなレース)</h2>
+    <p class="note" style="margin:0 0 8px">各レースの出走表を上の欄に貼り、「リストに追加」。スジ決着期待度の高い順に並びます。堅そうなレースだけ選んで買う使い方に。</p>
+    <div class="io-row" style="margin-top:0">
+      <button class="io-btn" id="addRace">＋ リストに追加</button>
+      <button class="io-btn" id="clearList">リスト消去</button>
+    </div>
+    <div class="io-row">
+      <button class="io-btn" id="loadToday" style="border-color:#F2C230;color:#F2C230">📅 本日の全レースを読み込む(GitHub Pages版)</button>
+    </div>
+    <p class="note hidden" id="todayMeta" style="font-size:10px;color:#5E7573;margin-top:4px"></p>
+    <p class="err hidden" id="searchErr"></p>
+    <p id="shoubuHint" style="font-size:12px;font-weight:700;margin:10px 0 4px;color:#5E7573"></p>
+    <div class="tbl-scroll" style="margin-top:4px"><table><thead><tr>
+      <th class="l">レース</th><th class="l">クラス/隊形</th><th>期待度</th><th class="l">判定</th><th></th>
+    </tr></thead><tbody id="searchBody"><tr><td colspan="5" class="l" style="color:#5E7573">まだレースがありません</td></tr></tbody></table></div>
+    <p class="note" id="searchNote" style="font-size:10px;color:#5E7573;margin-top:8px">期待度 = 場のスジ率を基準に、隊形別実測スジ率(研究所029)・クラス(020)・主導権の明確さ(027)・単騎数で加減点。◎60%以上/○54%以上/△48%以上/×はスジ崩れ警戒。</p>
+  </section>
+  <section class="card hidden" id="bankCard"><h2 id="bankTitle"></h2><div class="chips" id="bankChips"></div><p class="note" id="bankNote"></p></section>
+  <section class="card hidden" id="parseCard"><h2 id="parseTitle"></h2><p class="note" id="parseMeta" style="margin-top:0"></p><div class="lines" id="lineBox"></div>
+    <div class="narabi-edit">
+      <label for="narabiInput" class="note" style="display:block;margin:12px 0 4px">並びの手直し(自動推定が違うとき)</label>
+      <div style="display:flex;gap:8px">
+        <input id="narabiInput" type="text" inputmode="numeric" placeholder="例: 312 4 56 7"
+          style="flex:1;padding:9px 10px;font-size:15px;font-weight:700;letter-spacing:.15em;border-radius:8px;border:1px solid #26363B;background:#1C282C;color:#EAF2EF;font-family:inherit;font-variant-numeric:tabular-nums">
+        <button id="reRun" style="padding:9px 14px;font-size:13px;font-weight:900;border-radius:8px;border:1px solid #F2C230;background:transparent;color:#F2C230;font-family:inherit;cursor:pointer;white-space:nowrap">再予想</button>
+      </div>
+      <p class="note" style="font-size:10px;color:#5E7573;margin-top:5px">数字の連なりが1本のライン、スペース区切り。「312 4 56 7」=③①②のライン・④単騎・⑤⑥のライン・⑦単騎。全車番を1回ずつ使ってください</p>
+      <p class="err hidden" id="narabiErr"></p>
+    </div></section>
+  <section class="card hidden" id="scoreCard"><h2>④ 採点表(スコア内訳)</h2><div class="tbl-scroll"><table><thead><tr>
+    <th>車</th><th class="l">選手</th><th>位置</th><th>総合</th><th>得点</th><th>調子</th><th>勝星</th><th>適性</th><th>展開</th>
+  </tr></thead><tbody id="scoreBody"></tbody></table></div>
+  <p class="note" style="font-size:10px;color:#5E7573">展開=ライン位置+スタート+得点と成績の乖離補正。マイナス表示は「得点上位だが直近勝てていない」減点を含む</p></section>
+  <section class="card hl hidden" id="tenkaiCard"><h2>⑤ 展開予想</h2><p class="tenkai" id="tenkai"></p><p class="bankfit" id="bankFit"></p></section>
+  <section class="card hidden" id="markCard"><h2>⑥ 予想印</h2><div id="markBox"></div></section>
+  <section class="card hidden" id="betCard"><h2>⑦ 買い目</h2>
+    <div id="winnerBox" style="display:none;margin:0 0 12px;padding:10px 12px;background:rgba(95,192,139,.1);border:1px solid #5FC08B;border-radius:8px"></div>
+    <p class="note" id="betPlan" style="margin:0 0 10px;padding:8px 10px;background:#1C282C;border-left:3px solid #F2C230;border-radius:0 6px 6px 0;font-size:12px;line-height:1.7"></p>
+    <p class="note" style="margin:0 0 5px;font-size:11px">2車単</p><div class="bets" id="bets2"></div>
+    <p class="note" style="margin:0 0 5px;font-size:11px">3連単</p><div class="bets" id="bets3"></div>
+    <div class="caution"><span class="conf" id="conf"></span><span id="caution"></span></div>
+    <p class="note" id="oddsGuide" style="font-size:10px;color:#5E7573"></p>
+  </section>
+  <section class="card" id="statsCard">
+    <h2>📈 予想成績(自動答え合わせ)</h2>
+    <p class="note" style="margin:0 0 8px">毎晩、当日の全レース結果と予想を突き合わせて自動集計します(GitHub Pages版)。</p>
+    <div class="io-row" style="margin-top:0"><button class="io-btn" id="loadStats">成績を読み込む</button></div>
+    <div id="statsBody" class="hidden" style="margin-top:10px">
+      <div class="chips" id="statsChips" style="margin-bottom:10px"></div>
+      <div class="tbl-scroll"><table><thead><tr><th class="l">スジ判定</th><th>件数</th><th>実測スジ決着率</th></tr></thead><tbody id="statsBuckets"></tbody></table></div>
+      <p class="note" id="statsNote" style="font-size:10px;color:#5E7573;margin-top:8px"></p>
+    </div>
+    <p class="err hidden" id="statsErr"></p>
+  </section>
+  <section class="card hidden" id="backCard"><h2>⑨ バック取得予測(研究所ロジスティック回帰式)</h2>
+    <div id="backBars"></div>
+    <p class="note" id="backNote" style="font-size:10px;color:#5E7573"></p></section>
+  <section class="card hidden" id="sujiCard"><h2>⑧ スジ戦略(遠山競輪研究所・実測データ)</h2>
+    <div class="chips" id="sujiChips" style="margin-bottom:10px"></div>
+    <div class="tbl-scroll"><table><thead><tr>
+      <th class="l">ライン</th><th class="l">先→二</th><th>的中率</th><th>回収率</th><th class="l">判定</th>
+    </tr></thead><tbody id="sujiBody"></tbody></table></div>
+    <p class="note" id="sujiNote" style="font-size:10px;color:#5E7573"></p></section>
+  <footer>バンク特性データ:遠山競輪研究所(gamboo.jp)。予想は端末内の採点モデルによる参考情報であり的中を保証するものではありません。車券の購入は20歳から、余裕資金の範囲でお楽しみください。</footer>
+</main>
+<script>
+const T = {
+  "函館": [400, 51.3, 30.61, 0, 9.8, 16.2, 25.4, 26.2, 48.3, 40.9, 52.8, 26.3, 53.9, 39.1, 9.4, 4.2, 13006, "カント緩め直線短め。海陸風あり。捲りやや不発"],
+  "青森": [400, 58.9, 32.25, 0, 9.5, 4.4, 22.7, 26.8, 50.4, 41.3, 55.6, 28.6, 50.3, 42.4, 9.9, 3.9, 14579, "スジ車券・力車券とも高め"],
+  "いわき平": [400, 62.7, 32.91, 0, 9.2, 6.4, 22.7, 25.8, 51.4, 39.8, 52.7, 25.2, 51.1, 41.3, 10.8, 3.3, 14885, "直線長く差し多い。3番手の2着も多い"],
+  "弥彦": [400, 63.1, 32.41, 0, 9.3, 6.3, 21.3, 26.8, 51.7, 38.4, 53.0, 26.4, 49.8, 42.5, 11.5, 3.5, 13874, "直線が長く差し比率高。ライン3番手が伸びる"],
+  "前橋": [335, 46.7, 36.0, 1, 0, 0, 33.9, 29.1, 36.8, 47.2, 57.5, 26.3, 59.0, 34.3, 7.9, 4.1, 12941, "日本一急カントのドーム超高速バンク。先行断然有利、逃-マのスジ決着多く配当低め"],
+  "取手": [400, 54.8, 31.51, 0, 9.6, 12.3, 24.8, 28.2, 46.9, 40.2, 54.0, 25.0, 53.9, 39.6, 9.1, 3.7, 13355, "風レース率やや高め"],
+  "宇都宮": [500, 63.3, 25.8, 0, 11.7, 3.6, 24.1, 24.3, 51.5, 40.4, 52.8, 27.4, 55.9, 36.2, 9.8, 3.9, 14507, "500バンク。差し中心"],
+  "大宮": [500, 66.7, 26.28, 0, 6.6, 9.0, 20.7, 23.5, 55.8, 37.4, 48.2, 25.5, 53.0, 38.1, 10.7, 4.7, 15032, "直線最長級の500。差し55.8%、スジ率最低クラスで波乱含み"],
+  "西武園": [400, 47.6, 29.45, 0, 9.5, 2.4, 30.5, 27.2, 42.2, 44.1, 54.5, 26.4, 58.8, 35.1, 8.4, 3.9, 13894, "直線短くカント緩い。逃げ30.5%と先行有利"],
+  "京王閣": [400, 51.5, 32.18, 0, 11.4, 18.6, 23.5, 26.4, 50.0, 39.4, 52.4, 26.2, 52.7, 40.0, 10.7, 3.3, 14690, "差し50%と番手有利。風レース率18.6%と高く春夏は特に注意。スジ率やや低"],
+  "立川": [400, 58.0, 31.22, 0, 8.1, 14.6, 24.3, 25.4, 50.2, 37.9, 49.1, 24.6, 54.4, 38.5, 10.2, 3.5, 16001, "3連単平均配当が全場最高。力車券率低く波乱多い"],
+  "松戸": [333, 38.2, 29.75, 0, 10.4, 1.7, 33.8, 32.4, 33.7, 45.7, 53.1, 26.4, 60.9, 32.0, 6.7, 4.9, 15573, "直線短くカント緩い33。先行有利だが33としては波乱も多い"],
+  "千葉": [250, 0, 33.0, 1, 0, 0, 30, 35, 35, 45, 55, 27, 58, 35, 7, 4.5, 14000, "250mドーム(PIST6)。データ限定的、参考値"],
+  "川崎": [400, 58.0, 32.17, 0, 13.7, 3.2, 24.6, 28.9, 46.4, 39.6, 52.5, 27.0, 56.8, 36.6, 8.1, 3.8, 13530, "雨レース率高め。標準的な400"],
+  "平塚": [400, 54.2, 31.48, 0, 10.0, 3.0, 24.4, 29.5, 45.9, 40.9, 54.4, 27.8, 56.0, 37.3, 9.6, 3.8, 13868, "クセのない標準的400。データは平均値に近い"],
+  "小田原": [333, 36.1, 35.57, 0, 11.6, 0.9, 28.0, 30.2, 41.7, 42.1, 54.9, 27.5, 54.8, 39.0, 9.6, 3.3, 14216, "直線36.1mは極短。カント急な33"],
+  "伊東": [333, 46.6, 34.69, 0, 12.6, 1.1, 28.8, 32.4, 38.6, 44.4, 53.6, 28.1, 58.2, 34.7, 8.7, 4.2, 13898, "33の中では直線長め。400寄りの性格"],
+  "静岡": [400, 56.4, 30.72, 0, 9.9, 7.6, 24.1, 30.5, 45.1, 39.6, 52.2, 27.3, 55.1, 38.1, 9.1, 4.2, 14114, "2024年改修。スジ決まりにくく力車券寄り"],
+  "名古屋": [400, 58.8, 34.03, 0, 9.9, 1.2, 25.1, 30.6, 44.1, 43.0, 54.0, 28.9, 55.3, 38.3, 8.8, 3.9, 13762, "風少ない高速バンク。自力型が実力を発揮しやすい"],
+  "岐阜": [400, 59.3, 32.25, 0, 11.8, 2.9, 23.8, 28.9, 47.1, 39.0, 52.3, 24.5, 53.0, 39.4, 9.8, 4.1, 15602, "直線長め。番手が交わすケース多く高配当傾向"],
+  "大垣": [400, 56.0, 30.62, 0, 10.7, 0.8, 25.6, 28.7, 45.6, 41.3, 53.5, 27.0, 55.7, 37.6, 9.0, 4.1, 13816, "風ほぼ無し。標準的"],
+  "豊橋": [400, 60.3, 33.84, 0, 11.3, 5.2, 22.7, 30.2, 47.0, 40.0, 54.5, 28.0, 54.9, 38.7, 9.2, 3.4, 12811, "直線長く先行は交わされやすい。平均配当は全場最低で本命寄り"],
+  "富山": [333, 43.0, 33.69, 0, 10.7, 2.3, 28.8, 33.1, 38.1, 43.7, 54.1, 26.3, 57.5, 35.2, 7.9, 5.0, 13586, "捲り33.1%と高い33。単騎の1着も多め"],
+  "松阪": [400, 61.5, 34.42, 0, 10.9, 9.9, 22.7, 27.5, 49.7, 39.4, 52.0, 25.9, 52.7, 39.2, 10.4, 4.5, 12936, "直線長くカント急。差し多い"],
+  "四日市": [400, 62.4, 32.25, 0, 12.7, 7.7, 24.0, 29.0, 47.0, 39.1, 51.2, 27.2, 53.4, 38.7, 9.3, 4.6, 13659, "幅員最大級。スジ率低め"],
+  "福井": [400, 52.8, 31.48, 0, 13.3, 8.3, 26.2, 31.8, 41.9, 41.9, 52.6, 28.1, 58.0, 35.0, 8.6, 4.3, 14030, "逃-マ・捲-マが多い。力車券決まりやすい"],
+  "奈良": [333, 38.0, 33.43, 0, 9.7, 1.3, 32.6, 33.4, 33.8, 47.3, 56.6, 27.5, 60.2, 33.4, 8.0, 4.3, 14158, "典型的33。先頭1着60.2%、2番手2着50.2%とライン前2人で決まる"],
+  "向日町": [400, 47.3, 30.48, 0, 12.0, 1.9, 25.2, 27.4, 47.3, 39.5, 54.3, 27.9, 52.7, 41.3, 10.1, 2.8, 13855, "直線短め。番手2着多い"],
+  "和歌山": [400, 59.9, 32.25, 0, 9.5, 16.9, 21.7, 29.2, 48.8, 39.3, 53.1, 29.0, 53.5, 39.9, 9.3, 3.1, 13616, "風レース率16.9%と高い。力車券率高め"],
+  "岸和田": [400, 56.7, 30.93, 0, 9.5, 5.7, 25.5, 30.0, 44.4, 41.7, 54.1, 26.4, 56.9, 36.7, 7.8, 3.8, 14810, "クセのない高速バンク。逃げ捲りやや有利。冬は風強い"],
+  "玉野": [400, 47.9, 30.63, 0, 9.6, 3.3, 24.1, 30.2, 45.6, 41.3, 52.7, 26.6, 53.8, 38.4, 9.6, 4.8, 14384, "特別なクセのない平均的バンク。単騎1着多め"],
+  "広島": [400, 57.9, 32.53, 0, 5.2, 0.2, 19.8, 32.6, 47.6, 38.9, 51.0, 25.6, 54.8, 38.2, 9.4, 3.2, 15298, "雨風とも極少。逃げ19.8%は全場最少クラス、捲り差し中心。2025/12改修でカント32.53°に"],
+  "防府": [333, 42.5, 34.69, 0, 10.0, 0.2, 30.5, 32.3, 37.2, 45.9, 56.9, 26.8, 59.1, 35.0, 8.1, 4.2, 13917, "風弱く速い標準的33。スジ率高く堅め"],
+  "高松": [400, 54.8, 33.26, 0, 6.7, 0.7, 23.6, 30.9, 45.5, 41.0, 53.3, 26.1, 56.0, 36.3, 9.3, 4.2, 14633, "雨風少ない"],
+  "小松島": [400, 55.5, 29.77, 0, 9.2, 31.6, 21.0, 29.9, 49.0, 37.5, 51.8, 26.7, 52.7, 40.8, 11.3, 3.4, 14671, "風レース率31.6%で全場最高(冬53.7%)。風の読みが最重要。カント緩め"],
+  "高知": [500, 52.0, 24.5, 0, 9.9, 4.1, 19.7, 29.0, 51.2, 40.9, 53.4, 26.7, 53.4, 39.2, 9.6, 3.9, 13349, "全場一カントの緩い500。逃げ1着は全場最少クラス、差し捲り中心"],
+  "松山": [400, 58.6, 34.03, 0, 8.3, 8.3, 23.1, 30.3, 46.5, 41.8, 54.5, 27.4, 54.8, 38.5, 8.7, 3.4, 13094, "冬は風強め"],
+  "小倉": [400, 56.9, 34.03, 1, 0, 0, 25.6, 31.3, 43.1, 42.4, 53.6, 26.4, 56.4, 36.8, 8.8, 3.6, 14987, "屋内ドームの高速バンク。ナイター/ミッドナイト開催。逃げ捲りが決まりやすい"],
+  "久留米": [400, 50.7, 31.48, 0, 8.0, 0.1, 25.4, 32.4, 42.1, 43.1, 55.1, 27.6, 57.9, 35.8, 8.7, 3.3, 13689, "風ほぼゼロ。捲り32.4%と高くライン前2人で決まりやすい"],
+  "武雄": [400, 64.4, 32.01, 0, 13.1, 2.6, 20.9, 29.9, 49.2, 40.8, 52.9, 27.9, 51.9, 41.4, 9.5, 3.5, 13980, "みなし直線64.4mは全場最長。差し多い。冬の雨率27%は突出"],
+  "佐世保": [400, 40.2, 31.48, 0, 10.7, 1.8, 23.8, 30.6, 45.5, 42.5, 56.8, 27.5, 53.3, 41.1, 8.8, 2.9, 12648, "みなし直線40.2mは400最短。スジ率高く堅め"],
+  "別府": [400, 59.9, 33.69, 0, 9.0, 5.8, 25.4, 31.9, 42.6, 42.1, 55.1, 27.3, 56.9, 36.9, 8.2, 4.0, 12819, "捲り31.9%と高い。配当低めで本命寄り。全場で最も風がタイムに影響する場(相関0.56・研究所014)"],
+  "熊本": [400, 60.3, 34.26, 0, 6.8, 5.0, 23.6, 30.2, 46.1, 41.1, 53.7, 30.2, 52.8, 38.2, 7.4, 5.5, 14139, "2024年再建。直線長くカント急。力車券率30.2%は全場最高、単騎の1・2着も多い"],
+};
+
+const TRACK_NAMES = Object.keys(T);
+
+// ============================================================
+// ローカル予想エンジン(API不使用・純粋JS)
+// 1) WINTICKET形式の出走表テキストをパース
+// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
+// ============================================================
+
+// ============================================================
+// ローカル予想エンジン(API不使用・純粋JS)
+// 1) WINTICKET形式の出走表テキストをパース
+// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
+// ============================================================
+
+// ============================================================
+// ローカル予想エンジン(API不使用・純粋JS)
+// 1) WINTICKET形式の出走表テキストをパース
+// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
+// ============================================================
+
+// ============================================================
+// ローカル予想エンジン(API不使用・純粋JS)
+// 1) WINTICKET形式の出走表テキストをパース
+// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
+// ============================================================
+
+// ============================================================
+// ローカル予想エンジン(API不使用・純粋JS)
+// 1) WINTICKET形式の出走表テキストをパース
+// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
+// ============================================================
+
+// ============================================================
+// ローカル予想エンジン(API不使用・純粋JS)
+// 1) WINTICKET形式の出走表テキストをパース
+// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
+// ============================================================
+
+// ============================================================
+// ローカル予想エンジン(API不使用・純粋JS)
+// 1) WINTICKET形式の出走表テキストをパース
+// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
+// ============================================================
+
+// ============================================================
+// ローカル予想エンジン(API不使用・純粋JS)
+// 1) WINTICKET形式の出走表テキストをパース
+// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
+// ============================================================
+
+// ============================================================
+// ローカル予想エンジン(API不使用・純粋JS)
+// 1) WINTICKET形式の出走表テキストをパース
+// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
+// ============================================================
+
+// ============================================================
+// ローカル予想エンジン(API不使用・純粋JS)
+// 1) WINTICKET形式の出走表テキストをパース
+// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
+// ============================================================
+
+// ============================================================
+// ローカル予想エンジン(API不使用・純粋JS)
+// 1) WINTICKET形式の出走表テキストをパース
+// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
+// ============================================================
+
+// ============================================================
+// ローカル予想エンジン(API不使用・純粋JS)
+// 1) WINTICKET形式の出走表テキストをパース
+// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
+// ============================================================
+
+// ============================================================
+// ローカル予想エンジン(API不使用・純粋JS)
+// 1) WINTICKET形式の出走表テキストをパース
+// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
+// ============================================================
+
+// ============================================================
+// ローカル予想エンジン(API不使用・純粋JS)
+// 1) WINTICKET形式の出走表テキストをパース
+// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
+// ============================================================
+
+// ============================================================
+// ローカル予想エンジン(API不使用・純粋JS)
+// 1) WINTICKET形式の出走表テキストをパース
+// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
+// ============================================================
+
+// ---------- パーサー ----------
+function parseWinticket(text, trackNames) {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const joined = lines.join("\n");
+
+  // レース情報
+  const meta = {};
+  {
+    let best = "", bestIdx = Infinity;
+    for (const n of trackNames) {
+      const i = text.indexOf(n);
+      if (i !== -1 && i < bestIdx) { bestIdx = i; best = n; }
+    }
+    meta.place = best;
+  }
+  const mR = joined.match(/(\d{1,2})\s*R/); meta.raceNo = mR ? mR[1] + "R" : "";
+  const mG = joined.match(/[SAL]級[^\n]{0,8}/); meta.grade = mG ? mG[0].trim() : "";
+  const mD = joined.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/); meta.date = mD ? mD[0] : "";
+  const mW = joined.match(/(晴|曇|雨|雪)/); const mT = joined.match(/([\d.]+)℃/);
+  const mWind = joined.match(/(北|南|東|西|北東|北西|南東|南西)?\s*([\d.]+)\s*m\/s/);
+  meta.weather = [mW ? mW[1] : "", mT ? mT[1] + "℃" : "", mWind ? (mWind[1] || "") + mWind[2] + "m/s" : ""].filter(Boolean).join(" ");
+  meta.windSpeed = mWind ? parseFloat(mWind[2]) : null;
+
+  // 選手テーブル: 「コメント」ヘッダー以降〜「並び予想」まで
+  const start = lines.lastIndexOf("コメント");
+  const end = lines.indexOf("並び予想");
+  if (start === -1) throw new Error("出走表の選手データ(コメント列)が見つかりません");
+  const body = lines.slice(start + 1, end === -1 ? undefined : end);
+
+  const isInt = (s) => /^\d{1,2}$/.test(s);
+  const isProfile = (s) => /[SAL]\d\s*\d+歳\s*\d+期/.test(s.replace(/\s+/g, " "));
+  const num = (s) => { const v = parseFloat(s); return isNaN(v) ? 0 : v; };
+
+  const entries = [];
+  let i = 0;
+  while (i < body.length) {
+    if (!isInt(body[i])) { i++; continue; }
+    // 枠(任意)+車番: 整数が2連続なら [枠,車]、1つなら車のみ
+    let waku = null, car;
+    if (i + 1 < body.length && isInt(body[i + 1]) && !isProfile(body[i + 2] || "")) {
+      waku = parseInt(body[i]); car = parseInt(body[i + 1]); i += 2;
+    } else { car = parseInt(body[i]); i += 1; }
+    // 選手名(次の非数値行)、その次がプロフィール行であること
+    if (i + 1 >= body.length || !isProfile(body[i + 1])) { continue; }
+    const name = body[i]; i++;
+    const pm = body[i].replace(/\s+/g, " ").match(/(\S+)\s+([SAL]\d)\s+(\d+)歳\s+(\d+)期/);
+    i++;
+    if (!pm) continue;
+    // 数値列: 得点,S,H,B,(脚),逃,捲,差,マ,1着,2着,3着,着外,勝率,2連,3連,ギヤ,(コメント)
+    const nums = []; let kyaku = ""; let comment = "";
+    while (i < body.length && nums.length < 17) {
+      const t = body[i];
+      if (/^(追|逃|両)$/.test(t)) { kyaku = t; i++; continue; }
+      if (/^-?[\d.]+$/.test(t)) { nums.push(num(t)); i++; continue; }
+      break; // 数値でも脚質でもない → コメントか次の選手
+    }
+    if (i < body.length && !isInt(body[i]) && !isProfile(body[i]) && body[i] !== "並び予想") {
+      comment = body[i]; i++;
+    }
+    if (nums.length < 16) continue; // データ不足行はスキップ
+    entries.push({
+      waku, car, name, pref: pm[1], grade: pm[2], age: parseInt(pm[3]), ki: pm[4] + "期",
+      score: nums[0], S: nums[1], H: nums[2], B: nums[3], kyaku,
+      k: { nige: nums[4], makuri: nums[5], sashi: nums[6], mark: nums[7] },
+      seiseki: { win1: nums[8], win2: nums[9], win3: nums[10], out: nums[11] },
+      rate: { win: nums[12], niren: nums[13], sanren: nums[14] },
+      gear: nums[15] ?? null, comment,
+    });
+  }
+  if (entries.length < 5) throw new Error("選手データを" + entries.length + "名しか読み取れませんでした。貼り付け範囲をご確認ください");
+
+  // 並び予想の数列
+  let narabi = [];
+  if (end !== -1) {
+    for (let j = end + 1; j < lines.length; j++) {
+      if (isInt(lines[j])) narabi.push(parseInt(lines[j]));
+      else break;
+    }
+  }
+  if (narabi.length === 0) narabi = entries.map((e) => e.car);
+
+  // ライン構成: コメントの「○○君/○○さん」から追走関係を構築
+  const parent = {}; // car -> 追走先car
+  for (const e of entries) {
+    const c = e.comment || "";
+    if (/決めず|単騎/.test(c)) continue;
+    let best = null, bestLen = 0;
+    for (const o of entries) {
+      if (o.car === e.car) continue;
+      for (const len of [3, 2]) {
+        const key = o.name.slice(0, len);
+        if (key.length === len && c.includes(key) && len > bestLen) { best = o.car; bestLen = len; }
+      }
+    }
+    if (best != null) parent[e.car] = best;
+  }
+  // 追走の連鎖からラインを構築(並び順を尊重)
+  const order = (c) => { const k = narabi.indexOf(c); return k === -1 ? 99 : k; };
+  const children = {};
+  Object.entries(parent).forEach(([f, t]) => { (children[t] = children[t] || []).push(parseInt(f)); });
+  Object.values(children).forEach((a) => a.sort((x, y) => order(x) - order(y)));
+  const roots = entries.map((e) => e.car).filter((c) => parent[c] == null);
+  const chainOf = (c) => { const out = [c]; (children[c] || []).forEach((ch) => out.push(...chainOf(ch))); return out; };
+  const linesArr = roots.map(chainOf).sort((a, b) => order(a[0]) - order(b[0]));
+  return { ...meta, entries, lines: linesArr, narabi };
+}
+
+// ---------- 遠山競輪研究所データ(2016/9〜2019/8・64,321レース実測) ----------
+// スジ車券回収率の高い競輪場グループA(33全場+400スジ比率上位14場)。他はグループB
+const GROUP_A = new Set(["奈良","前橋","伊東","松戸","小田原","防府","富山","佐世保","青森","松山","西武園","取手","別府","大垣","松阪","川崎","弥彦","小倉","静岡","久留米","広島"]);
+// SIM[分戦数][ライン人気順] = { o:先→二, u:二→先 } 各[的中A,回収A,的中B,回収B,的中計,回収計]
+const SIM = {
+  2: { 1: { o: [25.10, 90.73, 22.36, 82.42, 23.80, 86.79], u: [11.73, 66.08, 10.25, 62.23, 11.03, 64.26] },
+       2: { o: [6.43, 98.84, 5.41, 93.94, 5.94, 96.52], u: [4.88, 80.25, 4.46, 88.74, 4.68, 84.28] } },
+  3: { 1: { o: [19.83, 83.87, 17.42, 79.39, 18.65, 81.67], u: [10.51, 68.31, 10.02, 65.12, 10.27, 66.74] },
+       2: { o: [6.56, 95.82, 5.62, 89.62, 6.10, 92.77], u: [4.29, 75.35, 4.17, 77.42, 4.23, 76.37] },
+       3: { o: [2.65, 92.24, 2.29, 75.26, 2.47, 83.89], u: [1.77, 65.55, 1.62, 63.33, 1.70, 64.46] } },
+  4: { 1: { o: [16.03, 79.88, 14.33, 77.52, 15.17, 78.69], u: [9.52, 70.29, 8.90, 64.26, 9.20, 67.25] },
+       2: { o: [5.41, 81.47, 5.30, 85.03, 5.36, 83.27], u: [4.32, 72.34, 3.79, 72.88, 4.05, 72.61] },
+       3: { o: [3.47, 99.74, 2.86, 84.00, 3.16, 91.79], u: [1.53, 55.69, 1.38, 50.14, 1.45, 52.89] },
+       4: { o: [1.41, 69.51, 1.06, 64.44, 1.23, 66.95], u: [0.94, 66.46, 0.59, 44.41, 0.77, 55.33] } },
+};
+// クラス別スジ内訳(先→二% / 二→先%)。チャレンジは押し切り最多・番手差し最少
+const KLASS_SUJI = { s: [23.47, 16.76], a12: [26.35, 16.05], challenge: [31.77, 13.04] };
+
+// ---------- Gamboo「基本出走データ」パーサー ----------
+const CIRC = { "①":1,"②":2,"③":3,"④":4,"⑤":5,"⑥":6,"⑦":7,"⑧":8,"⑨":9,
+  "❶":1,"❷":2,"❸":3,"❹":4,"❺":5,"❻":6,"❼":7,"❽":8,"❾":9 };
+function parseGamboo(text, trackNames) {
+  const meta = {};
+  const mTitle = text.match(/(\d{4})年(\d{1,2})月(\d{1,2})日[^\n]{0,20}?([぀-ヿ一-龥]{2,5})\s*(\d{1,2})R\s*\d{3,4}m/);
+  if (mTitle) { meta.date = `${mTitle[1]}年${mTitle[2]}月${mTitle[3]}日`; meta.place = mTitle[4]; meta.raceNo = mTitle[5] + "R"; }
+  if (!meta.place) {
+    let best = "", idx = Infinity;
+    for (const n of trackNames) { const i = text.indexOf(n); if (i !== -1 && i < idx) { idx = i; best = n; } }
+    meta.place = best;
+  }
+  const mG = text.match(/[SALＳＡＬ]級\s*[^\s\n]{0,6}/);
+  meta.grade = mG ? mG[0].replace(/\s+/g, " ").trim() : "";
+  meta.weather = ""; meta.windSpeed = null;
+
+  // 成績列が「1着/2着/3着/着外の回数」形式か「勝率/2連/3連/着外率(%)」形式かを判定
+  const countMode = /1着\s*回数|着\s*回数/.test(text) && !/2連\s*対率/.test(text.slice(0, text.indexOf("逃") > 0 ? text.indexOf("逃") + 400 : 800));
+  const tokens = text.split(/[\s\t\r\n]+/).filter(Boolean);
+  const profRe = /^(.+?)\(([^)]*)\)\/(\d{1,3})\/(\d{1,3})$/;
+  const isFloat = (s) => /^\d{1,3}\.\d{1,2}$/.test(s);
+  const isInt = (s) => /^\d{1,3}$/.test(s);
+  const timeOk = (v) => v >= 9 && v <= 18;
+  const entries = [];
+  let car = 0;
+  for (let i = 0; i < tokens.length; i++) {
+    const pm = tokens[i].match(profRe);
+    if (!pm || i === 0) continue;
+    const name = tokens[i - 1];
+    if (/予想|情報|成績|得点|注目/.test(name) || name.length < 2) continue;
+    car += 1;
+    const e = { car, name, pref: pm[1], home: pm[2], ki: pm[3] + "期", age: parseInt(pm[4]),
+      grade: "", gradePrev: "", kyaku: "", score: 0, prevScore: null, scoreDiff: 0,
+      S: 0, H: 0, B: 0, k: { nige: 0, makuri: 0, sashi: 0, mark: 0 },
+      seiseki: { win1: 0, win2: 0, win3: 0, out: 0 }, rate: { win: 0, niren: 0, sanren: 0 },
+      results: [], avgTime: null, recentWinRate: null, recentRaces: 0, kiken: false, comment: "" };
+    let j = i + 1;
+    const nums = [];
+    // 級班・脚質・得点(現/前)・失違・決まり手4・B・成績値 を順に収集
+    while (j < tokens.length && !tokens[j].match(profRe) && tokens[j] !== "並び予想") {
+      const t = tokens[j];
+      const km = t.match(/^([SALＳＡＬ]\d)\/([SALＳＡＬ]\d)$/);
+      if (km && !e.grade) { e.grade = km[1]; e.gradePrev = km[2]; j++; continue; }
+      if (/^(逃|追|両)$/.test(t) && !e.kyaku) { e.kyaku = t; j++; continue; }
+      // 得点(現): 小数値20〜130点。直後の「/前得点」とセットで確実に判定(ガールズは40点台なので閾値は低めに)
+      if (!e.score && isFloat(t) && parseFloat(t) >= 20 && parseFloat(t) <= 130) {
+        const nxt = tokens[j + 1] || "";
+        if (/^\/\d{1,3}\.\d{1,2}$/.test(nxt) || km === null) { e.score = parseFloat(t); j++; continue; }
+      }
+      // 得点確定後、前得点(/xx.xx)が来るまでの間に現得点が重複表記される新レイアウト対応: 同値の小数はスキップ
+      if (e.score && e.prevScore == null && isFloat(t) && Math.abs(parseFloat(t) - e.score) < 0.005) { j++; continue; }
+      // 前得点: 「/46.32」または「/」+「46.32」の分離表記の両方に対応
+      if (e.score && e.prevScore == null && /^\/\d{1,3}\.\d{1,2}$/.test(t)) { e.prevScore = parseFloat(t.slice(1)); j++; continue; }
+      if (e.score && e.prevScore == null && t === "/") {
+        const nx = tokens[j + 1] || "";
+        if (/^\d{1,3}\.\d{1,2}$/.test(nx)) { e.prevScore = parseFloat(nx); j += 2; continue; }
+        j++; continue;
+      }
+      // 数値収集(失違+決まり手4+B の6個 → その後の成績値。最大14個まで拾う)
+      if (e.score && e.prevScore != null && nums.length < 14 && (isInt(t) || isFloat(t))) {
+        nums.push(parseFloat(t)); j++; continue;
+      }
+      if (e.score && e.prevScore != null && nums.length >= 14) break;
+      j++;
+    }
+    // nums 前半6個: [失違, 逃, 捲, 差, マ, B]。以降が成績値
+    if (nums.length >= 10) {
+      e.k = { nige: nums[1], makuri: nums[2], sashi: nums[3], mark: nums[4] };
+      e.B = nums[5]; e.H = nums[5];
+      const w1 = e.k.nige + e.k.makuri + e.k.sashi + e.k.mark;
+      const rest = nums.slice(6); // 成績値部分
+      // レイアウト判定:
+      //  A) 率/回数の交互8値(勝率,1着,2連,2着,3連,3着,着外率,着外) → rest.length>=8 かつ 交互パターン
+      //  B) 回数のみ4値 [1着,2着,3着,着外] (countMode)
+      //  C) 率のみ4値 [勝率,2連,3連,着外率]
+      const looksInterleaved = rest.length >= 8 &&
+        rest[0] >= rest[1] && rest[2] >= rest[3] && rest[4] >= rest[5] && // 率>=回数の傾向
+        (rest[0] + rest[2] + rest[4]) > (rest[1] + rest[3] + rest[5]);   // 率合計>回数合計
+      if (looksInterleaved) {
+        // A: 交互。奇数番目(index1,3,5,7)が回数
+        const c1 = rest[1], c2 = rest[3], c3 = rest[5], cOut = rest[7];
+        e.seiseki = { win1: c1, win2: c2, win3: c3, out: cOut };
+        e.rate = { win: rest[0], niren: rest[2], sanren: rest[4] };
+      } else if (countMode) {
+        // B: 回数のみ
+        const c1 = rest[0], c2 = rest[1], c3 = rest[2], cOut = rest[3];
+        const starts = c1 + c2 + c3 + cOut || 1;
+        e.seiseki = { win1: c1, win2: c2, win3: c3, out: cOut };
+        e.rate = {
+          win: +(c1 / starts * 100).toFixed(1),
+          niren: +((c1 + c2) / starts * 100).toFixed(1),
+          sanren: +((c1 + c2 + c3) / starts * 100).toFixed(1),
+        };
+      } else {
+        // C: 率のみ → 回数を逆算
+        e.rate = { win: rest[0], niren: rest[1], sanren: rest[2] };
+        const outRate = rest[3];
+        let starts = e.rate.win > 0 ? Math.round((w1 / e.rate.win) * 100) : 12;
+        starts = Math.max(Math.max(w1, 1), Math.min(40, starts));
+        e.seiseki = {
+          win1: w1,
+          win2: Math.max(0, Math.round(starts * (e.rate.niren - e.rate.win) / 100)),
+          win3: Math.max(0, Math.round(starts * (e.rate.sanren - e.rate.niren) / 100)),
+          out: Math.max(0, Math.round(starts * outRate / 100)),
+        };
+      }
+    }
+    // 成績欄: 着順(数字/丸数字/棄など) + 任意のB/決まり手/タイム、日付・場名はスキップ
+    while (j < tokens.length && !tokens[j].match(profRe) && tokens[j] !== "並び予想") {
+      const t = tokens[j];
+      if (/^\d{1,2}\/\d{1,2}$/.test(t) || /^[぀-ヿ一-龥]{1,3}(G[1-3]|F[1-2]|GP)$/.test(t)) { j++; continue; }
+      let place = null;
+      if (/^[1-9]$/.test(t)) place = parseInt(t);
+      else if (CIRC[t] != null) place = CIRC[t];
+      else if (/^(棄|落|失|欠)$/.test(t)) { e.kiken = true; e.results.push({ place: null }); j++; continue; }
+      if (place != null) {
+        const res = { place };
+        j++;
+        while (j < tokens.length) {
+          const u = tokens[j];
+          if (u === "B") { res.b = true; j++; continue; }
+          if (/^(逃|捲|差|マ)$/.test(u)) { res.k = u; j++; continue; }
+          if (isFloat(u) && timeOk(parseFloat(u))) { res.t = parseFloat(u); j++; break; }
+          break;
+        }
+        e.results.push(res);
+        continue;
+      }
+      j++;
+    }
+    const times = e.results.map((r) => r.t).filter((v) => v != null);
+    if (times.length) e.avgTime = times.reduce((a2, v) => a2 + v, 0) / times.length;
+    const finished = e.results.filter((r) => r.place != null);
+    if (finished.length) {
+      e.recentRaces = finished.length;
+      e.recentWinRate = finished.filter((r) => r.place === 1).length / finished.length;
+    }
+    if (e.prevScore != null) e.scoreDiff = +(e.score - e.prevScore).toFixed(2);
+    entries.push(e);
+    i = j - 1;
+  }
+  if (entries.length < 5) throw new Error("Gamboo出走データを" + entries.length + "名しか読み取れませんでした。表全体を含めてコピーしてください");
+
+  // 並び予想: 「63・147・25」形式(middle point表記にも対応)。区切り不明ならすべて単騎にして手動修正に委ねる
+  let linesArr = null;
+  const ni = text.indexOf("並び予想");
+  if (ni !== -1) {
+    let seg = text.slice(ni + 4, ni + 120);
+    const stop = seg.search(/情報元|注目/);
+    if (stop !== -1) seg = seg.slice(0, stop);
+    seg = seg.replace(/middle\s*point/gi, "・");
+    const groups = seg.match(/[1-9]+/g);
+    if (groups && groups.length) {
+      const cars = entries.map((e) => e.car);
+      const flat = groups.join("");
+      const uniq = new Set(flat.split("").map(Number));
+      if (flat.length === cars.length && uniq.size === cars.length) {
+        linesArr = groups.map((g) => g.split("").map(Number));
+      }
+    }
+  }
+  if (!linesArr) linesArr = entries.map((e) => [e.car]);
+  return { ...meta, entries, lines: linesArr, narabi: linesArr.flat() };
+}
+
+// 形式自動判別ディスパッチャ(WINTICKET / Gamboo基本出走データ)
+function parseCard(text, trackNames) {
+  const looksGamboo = /基本出走データ/.test(text) || (text.match(/\([^)]*\)\/\d{1,3}\/\d{1,3}/g) || []).length >= 5;
+  if (looksGamboo) {
+    try { return parseGamboo(text, trackNames); } catch (e) { /* fallback */ }
+  }
+  return parseWinticket(text, trackNames);
+}
+
+// ---- 記事014: クラス×バンク長別の決まり手(2017/5〜2019/4実測) ----
+// CLS_K[バンク長][クラス] = 1着決まり手 [逃げ,捲り,差し] %
+const CLS_K = {
+  33:  { s: [16.1, 44.4, 39.3], a12: [24.0, 37.1, 38.9], challenge: [41.8, 30.6, 27.5], girls: [34.2, 50.0, 15.6] },
+  400: { s: [13.1, 36.4, 50.3], a12: [18.7, 34.1, 47.0], challenge: [35.4, 29.8, 34.6], girls: [24.4, 48.2, 27.3] },
+  500: { s: [10.2, 30.1, 59.5], a12: [13.7, 31.2, 55.1], challenge: [32.5, 28.3, 39.0], girls: [24.0, 41.1, 34.9] },
+};
+// 全クラス混合の基準値(場別データとの差分=その場のクセ を求めるため)
+const BASE_K = { 33: [30.9, 31.9, 37.1], 400: [24.0, 29.2, 46.7], 500: [21.5, 25.6, 52.8] };
+// COND2[バンク長][クラス] = 1着決まり手別の2着決まり手分布 {n:1着逃げ時, m:1着捲り時, s:1着差し時} 各[逃,捲,差,マーク]%
+const COND2 = {
+  33: { s: { n: [0.6, 10.9, 27.4, 61.2], m: [8.0, 13.4, 27.2, 51.4], s: [34.1, 29.4, 20.2, 16.3] },
+        a12: { n: [0.5, 8.2, 21.1, 70.2], m: [10.5, 13.0, 25.3, 51.2], s: [36.4, 26.1, 22.4, 15.1] },
+        challenge: { n: [2.1, 7.2, 20.6, 70.2], m: [20.2, 11.4, 21.1, 47.3], s: [50.9, 18.6, 15.4, 15.1] },
+        girls: { n: [6.0, 11.9, 7.5, 74.6], m: [28.1, 15.8, 11.7, 44.4], s: [52.5, 19.7, 6.6, 21.3] } },
+  400: { s: { n: [0.8, 9.8, 29.7, 59.6], m: [7.3, 12.5, 32.3, 47.9], s: [23.5, 28.2, 31.4, 16.9] },
+        a12: { n: [0.8, 8.5, 27.4, 63.3], m: [9.6, 11.8, 31.5, 47.1], s: [26.9, 23.6, 29.9, 19.6] },
+        challenge: { n: [1.5, 7.3, 25.2, 66.0], m: [18.2, 11.7, 27.0, 43.0], s: [38.9, 18.6, 23.2, 19.3] },
+        girls: { n: [3.5, 12.1, 23.4, 61.0], m: [18.5, 18.2, 14.3, 49.0], s: [24.4, 37.2, 12.9, 25.5] } },
+  500: { s: { n: [2.0, 5.1, 37.8, 55.1], m: [8.0, 7.6, 35.0, 49.5], s: [14.4, 24.0, 41.5, 20.1] },
+        a12: { n: [0.4, 7.9, 32.2, 59.5], m: [8.8, 8.4, 39.5, 43.2], s: [17.9, 17.1, 44.5, 20.5] },
+        challenge: { n: [0.0, 4.5, 28.7, 66.9], m: [23.4, 12.0, 27.4, 37.2], s: [25.9, 18.8, 34.1, 21.2] },
+        girls: { n: [2.4, 9.5, 21.4, 66.7], m: [8.3, 11.1, 13.9, 66.7], s: [26.2, 26.2, 18.0, 29.5] } },
+};
+
+// ---- 記事029: S級戦・7車立ての特徴(2020/7〜9実測・400バンク) ----
+// 7車立て補正係数(記事014のクラス基準値に乗じる): S級・A12は7車だと逃げ増・捲り減
+const SEVEN_ADJ = { s: [1.31, 0.79, 1.07], a12: [1.29, 0.88, 0.97] };
+// ラインパターン別特徴(S級7車400バンク実測): freq出現率, backバック取得ライン1着率, win[先頭,番手,3番手以降/単騎]1着率, sujiスジ率, kind 2分=先行有利/3分=捲り有利
+const LP = {
+  "3-2-2":   { freq: 62.8, back: 56.4, win: [50.8, 47.1, 2.1],  suji: 54.7, kind: "3分" },
+  "3-3-1":   { freq: 13.3, back: 67.1, win: [33.8, 54.2, 12.0], suji: 59.2, kind: "2分" },
+  "2-2-2-1": { freq: 8.5,  back: 45.5, win: [50.6, 40.7, 8.8],  suji: 35.2, kind: "3分" },
+  "3-2-1-1": { freq: 6.6,  back: 55.7, win: [44.3, 41.4, 14.3], suji: 48.6, kind: "2分" },
+  "4-3":     { freq: 5.3,  back: 73.2, win: [39.3, 48.2, 12.5], suji: 66.1, kind: "2分" },
+};
+const LP_SOFT = 0.7; // S級7車の実測を他クラスへ適用する際の減衰係数
+// クラス×車立ての配当中央値(2車単/3連単) 記事029
+const CLASS_PAYOUT = { s9: [1740, 9140], s7: [1205, 4540], a12_7: [990, 4020], ch7: [645, 2595] };
+
+// ---- 記事027: バック取得ラインの予測(2017/5〜2020/4実測・ロジスティック回帰) ----
+// LOGIT[key] = [x1:先頭の直近B数(21走換算), x2:同H数, x3:ライン長, x4:G指数値(得点の中央値差), x5:番手が年上, 定数]
+// x4はチャレンジのみ先頭選手、他は番手選手の値を使う
+const LOGIT = {
+  s:      [0.113, 0.050, 0.556, 0.051, -0.021, -3.416],
+  a12_9:  [0.111, 0.047, 0.671, 0.053, -0.051, -3.764],
+  a12_7:  [0.110, 0.064, 0.815, 0.067,  0.046, -3.784],
+  ch:     [0.063, 0.085, 0.902, 0.131, -0.090, -4.112],
+};
+// バック取得ラインの実測成績 BK[key].head/second = [[33勝率,33連対],[400勝率,400連対],[500勝率,500連対]]
+const BK = {
+  s:     { head: [[27.58, 49.49], [19.72, 38.30], [18.28, 33.46]], second: [[26.00, 50.97], [28.30, 50.05], [24.97, 44.79]] },
+  a12_9: { head: [[32.85, 54.14], [24.57, 42.99], [17.36, 33.43]], second: [[25.17, 51.02], [25.33, 48.63], [22.84, 44.85]] },
+  a12_7: { head: [[39.85, 62.60], [30.48, 52.22], [26.83, 46.33]], second: [[25.84, 57.46], [25.58, 52.77], [22.78, 48.65]] },
+  ch:    { head: [[52.82, 72.67], [44.68, 65.07], [44.29, 63.96]], second: [[17.22, 50.31], [17.80, 47.59], [17.47, 46.26]] },
+};
+const bkKey = (klass, nCars) => klass === "challenge" ? "ch" : klass === "s" ? "s" : nCars >= 8 ? "a12_9" : "a12_7";
+
+// ラインのバック取得確率(研究所回帰式)
+function backProb(line, byCar, klass, nCars, medianScore) {
+  if (line.length < 2) return null;
+  const head = byCar[line[0]], second = byCar[line[1]];
+  const st = head.seiseki, starts = st.win1 + st.win2 + st.win3 + st.out;
+  const x1 = Math.min(21, starts > 0 ? (head.B / starts) * 21 : 0);
+  const x2 = Math.min(21, starts > 0 ? (head.H / starts) * 21 : 0);
+  const x3 = line.length;
+  const gTarget = klass === "challenge" ? head : second;
+  const x4 = gTarget.score - medianScore;
+  const x5 = second.age > head.age ? 1 : 0;
+  const c = LOGIT[bkKey(klass, nCars)];
+  const z = c[0] * x1 + c[1] * x2 + c[2] * x3 + c[3] * x4 + c[4] * x5 + c[5];
+  return 1 / (1 + Math.exp(-z));
+}
+
+function detectKlass(grade) {
+  const g = grade || "";
+  if (/ガールズ|[LＬ]級/.test(g)) return "girls";
+  if (/チャレンジ|[AＡ]級チ/.test(g)) return "challenge";
+  if (/[SＳ]級/.test(g)) return "s";
+  return "a12";
+}
+
+// ---------- 採点モデル ----------
+// bank: [周長,直線,カント,ドーム,雨率,風率,逃%,捲%,差%,2着マ%,スジ率,力率,先頭1着%,番手1着%,3番手2着%,単騎1着%,3連単平均]
+function predict(parsed, bank, trackName, learnW) {
+  const es = parsed.entries;
+  const byCar = {}; es.forEach((e) => (byCar[e.car] = e));
+  const b = bank || [400, 54.1, 31.9, 0, 10, 6, 24, 29.2, 46.7, 40.6, 53.3, 27, 54.4, 38.7, 9.3, 3.8, 14000];
+  const [, , , dome, , windRate, bNige, bMakuri, bSashi, bMark, suji, chikara, hL1, hL2, , hTanki, p3avg] = b;
+  const klass = detectKlass(parsed.grade);
+  const lines = klass === "girls" ? es.map((e) => [e.car]) : parsed.lines;
+
+  // 記事014: クラス×バンク長の基準決まり手に「その場のクセ(全クラス平均との差)」を上乗せした実効決まり手
+  const lenKey = (b[0] || 400) < 400 ? 33 : (b[0] || 400) > 400 ? 500 : 400;
+  const base = BASE_K[lenKey];
+  let cls = CLS_K[lenKey][klass];
+  // 記事029: S級・A12は7車立てだと逃げ増・捲り減(基準値に補正係数を乗じて正規化)
+  if (es.length <= 7 && SEVEN_ADJ[klass]) {
+    const adj = SEVEN_ADJ[klass];
+    const t0 = [cls[0] * adj[0], cls[1] * adj[1], cls[2] * adj[2]];
+    const tSum = t0[0] + t0[1] + t0[2];
+    cls = [t0[0] / tSum * 100, t0[1] / tSum * 100, t0[2] / tSum * 100];
+  }
+  // 記事029: ラインパターン(2分戦=先行有利/3分戦=捲り有利)
+  const patStr = [...parsed.lines].map((l) => l.length).sort((x, y) => y - x).join("-");
+  const lp = klass !== "girls" ? LP[patStr] : null;
+  const lpKimarite = lp ? (lp.kind === "2分" ? [1 + 0.10 * LP_SOFT, 1 - 0.10 * LP_SOFT, 1] : [1 - 0.08 * LP_SOFT, 1 + 0.10 * LP_SOFT, 1]) : [1, 1, 1];
+  const devN = bNige - base[0], devM = bMakuri - base[1], devS = bSashi - base[2];
+  let effRaw = [Math.max(2, (cls[0] + devN) * lpKimarite[0]), Math.max(2, (cls[1] + devM) * lpKimarite[1]), Math.max(2, (cls[2] + devS) * lpKimarite[2])];
+  const effSum = effRaw[0] + effRaw[1] + effRaw[2];
+  const eff = { n: effRaw[0] / effSum * 100, m: effRaw[1] / effSum * 100, s: effRaw[2] / effSum * 100 };
+  const cond2 = COND2[lenKey][klass];
+  const isRain = /雨|雪/.test(parsed.weather || "");
+
+  // 役割(先頭/番手/3番手〜/単騎)
+  const role = {};
+  lines.forEach((line) => line.forEach((c, idx) => {
+    role[c] = line.length === 1 ? "単騎" : idx === 0 ? "先頭" : idx === 1 ? "番手" : "3番手";
+  }));
+
+  // 主導権(バック取得予測)ライン: 記事027のロジスティック回帰式で各ラインのPbkを算出
+  const nCars = es.length;
+  const sortedPts = es.map((x) => x.score).sort((a, b2) => a - b2);
+  const medianScore = sortedPts.length % 2 ? sortedPts[(sortedPts.length - 1) / 2]
+    : (sortedPts[sortedPts.length / 2 - 1] + sortedPts[sortedPts.length / 2]) / 2;
+  const backProbs = [];
+  lines.forEach((line) => {
+    const p = backProb(line, byCar, klass, nCars, medianScore);
+    if (p != null) backProbs.push({ line, p });
+  });
+  backProbs.sort((x, y) => y.p - x.p);
+  const leadLine = backProbs.length ? backProbs[0].line : null;
+  const backBalanced = backProbs.length >= 2 && (backProbs[0].p - backProbs[1].p) < 0.05;
+  const bkT = BK[bkKey(klass, nCars)];
+  const bankIdx = (b[0] || 400) < 400 ? 0 : (b[0] || 400) > 400 ? 2 : 1;
+  const baseWin = 100 / nCars;
+
+  // 捲り脅威(主導権ライン外の自力)
+  let threat = null, threatV = -1;
+  es.forEach((e) => {
+    if (leadLine && leadLine.includes(e.car)) return;
+    const v = e.k.makuri * 2 + e.k.nige + (e.kyaku !== "追" ? 2 : 0) + e.B * 0.5;
+    if ((role[e.car] === "先頭" || role[e.car] === "単騎") && v > threatV) { threatV = v; threat = e; }
+  });
+
+  // 記事048: 直近3場所勝率60%以上は得点に+0.1〜3.0点、得点の現/前トレンドも微補正して実力順位を判定
+  const hotOf = {}, adj048 = {};
+  es.forEach((e) => {
+    let hot = 0, trend = 0;
+    if (e.recentWinRate != null && e.recentRaces >= 3 && e.recentWinRate >= 0.6)
+      hot = Math.min(3, 0.1 + (e.recentWinRate - 0.6) * 7);
+    if (e.scoreDiff) trend = Math.max(-1.5, Math.min(1.5, e.scoreDiff)) * 0.6;
+    hotOf[e.car] = hot; adj048[e.car] = hot + trend;
+  });
+  const ptRank = [...es].sort((a, b2) => (b2.score + (adj048[b2.car] || 0)) - (a.score + (adj048[a.car] || 0))).map((x) => x.car);
+  const timed = es.filter((e) => e.avgTime != null);
+  const fieldAvgTime = timed.length ? timed.reduce((a2, e) => a2 + e.avgTime, 0) / timed.length : null;
+
+  const scores = es.map((e) => {
+    const st = e.seiseki, starts = st.win1 + st.win2 + st.win3 + st.out;
+    const d = { n: e.k.nige, m: e.k.makuri, s: e.k.sashi, mk: e.k.mark };
+    const dSum = d.n + d.m + d.s + d.mk || 1;
+
+    const rk = ptRank.indexOf(e.car);
+    let ptScore = es.length > 1 ? (22 * (es.length - 1 - rk)) / (es.length - 1) : 11;
+    if (klass === "girls") ptScore *= 1.25; // 記事048: ガールズは実力(得点)寄与が約70%
+
+    const shrink = Math.min(1, starts / 10);
+    const rateS = (e.rate.win * 0.5 + e.rate.niren * 0.3 + e.rate.sanren * 0.2) / 100;
+    const outPen = starts > 0 ? st.out / starts : 0.5;
+    let form = (rateS * 26 + (1 - outPen) * 8) * shrink + 13 * (1 - shrink);
+    if (e.avgTime != null && fieldAvgTime != null && timed.length >= es.length / 2)
+      form += Math.max(-3, Math.min(3, (fieldAvgTime - e.avgTime) * 6)); // 直近平均上がりの相対評価
+
+    const wins = (Math.min(st.win1, 8) / 8) * 10;
+
+    const fit = ((d.n / dSum) * eff.n + (d.m / dSum) * eff.m + (d.s / dSum) * eff.s + (d.mk / dSum) * bMark) / 100 * 32
+      * (0.5 + 0.5 * Math.min(dSum, 8) / 8);
+
+    const r = role[e.car];
+    let pos = r === "先頭" ? hL1 * 0.22 : r === "番手" ? hL2 * 0.28 : r === "単騎" ? hTanki * 2.2 : 5.5;
+    // バック取得予測ラインへのボーナス(記事027の実測勝率と全選手平均勝率の差でスケール)
+    // 記事029: パターンによりバック取得の有利度が変わる(4-3:73.2%〜2-2-2-1:45.5%、全体58.9%)
+    const lpBkScale = lp ? 1 + (lp.back / 58.9 - 1) * LP_SOFT : 1;
+    const bkBonusFor = (line, factor) => {
+      if (!line || !line.includes(e.car)) return 0;
+      let v = 0;
+      if (r === "先頭") v = (bkT.head[bankIdx][0] - baseWin) * 0.16 * factor * lpBkScale + devN * 0.2;
+      if (r === "番手") v = (bkT.second[bankIdx][0] - baseWin) * 0.16 * factor * lpBkScale + devS * 0.15;
+      if (r === "3番手") v = 1.5 * factor;
+      // パターン別の先頭/番手の1着率差(S級7車実測、全体47.3/47.2)を微反映
+      if (lp && r === "先頭") v += (lp.win[0] - 47.3) * 0.05 * LP_SOFT;
+      if (lp && r === "番手") v += (lp.win[1] - 47.2) * 0.05 * LP_SOFT;
+      return v;
+    };
+    pos += bkBonusFor(leadLine, 1);
+    if (backBalanced && backProbs[1]) pos += bkBonusFor(backProbs[1].line, 0.6);
+    // 記事029: 3-3-1/3-2-1-1/4-3型は「3番手以降・単騎」の1着が12〜14%と紛れが出やすい
+    if (lp && (r === "3番手" || r === "単騎")) pos += (lp.win[2] - 5.5) * 0.15 * LP_SOFT;
+    if (threat && threat.car === e.car) pos += 2.5 + devM * 0.2;
+    // 記事014: 風速と逃げ率は負の相関(-0.42)。当日風3m以上で先頭を段階減点、風の強い場は影響増幅
+    if (!dome && (parsed.windSpeed || 0) >= 3 && r === "先頭") {
+      pos -= Math.min(4, parsed.windSpeed - 2) * 0.8 * (windRate >= 12 ? 1.5 : 1);
+    }
+    // 記事014: 雨天はA級(A12・チャレンジ)に限り先行やや有利(S級は逆に不利傾向のため加点なし)
+    if (!dome && isRain && (klass === "a12" || klass === "challenge") && r === "先頭") pos += 0.8;
+
+    if (klass === "girls") pos *= 0.75; // 記事048: ガールズは展開寄与が小さい
+    const sB = Math.min(e.S, 9) / 9 * 3;
+
+    let gap = 0;
+    if (rk <= 1 && e.rate.win < 10) gap -= 5;
+    if (rk <= 1 && st.win1 === 0) gap -= 3;
+
+    // 学習補正(learn.jsがweights.jsonに出力した実測ベースのボーナス)
+    let lw = 0;
+    if (learnW) {
+      const posKey = r === "先頭" ? "head" : r === "番手" ? "second" : r === "単騎" ? "tanki" : "third";
+      if (learnW.posBonus && learnW.posBonus[posKey]) lw += learnW.posBonus[posKey];
+      const ki = parseInt(e.ki) || 0;
+      const kb = ki >= 121 ? "期121+(若手)" : ki >= 111 ? "期111-120" : ki >= 100 ? "期100-110" : ki > 0 ? "期99以下(ベテラン)" : null;
+      if (kb && learnW.kiBonus && learnW.kiBonus[kb]) lw += learnW.kiBonus[kb];
+      const a = e.age || 0;
+      const ab = a > 0 && a <= 23 ? "23歳以下" : a <= 27 && a > 0 ? "24-27歳" : a <= 35 && a > 0 ? "28-35歳" : a > 35 ? "36歳以上" : null;
+      if (ab && learnW.ageBonus && learnW.ageBonus[ab]) lw += learnW.ageBonus[ab];
+    }
+    const total = ptScore + form + wins + fit + pos + sB + gap + lw;
+    return { car: e.car, name: e.name, total, br: { 得点: ptScore, 調子: form, 勝ち星: wins, 適性: fit, 位置: pos, S: sB, 乖離: gap, 学習: +lw.toFixed(1) }, role: r };
+  }).sort((a, b2) => b2.total - a.total);
+  const totalOf = {}; scores.forEach((s) => (totalOf[s.car] = s.total));
+
+  // ---- レース形態(二分戦/三分戦/四分戦)とライン人気順(スコア代用) ----
+  const multi = lines.filter((l) => l.length >= 2);
+  const formation = multi.length;
+  const rankedLines = [...multi].sort((x, y) => Math.max(...y.map((c) => totalOf[c])) - Math.max(...x.map((c) => totalOf[c])));
+  const topIsTanki = scores.length && role[scores[0].car] === "単騎";
+  const group = GROUP_A.has(trackName) ? "A" : "B";
+  const gi = group === "A" ? 0 : 2;
+  const simTable = SIM[Math.min(Math.max(formation, 2), 4)];
+  const sujiPlan = [];
+  if (klass !== "girls" && formation >= 2 && formation <= 4 && !topIsTanki && simTable) {
+    rankedLines.forEach((l, i) => {
+      const row = simTable[i + 1]; if (!row) return;
+      sujiPlan.push({
+        rank: i + 1, line: l, ticket: l[0] + "-" + l[1],
+        hit: row.o[gi], roi: row.o[gi + 1], hitAll: row.o[4], roiAll: row.o[5],
+        uraRoi: row.u[gi + 1],
+        grade: row.o[gi + 1] >= 90 ? "妙味" : row.o[gi + 1] >= 75 ? "標準" : "低",
+      });
+    });
+  }
+
+  // 印
+  const MARKS = ["◎", "○", "▲", "△", "×", "注"];
+  const marks = scores.slice(0, Math.min(6, scores.length)).map((s, i) => {
+    const e = byCar[s.car];
+    const reasons = [];
+    const brTop = Object.entries(s.br).filter(([k]) => k !== "乖離").sort((a, b3) => b3[1] - a[1]).slice(0, 2).map(([k]) => k);
+    if (brTop.includes("得点")) reasons.push("得点上位");
+    if (hotOf[s.car] >= 0.5) reasons.push("直近勝率" + (e.recentWinRate * 100).toFixed(0) + "%の急上昇(研究所048:得点+" + hotOf[s.car].toFixed(1) + "点相当)");
+    if (brTop.includes("調子") || brTop.includes("勝ち星")) reasons.push(`直近好調(1着${e.seiseki.win1}回/勝率${e.rate.win}%)`);
+    if (brTop.includes("適性")) reasons.push("脚質がこのバンク向き");
+    if (brTop.includes("位置")) reasons.push(s.role === "番手" ? "有利な番手" : s.role === "先頭" ? "主導権濃厚" : s.role === "単騎" ? "単騎自在" : "位置有利");
+    if (s.br.乖離 < 0) reasons.push("※得点の割に直近勝ち星なく過信禁物");
+    if (leadLine && leadLine[0] === s.car) reasons.push("先行力最上位");
+    if (klass === "challenge" && s.role === "先頭") reasons.push("チャレンジ戦は押し切り最多");
+    if (threat && threat.car === s.car) reasons.push("捲り一撃");
+    return { mark: MARKS[i], car: s.car, name: s.name, reason: [...new Set(reasons)].slice(0, 3).join("・"), role: s.role };
+  });
+
+  // 展開文
+  const lh = leadLine ? byCar[leadLine[0]] : null;
+  const l2 = leadLine && leadLine[1] ? byCar[leadLine[1]] : null;
+  const parts = [];
+  if (lh && backProbs.length) {
+    const pb = (backProbs[0].p * 100).toFixed(0);
+    parts.push(`バック取得予測は[${leadLine.join("")}]ライン(確率${pb}%・研究所回帰式)。先頭${lh.car}番${lh.name}${l2 ? `、番手${l2.car}番${l2.name}は${eff.s >= 40 ? "このクラス実効差し比率" + eff.s.toFixed(0) + "%の展開では絶好の位置" : "1着逃げ時の2着マーク率" + cond2.n[3].toFixed(0) + "%と残り目十分"}` : ""}。`);
+    if (backBalanced) parts.push(`ただし[${backProbs[1].line.join("")}]ラインと確率が均衡(差5%未満)しており、主導権争いで荒れる可能性あり。`);
+  } else if (lh) {
+    parts.push(`主導権は${lh.car}番${lh.name}のラインが最有力。`);
+  }
+  if (threat) parts.push(`${threat.car}番${threat.name}(${role[threat.car]})が中団から捲る動きに警戒。`);
+  parts.push(`本命は総合力最上位の${marks[0].car}番${marks[0].name}。`);
+  if (klass === "challenge") parts.push(`チャレンジ戦は「先頭→番手」決着が31.8%と全クラス最多、番手が差し返す「番手→先頭」は13.0%しかなく、素直に先行力を評価したい。`);
+  if (klass === "s") parts.push(`S級戦は番手が差す「番手→先頭」も16.8%あり、番手勢の頭も一考。`);
+  {
+    const top = scores[0], topE = byCar[top.car];
+    if (top.role === "先頭" && topE.kyaku !== "追") parts.push(`本命が逃げ切る場合、2着はマーク(番手)が${cond2.n[3].toFixed(0)}%と圧倒的(研究所014)。`);
+    else if ((topE.k.sashi >= topE.k.nige && topE.k.sashi >= topE.k.makuri) || top.role === "番手") parts.push(`1着が差しの場合の2着は逃げ(先頭残り)${cond2.s[0].toFixed(0)}%が最多で、差した相手のラインが残りやすい(研究所014)。`);
+  }
+  if (!dome && isRain && klass !== "s") parts.push(`雨天のA級戦は先行やや有利の傾向(研究所014)。`);
+  if (!dome && windRate >= 12) parts.push(`当場は風レース率${windRate}%${(parsed.windSpeed || 0) >= 3 ? "、当日も風" + parsed.windSpeed + "m/sで先行勢はやや割引" : "。当日の風は" + (parsed.windSpeed != null ? parsed.windSpeed + "m/sと穏やか" : "要確認")}。`);
+  const tenkai = parts.join("");
+
+  // ---- 買い目(方針: 隊列の先頭役=ライン先頭+単騎 を評価で比較。単騎が抜きん出れば単騎頭、それ以外は先頭同士で強い方のラインを本線) ----
+  const [a1, a2, a3, a4, a5x] = marks.map((m) => m.car);
+  const rankOf = {}; scores.forEach((sc, i) => (rankOf[sc.car] = i));
+  const isMulti = (l) => l && l.length >= 2;
+  // 各ラインを「先頭選手の総合評価」で順位付け
+  const headsInfo = lines.filter(isMulti)
+    .map((l) => ({ line: l, head: l[0], t: totalOf[l[0]] || 0 }))
+    .sort((x, y) => y.t - x.t);
+  const tankiList = klass === "girls" ? [] : lines.filter((l) => l.length === 1).map((l) => l[0]);
+  const bestHeadT = headsInfo.length ? headsInfo[0].t : -Infinity;
+  // 単騎が「ライン先頭の最上位」より一定以上強ければ、その単騎を頭に据える
+  const STRONG_MARGIN = 5;
+  let strongTanki = null;
+  const tankiSorted = [...tankiList].sort((x, y) => (totalOf[y] || 0) - (totalOf[x] || 0));
+  if (tankiSorted.length && (totalOf[tankiSorted[0]] || 0) - bestHeadT >= STRONG_MARGIN) strongTanki = tankiSorted[0];
+
+  let mainLine = null, planNote = "";
+  if (headsInfo.length) {
+    const topH = headsInfo[0], secH = headsInfo[1];
+    // 先頭同士の総合評価が拮抗 → バック取得予測1位ラインを主導権本線に
+    if (secH && (topH.t - secH.t) < 4 && leadLine && isMulti(leadLine) && leadLine[0] !== topH.head) {
+      mainLine = leadLine;
+      const lpp = backProbs[0] ? (backProbs[0].p * 100).toFixed(0) : "";
+      planNote = `先頭同士が拮抗(${topH.head}番 vs ${secH.head}番)のため、主導権を取りそうな[${leadLine.join("")}]ライン(バック取得予測${lpp}%)を本線に。`;
+    } else {
+      mainLine = topH.line;
+      planNote = `先頭同士を比べて評価上位の${topH.head}番がいる[${topH.line.join("")}]ラインを本線に。`;
+    }
+  }
+  // 単騎の組込(頭にはしないが3着圏内で押さえる単騎)
+  const inTankis = tankiList.filter((c) => c !== strongTanki && (rankOf[c] <= 4 || backBalanced));
+  if (strongTanki != null) planNote = `単騎${strongTanki}番の評価が各ライン先頭より抜けているため単騎を1着(アタマ)に据える。相手は` + planNote.replace(/^先頭同士を比べて評価上位の/, "先頭最上位の");
+  if (inTankis.length) planNote += ` 単騎${inTankis.join(",")}番は3着以内の可能性ありと見て買い目に組込。`;
+
+  // フォーメーション構築(買い目: 1着=評価1位固定 / 2・3着=評価2〜4位 の3連単6点、2車単なし)
+  const uniq = (arr) => [...new Set(arr.filter((v) => v != null))];
+  const ranked = scores.map((sc) => sc.car); // 総合評価の高い順
+  const first = [ranked[0]];
+  const second = uniq([ranked[1], ranked[2], ranked[3]]);
+  const third = uniq([ranked[1], ranked[2], ranked[3]]);
+
+  const nishatan = []; // 2車単は使用しない
+  const sanrentan = [];
+  const addS = (x, y, z) => { if (x == null || y == null || z == null || x === y || y === z || x === z) return; const t = x + "-" + y + "-" + z; if (!sanrentan.includes(t)) sanrentan.push(t); };
+  // 1着=評価1位、2着3着=評価2〜4位の順列(3P2 = 6点)
+  first.forEach((f) => second.forEach((s2c) => third.forEach((t3) => addS(f, s2c, t3))));
+
+  // 買い目方針(表示用)を新方式に上書き
+  planNote = "買い目は評価1位の" + ranked[0] + "番を1着固定、2・3着に評価2〜4位(" + [ranked[1], ranked[2], ranked[3]].filter((v) => v != null).join("・") + "番)を配した3連単" + sanrentan.length + "点。";
+
+  if (lp) {
+    if (lp.kind === "2分") parts.push(`隊形は${patStr}型の2分戦。先行有利・捲り減の形(研究所029)。`);
+    else parts.push(`隊形は${patStr}型の3分戦。捲りが決まりやすい形(研究所029)。`);
+  }
+
+  const gap12 = scores[1] ? scores[0].total - scores[1].total : 99;
+  const confidence = gap12 >= 6 && p3avg < 14000 ? "高" : gap12 < 2.5 || p3avg > 15000 ? "低" : "中";
+  const fLabel = klass === "girls" ? "ガールズ(ライン無し)" : formation >= 2 && formation <= 4 ? ["", "", "二分戦", "三分戦", "四分戦"][formation] : formation < 2 ? "先行一車型" : formation + "分戦";
+  const bankFit = `${trackName || parsed.place}は差し${bSashi}%・スジ率${suji}%、クラス補正後の実効決まり手は逃${eff.n.toFixed(0)}/捲${eff.m.toFixed(0)}/差${eff.s.toFixed(0)}%(研究所014)${dome ? "・屋内ドーム" : ""}、スジ回収率グループ${group}(${group === "A" ? "スジ有利" : "スジ薄め・スジ違い警戒"})。${bSashi >= 48 ? "番手勢を厚めに評価" : bNige >= 28 ? "先行勢を厚めに評価" : "脚質バランス型として評価"}した。`;
+  const kikenCars = es.filter((e) => e.kiken).map((e) => e.car);
+  let caution = planNote + (kikenCars.length ? kikenCars.join(",") + "番は直近に棄権・落車・失格あり。" : "") + (topIsTanki ? "本命が単騎のためスジ実測データの適用外。荒れやすい形。" : "") + (confidence === "低" ? "上位が拮抗。点数は絞りすぎない方が良い。" : `裏(番手→先頭)は実測回収率60%台のため原則非推奨。${threat ? threat.car + "番の捲り不発ならライン決着濃厚。" : ""}`);
+  if (lp) {
+    if (lp.suji <= 40) caution += `${patStr}型はスジ率${lp.suji}%と崩れやすく(S級7車実測)、スジ違いも視野に。`;
+    else if (lp.suji >= 59) caution += `${patStr}型はスジ率${lp.suji}%と堅い形(S級7車実測)。`;
+    if (lp.win[2] >= 10) caution += `この型は3番手以降・単騎の1着が${lp.win[2]}%あり一発に注意。`;
+  }
+  const cpKey = klass === "challenge" ? "ch7" : klass === "s" ? (es.length >= 8 ? "s9" : "s7") : "a12_7";
+  const cp = CLASS_PAYOUT[cpKey];
+  const oddsGuide = cp ? `このクラスの配当中央値は2車単${cp[0].toLocaleString()}円/3連単${cp[1].toLocaleString()}円(研究所029)。2車単は約32倍以下なら回収率75%前後が実測値、316倍超の大穴は極端に非効率。` : "";
+
+  return { scores, marks, tenkai, bets: { nishatan, sanrentan }, bankFit, caution, confidence, leadLine, threat: threat ? threat.car : null, klass, formation, fLabel, group, sujiPlan, topIsTanki,
+    effK: eff, linePattern: patStr, lpInfo: lp || null, oddsGuide, backProbs, backBalanced, bkStats: { key: bkKey(klass, nCars), head: bkT.head[bankIdx], second: bkT.second[bankIdx], baseWin },
+    mainLine, planNote, strongTanki, inTankis, betFirst: first, betSecond: second, betThird: third };
+}
+
+// ---------- スジ決着期待度(1・2着がラインで決まりそうか) ----------
+// 場のスジ率を基準に、隊形・クラス・主導権の明確さ・単騎数で加減点(研究所020/027/029)
+function sujiExpect(parsed, r, bankSuji) {
+  if (r.klass === "girls") return null; // ガールズはライン無し=対象外
+  const reasons = [];
+  let s = bankSuji != null ? bankSuji : 53;
+  reasons.push("場のスジ率" + s + "%");
+  if (r.lpInfo) {
+    const d = (r.lpInfo.suji - 54.1) * 0.8;
+    s += d;
+    reasons.push(r.linePattern + "型(実測スジ率" + r.lpInfo.suji + "%)" + (d >= 0 ? "+" : "") + d.toFixed(1));
+  } else if (r.formation === 2) { s += 2; reasons.push("二分戦+2"); }
+  else if (r.formation >= 4) { s -= 2; reasons.push("四分戦以上-2"); }
+  if (r.klass === "challenge") { s += 3; reasons.push("チャレンジ戦(先→二が全クラス最多)+3"); }
+  if (r.klass === "s") { s -= 1; reasons.push("S級-1"); }
+  const pb = r.backProbs && r.backProbs[0] ? r.backProbs[0].p : 0;
+  if (r.backBalanced) { s -= 4; reasons.push("主導権拮抗-4"); }
+  else if (pb >= 0.35) { s += 3; reasons.push("主導権明確(Pbk" + (pb * 100).toFixed(0) + "%)+3"); }
+  const tankis = (parsed.lines || []).filter((l) => l.length === 1).length;
+  if (tankis) { s -= tankis * 1.5; reasons.push("単騎" + tankis + "名-" + (tankis * 1.5).toFixed(1)); }
+  if (r.topIsTanki) { s -= 4; reasons.push("本命が単騎-4"); }
+  s = Math.max(20, Math.min(78, s));
+  const verdict = s >= 60 ? "◎スジ堅い" : s >= 54 ? "○スジ寄り" : s >= 48 ? "△互角" : "×荒れ含み";
+  return { score: +s.toFixed(1), verdict, reasons };
+}
+
+// ---------- UI ----------
+// ===== 学習した勝ちパターン(sim.json)関連 =====
+let WINNERS = []; // 回収率100%超のパターン(GitHub Actionsのバックテストが算出)
+let LEARN_W = null; // 学習補正(learn.jsが生成したweights.json)
+(async () => { try { const r = await fetch("./weights.json", { cache: "no-store" }); if (r.ok) LEARN_W = await r.json(); } catch (e) {} })();
+// 買い目タイプID → 3連単の目リストを生成(simulate.jsのPATTERNSと一致させること)
+const perms3App = (fs, ss, ts) => { const o = new Set(); for (const a of fs) for (const b of ss) for (const c of ts) { if (a === b || b === c || a === c) continue; o.add(a + "-" + b + "-" + c); } return [...o]; };
+const lineOfApp = (lines, c) => (lines || []).find((l) => l.includes(c)) || null;
+const sujiMatesApp = (lines, c) => {
+  const l = lineOfApp(lines, c);
+  if (!l || l.length < 2) return [];
+  const i = l.indexOf(c); const out = [];
+  if (i > 0) out.push(l[i - 1]);
+  if (i < l.length - 1) out.push(l[i + 1]);
+  return out;
+};
+const BET_BUILDERS = {
+  p_1_234: (r) => perms3App([r[0]], [r[1], r[2], r[3]], [r[1], r[2], r[3]]),
+  // ライン考慮(第2引数にlinesを受け取る)
+  p_suji_main: (r, lines) => { const m = sujiMatesApp(lines, r[0]); return m.length ? perms3App([r[0]], m, [r[1], r[2], r[3]]) : []; },
+  p_suji_plus: (r, lines) => { const m = sujiMatesApp(lines, r[0]); const s = [...new Set([...m, r[1]])]; return perms3App([r[0]], s, [r[1], r[2], r[3]]); },
+  p_line12: (r, lines) => { const l = lineOfApp(lines, r[0]); if (!l || l.length < 2) return []; const o = new Set(); for (const a of l) for (const b of l) { if (a === b) continue; for (const c of [r[1], r[2], r[3]]) if (c !== a && c !== b) o.add(a + "-" + b + "-" + c); } return [...o]; },
+  p_suji_wide: (r, lines) => { const m = sujiMatesApp(lines, r[0]); return m.length ? perms3App([r[0]], m, [r[1], r[2], r[3], r[4]]) : []; },
+  p_suji_rev: (r, lines) => { const m = sujiMatesApp(lines, r[0]); return m.length ? perms3App(m, [r[0]], [r[1], r[2], r[3]]) : []; },
+  p_suji_both: (r, lines) => { const m = sujiMatesApp(lines, r[0]); if (!m.length) return []; return [...new Set([...perms3App([r[0]], m, [r[1], r[2], r[3]]), ...perms3App(m, [r[0]], [r[1], r[2], r[3]])])]; },
+  p_1_2345: (r) => perms3App([r[0]], [r[1], r[2], r[3], r[4]], [r[1], r[2], r[3], r[4]]),
+  p_1_234_2345: (r) => perms3App([r[0]], [r[1], r[2], r[3]], [r[1], r[2], r[3], r[4]]),
+  p_12_1234: (r) => perms3App([r[0], r[1]], [r[0], r[1], r[2], r[3]], [r[0], r[1], r[2], r[3]]),
+  p_box123: (r) => perms3App([r[0], r[1], r[2]], [r[0], r[1], r[2]], [r[0], r[1], r[2]]),
+  p_1_23: (r) => perms3App([r[0]], [r[1], r[2]], [r[1], r[2]]),
+  p_1_23_234: (r) => perms3App([r[0]], [r[1], r[2]], [r[1], r[2], r[3]]),
+  p_12_123_12345: (r) => perms3App([r[0], r[1]], [r[0], r[1], r[2]], [r[0], r[1], r[2], r[3], r[4]]),
+  p_box1234: (r) => perms3App([r[0], r[1], r[2], r[3]], [r[0], r[1], r[2], r[3]], [r[0], r[1], r[2], r[3]]),
+};
+// レースが勝ちパターンの条件に合致するか判定。合致した中で最も回収率が高いものを返す
+function matchWinner(ctx) {
+  // ctx: { score, gap, klass, verdict }
+  const ok = (cond) => {
+    if (cond.scoreMin != null && !(ctx.score >= cond.scoreMin)) return false;
+    if (cond.gapMin != null && !(ctx.gap != null && ctx.gap >= cond.gapMin)) return false;
+    if (cond.klass && ctx.klass !== cond.klass) return false;
+    if (cond.notKlass && ctx.klass === cond.notKlass) return false;
+    if (cond.verdict && ctx.verdict !== cond.verdict) return false;
+    if (cond.verdictIn && !cond.verdictIn.includes(ctx.verdict)) return false;
+    return true;
+  };
+  const hits = WINNERS.filter((w) => BET_BUILDERS[w.patternId] && ok(w.cond));
+  return hits.length ? hits[0] : null; // WINNERSは回収率降順なので先頭が最良
+}
+async function loadWinners() {
+  if (WINNERS.length) return WINNERS;
+  try {
+    const res = await fetch("./sim.json", { cache: "no-store" });
+    if (res.ok) { const d = await res.json(); WINNERS = (d.winners || []).sort((a, b) => b.roi - a.roi); }
+  } catch (e) { /* ローカル利用時などは勝ちパターン無しで続行 */ }
+  return WINNERS;
+}
+loadWinners();
+
+const $ = (id) => document.getElementById(id);
+let lastParsed = null, lastTrack = "";
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const MC = { "◎": "#F2C230", "○": "#E8EDEB", "▲": "#E4572E", "△": "#58A6E8", "×": "#5E7573", "注": "#A78BDB" };
+
+TRACK_NAMES.forEach((n) => { const o = document.createElement("option"); o.value = n; o.textContent = n; $("track").appendChild(o); });
+
+function detect(v) {
+  let best = "", idx = Infinity;
+  for (const n of TRACK_NAMES) { const i = v.indexOf(n); if (i !== -1 && i < idx) { idx = i; best = n; } }
+  return best;
+}
+$("src").addEventListener("input", () => { const d = detect($("src").value); if (d) $("track").value = d; });
+
+// クリップボードから貼り付け
+$("paste").addEventListener("click", async () => {
+  try {
+    const txt = await navigator.clipboard.readText();
+    if (!txt) { flash($("paste"), "空です", false); return; }
+    $("src").value = txt;
+    const d = detect(txt); if (d) $("track").value = d;
+    flash($("paste"), "✓ 貼付", true);
+    $("src").dispatchEvent(new Event("input"));
+  } catch (e) {
+    // 権限が無い/未対応環境では手動貼り付けを促す
+    $("src").focus();
+    flash($("paste"), "手動で貼付を", false);
+  }
+});
+
+// クリア
+$("clear").addEventListener("click", () => {
+  $("src").value = "";
+  $("track").value = "";
+  ["bankCard","parseCard","scoreCard","tenkaiCard","markCard","betCard","sujiCard","backCard"].forEach((i) => { const el = $(i); if (el) el.classList.add("hidden"); });
+  $("err").classList.add("hidden");
+  lastParsed = null;
+  $("src").focus();
+});
+
+// ---- スジレース検索 ----
+let raceList = [];
+function esc2(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+$("addRace").addEventListener("click", () => {
+  $("searchErr").classList.add("hidden");
+  const text = $("src").value;
+  if (!text.trim()) { $("searchErr").textContent = "出走表を貼ってから追加してください"; $("searchErr").classList.remove("hidden"); return; }
+  try {
+    const p = parseCard(text, TRACK_NAMES);
+    const tn = T[$("track").value] ? $("track").value : p.place;
+    const bank = T[tn];
+    const r = predict(p, bank, tn, LEARN_W);
+    const sx = sujiExpect(p, r, bank ? bank[10] : null);
+    const gap = r.scores && r.scores[1] ? +(r.scores[0].total - r.scores[1].total).toFixed(1) : null;
+    const key = (p.place || "?") + (p.raceNo || "?");
+    const item = { key, label: (p.place || "?") + " " + (p.raceNo || ""), sub: (r.fLabel || "") + " " + (r.linePattern ? r.linePattern + "型" : ""), klass: r.klass, sx, gap, shoubu: isShoubu(sx, gap, r.klass), raw: text };
+    const i = raceList.findIndex((x) => x.key === key);
+    if (i >= 0) raceList[i] = item; else raceList.push(item);
+    renderSearch();
+    flash($("addRace"), "✓ 追加", true);
+    $("src").value = ""; $("track").value = "";
+  } catch (e) {
+    $("searchErr").textContent = e.message; $("searchErr").classList.remove("hidden");
+  }
+});
+$("clearList").addEventListener("click", () => { raceList = []; renderSearch(); });
+// 勝負レース判定: バックテストで回収率100%超だった勝ちパターンのいずれかに合致するか
+function isShoubu(sx, gap, klass) {
+  if (!WINNERS.length) return !!(sx && sx.score >= 58 && gap != null && gap >= 5); // sim.json未取得時のフォールバック
+  return !!matchWinner({ score: sx ? sx.score : 0, gap, klass, verdict: sx ? sx.verdict : null });
+}
+function renderSearch() {
+  const body = $("searchBody");
+  if (!raceList.length) { body.innerHTML = '<tr><td colspan="5" class="l" style="color:#5E7573">まだレースがありません</td></tr>'; return; }
+  // 勝負レースを最優先、その中はスコア順。以降もスコア順
+  const sorted = [...raceList].sort((a, b) => {
+    if (a.shoubu !== b.shoubu) return a.shoubu ? -1 : 1;
+    return (b.sx ? b.sx.score : -1) - (a.sx ? a.sx.score : -1);
+  });
+  const shoubuCount = raceList.filter((x) => x.shoubu).length;
+  $("shoubuHint").textContent = shoubuCount ? "🔥 勝負レース " + shoubuCount + "件(学習した回収率100%超の条件に合致)" : "本日は勝負レース(学習回収率100%超の条件)に合致するレースはありません";
+  $("shoubuHint").style.color = shoubuCount ? "#F2C230" : "#5E7573";
+  body.innerHTML = sorted.map((x) => {
+    const col = !x.sx ? "#5E7573" : x.sx.score >= 60 ? "#5FC08B" : x.sx.score >= 54 ? "#F2C230" : x.sx.score >= 48 ? "#EAF2EF" : "#E4726B";
+    const bar = x.sx ? '<div style="height:6px;background:#26363B;border-radius:3px;overflow:hidden;min-width:70px"><div style="height:100%;width:' + Math.min(100, (x.sx.score - 20) / 58 * 100) + "%;background:" + col + '"></div></div><span style="font-size:11px;color:' + col + ';font-variant-numeric:tabular-nums">' + x.sx.score + "%</span>" : '<span style="font-size:11px;color:#5E7573">—</span>';
+    const badge = x.shoubu ? '<span style="display:inline-block;background:#F2C230;color:#10181A;font-size:10px;font-weight:900;padding:1px 6px;border-radius:4px;margin-right:4px">🔥勝負</span>' : "";
+    const rowBg = x.shoubu ? ' style="background:rgba(242,194,48,.08)"' : "";
+    const gapStr = x.gap != null ? "点差" + x.gap : "";
+    return '<tr' + rowBg + ' title="' + esc2((x.sx ? x.sx.reasons.join(" / ") : "ガールズはライン無しのため対象外") + (gapStr ? " / " + gapStr : "")) + '">' +
+      '<td class="l" style="font-weight:700;white-space:nowrap">' + badge + esc2(x.label) + "</td>" +
+      '<td class="l" style="color:#8CA3A0;white-space:nowrap;font-size:10px">' + esc2(x.sub) + "</td>" +
+      "<td>" + bar + "</td>" +
+      '<td class="l" style="color:' + col + ';white-space:nowrap">' + (x.sx ? x.sx.verdict : "対象外") + "</td>" +
+      '<td><button class="io-btn" style="padding:4px 10px;font-size:11px" onclick="loadRace(\'' + esc2(x.key).replace(/'/g, "\\'") + '\')">読込</button></td></tr>';
+  }).join("");
+}
+window.loadRace = (key) => {
+  const x = raceList.find((y) => y.key === key);
+  if (!x) return;
+  $("src").value = x.raw;
+  const d = detect(x.raw); if (d) $("track").value = d;
+  $("run").click();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
+
+// 本日の全レース(GitHub ActionsがコミットしたJSON)を検索リストへ流し込む
+$("loadToday").addEventListener("click", async () => {
+  $("searchErr").classList.add("hidden");
+  try {
+    const res = await fetch("./races.json", { cache: "no-store" });
+    if (!res.ok) throw new Error("races.json が見つかりません(" + res.status + ")");
+    const data = await res.json();
+    if (!data.races || !data.races.length) throw new Error("レースデータが空です");
+    data.races.forEach((x) => {
+      const sx = x.score != null ? { score: x.score, verdict: x.verdict, reasons: x.reasons || [] } : null;
+      const gap = x.gap != null ? x.gap : null;
+      const item = { key: x.key, label: (x.place || "?") + " " + (x.raceNo || ""),
+        sub: (x.fLabel || "") + " " + (x.pattern ? x.pattern + "型" : ""), klass: x.klass,
+        sx, gap, shoubu: isShoubu(sx, gap, x.klass),
+        raw: x.raw || "" };
+      const i = raceList.findIndex((y) => y.key === item.key);
+      if (i >= 0) raceList[i] = item; else raceList.push(item);
+    });
+    renderSearch();
+    const d = new Date(data.updatedAt);
+    $("todayMeta").textContent = "取得: " + data.count + "レース / 更新 " + d.toLocaleString("ja-JP");
+    $("todayMeta").classList.remove("hidden");
+    flash($("loadToday"), "✓ " + data.count + "レース読込", true);
+  } catch (e) {
+    $("searchErr").textContent = "全レース読込エラー: " + e.message + " — この機能はGitHub Pagesで公開した場合に使えます(README参照)。";
+    $("searchErr").classList.remove("hidden");
+  }
+});
+
+// 予想成績(stats.json)の読み込み
+$("loadStats").addEventListener("click", async () => {
+  $("statsErr").classList.add("hidden");
+  try {
+    const res = await fetch("./stats.json", { cache: "no-store" });
+    if (!res.ok) throw new Error("stats.json がまだありません(結果収集の初回実行後に生成されます)");
+    const s = await res.json();
+    $("statsChips").innerHTML =
+      '<span class="chip">集計 <b>' + s.total + '</b>レース</span>' +
+      '<span class="chip">◎1着率 <b>' + s.honmeiWin + '%</b> / 連対率 <b>' + s.honmeiRen + '%</b></span>' +
+      '<span class="chip">2車単 的中' + s.nishatan.hit + '% / 回収率 <b style="color:' + (s.nishatan.roi >= 100 ? '#5FC08B' : s.nishatan.roi >= 75 ? '#F2C230' : '#E4726B') + '">' + s.nishatan.roi + '%</b></span>' +
+      '<span class="chip">3連単 的中' + s.sanrentan.hit + '% / 回収率 <b style="color:' + (s.sanrentan.roi >= 100 ? '#5FC08B' : s.sanrentan.roi >= 75 ? '#F2C230' : '#E4726B') + '">' + s.sanrentan.roi + '%</b></span>';
+    $("statsBuckets").innerHTML = Object.entries(s.buckets).map(([k, v]) =>
+      '<tr><td class="l">' + k + '</td><td>' + v.n + '</td><td style="font-weight:700">' + (v.n ? v.sujiRate + '%' : '—') + '</td></tr>').join("");
+    $("statsNote").textContent = "更新 " + new Date(s.updatedAt).toLocaleString("ja-JP") + " / 全体スジ決着率 " + s.sujiOverall + "%。判定バケット別の実測スジ率が◎>○>△>×の順に並んでいれば、期待度モデルは機能しています。回収率は各レースの推奨買い目を100円ずつ買った場合のシミュレーションです。";
+    $("statsBody").classList.remove("hidden");
+  } catch (e) {
+    $("statsErr").textContent = e.message; $("statsErr").classList.remove("hidden");
+  }
+});
+
+function flash(btn, msg, ok) {
+  const orig = btn.textContent;
+  btn.textContent = msg;
+  if (ok) btn.classList.add("done");
+  setTimeout(() => { btn.textContent = orig; btn.classList.remove("done"); }, 1200);
+}
+
+
+// 並び文字列 ⇔ ライン配列
+const linesToStr = (lines) => lines.map((l) => l.join("")).join(" ");
+function strToLines(str, cars) {
+  const tokens = String(str).trim().split(/[\s/・,、\-]+/).filter(Boolean);
+  if (!tokens.length) throw new Error("並びが空です");
+  const lines = [], seen = new Set();
+  for (const t of tokens) {
+    if (!/^[1-9]+$/.test(t)) throw new Error("「" + t + "」は数字のみで入力してください");
+    const line = [];
+    for (const ch of t) {
+      const c = parseInt(ch);
+      if (!cars.includes(c)) throw new Error(c + "番は出走していません");
+      if (seen.has(c)) throw new Error(c + "番が2回使われています");
+      seen.add(c); line.push(c);
+    }
+    lines.push(line);
+  }
+  const missing = cars.filter((c) => !seen.has(c));
+  if (missing.length) throw new Error(missing.join(",") + "番が並びに含まれていません");
+  return lines;
+}
+
+$("run").addEventListener("click", () => {
+  $("err").classList.add("hidden");
+  ["bankCard","parseCard","scoreCard","tenkaiCard","markCard","betCard","sujiCard","backCard"].forEach((i) => $(i).classList.add("hidden"));
+  let p, tName;
+  try {
+    p = parseCard($("src").value, TRACK_NAMES);
+    tName = T[$("track").value] ? $("track").value : p.place;
+    if (T[tName]) $("track").value = tName;
+  } catch (e) {
+    $("err").textContent = e.message; $("err").classList.remove("hidden"); return;
+  }
+  lastParsed = p; lastTrack = tName;
+  $("narabiInput").value = linesToStr(p.lines);
+  render(p, tName);
+});
+
+$("reRun").addEventListener("click", () => {
+  if (!lastParsed) return;
+  $("narabiErr").classList.add("hidden");
+  try {
+    const cars = lastParsed.entries.map((e) => e.car);
+    const lines = strToLines($("narabiInput").value, cars);
+    render({ ...lastParsed, lines }, lastTrack);
+  } catch (e) {
+    $("narabiErr").textContent = e.message; $("narabiErr").classList.remove("hidden");
+  }
+});
+$("narabiInput").addEventListener("keydown", (e) => { if (e.key === "Enter") $("reRun").click(); });
+
+function render(p, tName) {
+  const r = predict(p, T[tName], tName || p.place, LEARN_W);
+  const b = T[tName];
+  if (b) {
+    $("bankTitle").textContent = "② " + tName + "のバンク特性(採点に反映)";
+    $("bankChips").innerHTML =
+      '<span class="chip">' + b[0] + "m / 直線" + b[1] + "m / カント" + b[2] + "°" + (b[3] ? " / ドーム" : "") + "</span>" +
+      '<span class="chip">逃<b style="color:#E4572E">' + b[6] + "</b> 捲<b style=\"color:#F2C230\">" + b[7] + "</b> 差<b style=\"color:#58A6E8\">" + b[8] + "</b>%</span>" +
+      '<span class="chip">スジ率' + b[10] + "% / 力率" + b[11] + "%</span>" +
+      (b[3] ? "" : '<span class="chip">雨' + b[4] + "% / 風" + b[5] + "%</span>");
+    $("bankNote").textContent = b[17];
+    $("bankCard").classList.remove("hidden");
+  }
+  $("parseTitle").textContent = "③ 解析結果 — " + p.place + " " + p.raceNo + " " + (p.grade || "");
+  $("parseMeta").textContent = [p.date, p.weather || "天候情報なし"].filter(Boolean).join(" / ");
+  const lpChip = r.lpInfo
+    ? '<p class="note" style="margin-top:10px">隊形 <b style="color:#F2C230">' + r.linePattern + "型・" + r.lpInfo.kind + "戦</b>(" + (r.lpInfo.kind === "2分" ? "先行有利" : "捲り有利") + "・S級7車での出現率" + r.lpInfo.freq + "%・スジ率" + r.lpInfo.suji + "%/研究所029)</p>"
+    : '<p class="note" style="margin-top:10px">隊形 ' + r.linePattern + "型</p>";
+  $("lineBox").innerHTML = p.lines.map((l) => {
+    const isLead = r.leadLine && l[0] === r.leadLine[0] && l.length > 1;
+    return '<div class="linebox' + (isLead ? " lead" : "") + '">' +
+      l.map((c) => '<span class="carno' + (l.length === 1 ? " tanki" : "") + '">' + c + "</span>").join("") +
+      (l.length === 1 ? '<span class="tag">単騎</span>' : "") + (isLead ? '<span class="tag lead">主導権</span>' : "") + "</div>";
+  }).join("") ;
+  $("lineBox").innerHTML += lpChip;
+  $("parseCard").classList.remove("hidden");
+
+  $("scoreBody").innerHTML = r.scores.map((s, i) => {
+    const ten = s.br.位置 + s.br.S + s.br.乖離;
+    return '<tr class="' + (i === 0 ? "top" : "") + '"><td style="font-weight:900;color:#F2C230">' + s.car + '</td><td class="l" style="font-weight:700;white-space:nowrap">' + esc(s.name) + '</td><td style="color:#8CA3A0">' + s.role + "</td><td style=\"font-weight:900\">" + s.total.toFixed(1) + "</td><td>" + s.br.得点.toFixed(0) + "</td><td>" + s.br.調子.toFixed(0) + "</td><td>" + s.br.勝ち星.toFixed(0) + "</td><td>" + s.br.適性.toFixed(0) + '</td><td style="color:' + (s.br.乖離 < 0 ? "#E4726B" : "#EAF2EF") + '">' + ten.toFixed(0) + "</td></tr>";
+  }).join("");
+  $("scoreCard").classList.remove("hidden");
+
+  $("tenkai").textContent = r.tenkai;
+  $("bankFit").textContent = "バンク適性:" + r.bankFit;
+  $("tenkaiCard").classList.remove("hidden");
+
+  $("markBox").innerHTML = r.marks.map((m, i) =>
+    '<div class="mark-row' + (i === 0 ? " top" : "") + '"><span class="mark" style="color:' + (MC[m.mark] || "#EAF2EF") + '">' + m.mark + '</span><div><div class="mname"><span class="no">' + m.car + "</span> " + esc(m.name) + ' <span class="role">(' + m.role + ')</span></div><div class="mreason">' + esc(m.reason) + "</div></div></div>"
+  ).join("");
+  $("markCard").classList.remove("hidden");
+
+  const planParts = [];
+  if (r.planNote) planParts.push(r.planNote);
+  if (r.strongTanki != null) planParts.push(r.strongTanki + "番(単騎)は力上位につき1着固定。");
+  else if (r.inTankis && r.inTankis.length) planParts.push("単騎" + r.inTankis.join(",") + "番は2・3着づけで押さえ。");
+  $("betPlan").textContent = planParts.join(" ") || "評価順に本命サイドから構成。";
+
+  // 学習した勝ちパターン(回収率100%超)との照合 → 該当時は回収率と推奨買い目を強調表示
+  const sx0 = sujiExpect(p, r, b ? b[10] : null);
+  const gap0 = r.scores && r.scores[1] ? +(r.scores[0].total - r.scores[1].total).toFixed(1) : null;
+  const ranked0 = r.scores.map((sc) => sc.car);
+  const win = WINNERS.length ? matchWinner({ score: sx0 ? sx0.score : 0, gap: gap0, klass: r.klass, verdict: sx0 ? sx0.verdict : null }) : null;
+  const wbox = $("winnerBox");
+  let winTickets = null;
+  if (win) {
+    winTickets = BET_BUILDERS[win.patternId](ranked0, p.lines) || [];
+    // スジ系パターンで評価1位が単騎の場合は買い目が空 → 通常の評価順6点にフォールバック
+    if (!winTickets.length) winTickets = r.bets.sanrentan || [];
+  }
+  if (win && winTickets.length) {
+    // 損益分岐オッズ: N点(N×100円)を的中率hitで買うとき、的中時オッズO倍が O > N/hit なら期待値プラス
+    const hit = win.hitRate / 100;
+    const beOdds = hit > 0 ? (winTickets.length / hit).toFixed(1) : "—";
+    wbox.style.display = "";
+    wbox.innerHTML =
+      '<div style="font-weight:900;color:#5FC08B;font-size:14px;margin-bottom:6px">🔥 勝負レース — 学習回収率 ' + win.roi + '%</div>' +
+      '<div style="font-size:11px;color:#8CA3A0;margin-bottom:8px">過去' + win.races + 'レースのバックテストで、この条件(' + esc(win.filterName) + ')かつ買い目「' + esc(win.patternName) + '」が回収率' + win.roi + '%(的中' + win.hitRate + '%)。</div>' +
+      '<div><b style="color:#F2C230">推奨買い目(' + winTickets.length + '点)</b></div>' +
+      '<div style="margin-top:4px;margin-bottom:8px">' + winTickets.map((t) => '<span class="bet3" style="border-color:#5FC08B">' + t + "</span>").join("") + "</div>" +
+      '<div style="font-size:11px;color:#EAF2EF;background:#10181A;border-radius:6px;padding:6px 8px">💰 損益分岐オッズ <b style="color:#5FC08B;font-size:13px">' + beOdds + '倍</b> — この目のオッズ(3連単の配当)が' + beOdds + '倍を超えていれば期待値プラス。下回るなら過剰人気なので見送り推奨。</div>';
+  } else {
+    // 通常レース: 現行6点の損益分岐を参考表示
+    const tickets6 = r.bets.sanrentan || [];
+    wbox.style.display = tickets6.length ? "" : "none";
+    if (tickets6.length) {
+      const scr = sx0 ? sx0.score : 50;
+      const estHit = Math.max(0.08, Math.min(0.30, (scr - 40) / 100)); // 8%〜30%で見積もり
+      const beOdds = (tickets6.length / estHit).toFixed(0);
+      wbox.innerHTML = '<div style="font-size:11px;color:#8CA3A0">この買い目は学習した勝ちパターン(回収率100%超)には該当しません。参考: ' + tickets6.length + '点の損益分岐オッズは概算 <b style="color:#F2C230">' + beOdds + '倍前後</b>(期待度' + (sx0 ? sx0.score + "%" : "—") + "から推計)。オッズがこれを大きく下回るなら見送りが無難です。</div>";
+    }
+  }
+
+  const has2 = r.bets.nishatan && r.bets.nishatan.length;
+  document.querySelectorAll("#betCard .note").forEach((el)=>{ if(el.textContent==="2車単") el.style.display = has2 ? "" : "none"; });
+  $("bets2").innerHTML = has2 ? r.bets.nishatan.map((x) => '<span class="bet2">' + x + "</span>").join("") : "";
+  $("bets2").style.display = has2 ? "" : "none";
+  $("bets3").innerHTML = r.bets.sanrentan.map((x) => '<span class="bet3">' + x + "</span>").join("");
+  $("conf").textContent = "信頼度:" + r.confidence;
+  $("conf").style.color = r.confidence === "高" ? "#5FC08B" : r.confidence === "低" ? "#E4726B" : "#F2C230";
+  $("caution").textContent = "⚠ " + r.caution;
+  $("oddsGuide").textContent = r.oddsGuide || "";
+  $("betCard").classList.remove("hidden");
+
+  // ⑨ バック取得予測
+  if (r.backProbs && r.backProbs.length) {
+    const kl = { s: "S級戦", a12_9: "A級戦9車立", a12_7: "A級戦7車立", ch: "チャレンジ戦" }[r.bkStats.key] || "";
+    $("backBars").innerHTML = r.backProbs.map((bp, i) => {
+      const pct = bp.p * 100;
+      const isTop = i === 0;
+      return '<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="font-weight:' + (isTop ? 900 : 500) + '">[' + bp.line.join("") + "]ライン" + (isTop ? " ← 取得予測" : "") + '</span><span style="font-variant-numeric:tabular-nums;font-weight:700;color:' + (isTop ? "#F2C230" : "#8CA3A0") + '">' + pct.toFixed(1) + "%</span></div>" +
+        '<div style="height:10px;background:#1C282C;border-radius:5px;overflow:hidden"><div style="height:100%;width:' + Math.min(100, pct * 1.6) + "%;background:" + (isTop ? "#F2C230" : "#3E5259") + '"></div></div></div>';
+    }).join("") + (r.backBalanced ? '<p style="margin:4px 0 0;font-size:12px;color:#E4726B">⚠ 上位2ラインが均衡(差5%未満)。主導権争いで隊列が乱れ、荒れやすい形です</p>' : "");
+    $("backNote").textContent = "予測式は遠山競輪研究所027(2017/5〜2020/4・ロジスティック回帰、実測的中率" + (r.bkStats.key === "ch" ? "61.9%" : r.bkStats.key === "s" ? "56.7%" : "58〜61%") + ")。バック取得ラインの実測成績(" + kl + "・このバンク種別): 先頭 勝率" + r.bkStats.head[0] + "%/連対率" + r.bkStats.head[1] + "%、番手 勝率" + r.bkStats.second[0] + "%/連対率" + r.bkStats.second[1] + "%(全選手平均勝率" + r.bkStats.baseWin.toFixed(1) + "%)。";
+    $("backCard").classList.remove("hidden");
+  }
+
+  // ⑧ スジ戦略
+  const klassLabel = { s: "S級戦", a12: "A級1・2班戦", challenge: "A級チャレンジ戦", girls: "ガールズ" }[r.klass] || "";
+  const ks = KLASS_SUJI[r.klass];
+  $("sujiChips").innerHTML =
+    '<span class="chip">' + r.fLabel + "</span>" +
+    '<span class="chip">' + klassLabel + (ks ? "(先→二 " + ks[0] + "% / 二→先 " + ks[1] + "%)" : "") + "</span>" +
+    '<span class="chip">スジ回収率グループ' + r.group + (r.group === "A" ? "(スジ有利な場)" : "(スジ薄めの場)") + "</span>";
+  if (r.sujiPlan.length) {
+    $("sujiBody").innerHTML = r.sujiPlan.map((sp) => {
+      const col = sp.grade === "妙味" ? "#5FC08B" : sp.grade === "低" ? "#E4726B" : "#EAF2EF";
+      return '<tr><td class="l">第' + sp.rank + "ライン[" + sp.line.join("") + ']</td><td class="l" style="font-weight:900;font-variant-numeric:tabular-nums">' + sp.ticket + "</td><td>" + sp.hit.toFixed(1) + "%</td><td style=\"font-weight:900;color:" + col + '">' + sp.roi.toFixed(1) + "%</td><td class=\"l\" style=\"color:" + col + '">' + (sp.grade === "妙味" ? "◎妙味(回収90%超)" : sp.grade === "低" ? "△見送り可" : "○標準") + "</td></tr>";
+    }).join("");
+    $("sujiNote").textContent = "ライン人気順は本アプリの採点スコアで代用推定。的中率・回収率は同形態(" + r.fLabel + ")・同グループの2016/9〜2019/8実測値(遠山競輪研究所)。裏(番手→先頭)は回収率60%台が多く原則非推奨。還元率75%を超える車券が「人気以上に決まる」目安です。";
+  } else {
+    $("sujiBody").innerHTML = "";
+    $("sujiNote").textContent = r.klass === "girls" ? "ガールズはラインが無いためスジ戦略の対象外です。" : r.topIsTanki ? "本命(スコア1位)が単騎のため、研究所シミュレーションの適用外です。" : "2車以上のラインが2〜4本の形態(二〜四分戦)のみ実測データがあります。";
+  }
+  $("sujiCard").classList.remove("hidden");
+}
+</script>
+</body>
+</html>
