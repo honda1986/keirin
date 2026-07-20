@@ -3,14 +3,14 @@ on:
   workflow_dispatch:
     inputs:
       days:
-        description: '過去何日ぶんを収集するか(例: 30)'
+        description: '過去何日ぶんを収集するか(例: 30)。from/to を使う場合は空でOK'
         required: false
-        default: '3'
+        default: '30'
       from:
-        description: '開始日 YYYY-MM-DD(任意・toとセット)'
+        description: '開始日 YYYY-MM-DD(任意・to とセット)'
         required: false
       to:
-        description: '終了日 YYYY-MM-DD(任意・fromとセット)'
+        description: '終了日 YYYY-MM-DD(任意・from とセット)'
         required: false
 permissions:
   contents: write
@@ -30,10 +30,17 @@ jobs:
           else
             node backfill.js "${{ github.event.inputs.days }}"
           fi
-      - name: コミット
+      - name: コミット(競合対策リトライ付き)
         run: |
           git config user.name "race-bot"
           git config user.email "actions@github.com"
-          git add history.json stats.json
-          git diff --cached --quiet || git commit -m "backfill"
-          git push
+          git add history.json stats.json weights.json sim.json 2>/dev/null || git add history.json stats.json
+          git diff --cached --quiet && echo "変更なし" && exit 0
+          git commit -m "backfill"
+          for i in 1 2 3 4 5 6; do
+            if git pull --rebase --autostash origin main && git push; then
+              echo "push成功 (試行 $i)"; exit 0
+            fi
+            echo "競合のためリトライ $i/6"; sleep 6
+          done
+          echo "6回リトライしても push できませんでした"; exit 1
