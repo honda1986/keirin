@@ -14,7 +14,6 @@ jobs:
         with:
           node-version: 20
       - name: 結果収集
-      - run: node cleanup.js
       - run: node results.js
       - name: コミット
         run: |
