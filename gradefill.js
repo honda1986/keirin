@@ -77,21 +77,40 @@ async function main() {
   log("対象:", targets.length, "レース /", dates.length, "日 (過去" + days + "日)");
   if (!targets.length) { log("対象なし。完了。"); return; }
 
-  // ---- 1) pid↔場名の対応表を作る(最新日で1回だけ、並列探索) ----
+  // ---- 1) pid↔場名の対応表を作る ----
+  // 開催場は日によって変わるため、期間内に散らした複数日で探索し、全場をカバーする。
+  // 必要な場(historyに実在する場)が全部判明したら早期終了。
   const pidByPlace = {};
-  const probeDate = dates[0];
-  const rdt0 = probeDate.slice(0, 4) + "-" + probeDate.slice(4, 6) + "-" + probeDate.slice(6, 8);
-  log("pid探索開始 (" + rdt0 + ", 43場を並列チェック)...");
-  let probed = 0;
-  await pmap(VENUE_PIDS, async (pid) => {
-    const html = await get(`https://gamboo.jp/keirin/yoso/?rdt=${rdt0}&pid=${pid}&rno=1`);
-    probed++;
-    if (probed % 10 === 0) log("  探索中... " + probed + "/43");
-    const pl = extractPlace(html);
-    if (pl && pidByPlace[pl] == null) pidByPlace[pl] = pid;
-  }, CONC);
+  const neededPlaces = new Set(targets.map((e) => e.place));
+  const probeDates = [];
+  { // 最新日 + 期間を等分した数日(最大6日)
+    const step = Math.max(1, Math.floor(dates.length / 5));
+    for (let i = 0; i < dates.length && probeDates.length < 6; i += step) probeDates.push(dates[i]);
+    if (!probeDates.includes(dates[dates.length - 1])) probeDates.push(dates[dates.length - 1]);
+  }
+  log("pid探索: 必要", neededPlaces.size, "場 / 探索日", probeDates.map((d) => d.slice(4, 6) + "/" + d.slice(6, 8)).join(" "));
+
+  for (const pd of probeDates) {
+    const remain = [...neededPlaces].filter((pl) => pidByPlace[pl] == null);
+    if (!remain.length) { log("  全場のpidが判明。探索終了"); break; }
+    if (Date.now() - startedAt > DEADLINE_MS) break;
+    const rdt = pd.slice(0, 4) + "-" + pd.slice(4, 6) + "-" + pd.slice(6, 8);
+    // まだ判明していないpidだけを試す(判明済みpidは再確認不要)
+    const knownPids = new Set(Object.values(pidByPlace));
+    const tryPids = VENUE_PIDS.filter((p) => !knownPids.has(p));
+    let probed = 0, hit = 0;
+    await pmap(tryPids, async (pid) => {
+      const html = await get(`https://gamboo.jp/keirin/yoso/?rdt=${rdt}&pid=${pid}&rno=1`);
+      probed++;
+      const pl = extractPlace(html);
+      if (pl && pidByPlace[pl] == null) { pidByPlace[pl] = pid; hit++; }
+    }, CONC);
+    log(`  ${rdt}: ${tryPids.length}件チェック → 新たに${hit}場判明 (累計${Object.keys(pidByPlace).length}場 / 未判明${remain.length - hit}場)`);
+  }
   const found = Object.keys(pidByPlace);
+  const missing = [...neededPlaces].filter((pl) => pidByPlace[pl] == null);
   log("pid判明:", found.length, "場 →", found.map((p) => p + "=" + pidByPlace[p]).join(" ") || "(なし)");
+  if (missing.length) log("未判明の場(スキップされます):", missing.join(" "));
 
   if (!found.length) {
     log("\n⚠ 場コードが1つも判明しませんでした。");
