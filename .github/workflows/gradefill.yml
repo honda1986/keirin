@@ -3,15 +3,15 @@ on:
   workflow_dispatch:
     inputs:
       days:
-        description: '過去何日ぶんに種別を後付けするか'
+        description: '過去何日ぶんに種別を後付けするか(まず 3 で試すのを推奨)'
         required: false
-        default: '30'
+        default: '3'
 permissions:
   contents: write
 jobs:
   gradefill:
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 330
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -20,6 +20,7 @@ jobs:
       - name: 種別後付け
         run: node gradefill.js "${{ github.event.inputs.days }}"
       - name: コミット(競合対策リトライ付き)
+        if: always()
         run: |
           git config user.name "race-bot"
           git config user.email "actions@github.com"
