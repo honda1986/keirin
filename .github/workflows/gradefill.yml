@@ -1,0 +1,35 @@
+name: 種別後付け
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: '過去何日ぶんに種別を後付けするか'
+        required: false
+        default: '30'
+permissions:
+  contents: write
+jobs:
+  gradefill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 種別後付け
+        run: node gradefill.js "${{ github.event.inputs.days }}"
+      - name: コミット(競合対策リトライ付き)
+        run: |
+          git config user.name "race-bot"
+          git config user.email "actions@github.com"
+          git add history.json
+          git diff --cached --quiet && echo "変更なし" && exit 0
+          git commit -m "gradefill"
+          for i in 1 2 3 4 5 6; do
+            if git pull --rebase --autostash origin main && git push; then
+              echo "push成功 (試行 $i)"; exit 0
+            fi
+            echo "競合のためリトライ $i/6"; sleep 6
+          done
+          exit 1
