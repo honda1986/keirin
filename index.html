@@ -70,6 +70,7 @@
   <section class="card hidden" id="shoubuCard" style="border:1px solid #5FC08B">
     <h2 style="color:#5FC08B">🔥 本日の勝負レース(出走時間順)</h2>
     <p class="note" style="margin:0 0 8px">学習した回収率100%超の条件に合致したレースだけを、出走時間順にまとめました。買い目と締切時刻を確認して、期待値が乗るオッズのときだけ勝負を。</p>
+    <p class="note" style="margin:0 0 8px;font-size:10px;color:#5E7573">用語: <b>期待度</b>=ライン通りに決まりそうな度合い(%) / <b>点差</b>=評価1位と2位の総合点の差(大きいほど本命が抜けている) / <b>先頭・番手</b>=ライン内の位置</p>
     <div id="shoubuList"></div>
   </section>
   <section class="card" id="searchCard">
@@ -1067,13 +1068,17 @@ function matchBest(ctx, ranked, lines) {
     if (cond.scoreMax != null && !((ctx.score || 0) < cond.scoreMax)) return false;
     if (cond.gapMax != null && !(ctx.gap != null && ctx.gap < cond.gapMax)) return false;
     if (cond.patternRe && !(ctx.pattern && new RegExp(cond.patternRe).test(ctx.pattern))) return false;
-    if (cond.lineSizeMin != null || cond.lineSizeEq != null || cond.topIsHead != null) {
+    if (cond.lineSizeMin != null || cond.lineSizeEq != null || cond.topIsHead != null || cond.topNotTail != null) {
       const l0 = (lines || []).find((x) => x.includes(ranked[0]));
       if (cond.lineSizeMin != null && !(l0 && l0.length >= cond.lineSizeMin)) return false;
       if (cond.lineSizeEq != null && !(l0 && l0.length === cond.lineSizeEq)) return false;
       if (cond.topIsHead != null) {
         const isHead = !!(l0 && l0.length >= 2 && l0[0] === ranked[0]);
         if (isHead !== cond.topIsHead) return false;
+      }
+      if (cond.topNotTail === true) {
+        const isTail = !!(l0 && l0.length >= 2 && l0[l0.length - 1] === ranked[0]);
+        if (isTail) return false;
       }
     }
     if (cond.gradeRe && !(ctx.grade && new RegExp(cond.gradeRe).test(ctx.grade))) return false;
@@ -1101,13 +1106,17 @@ function matchWinner(ctx) {
     if (cond.scoreMax != null && !((ctx.score || 0) < cond.scoreMax)) return false;
     if (cond.gapMax != null && !(ctx.gap != null && ctx.gap < cond.gapMax)) return false;
     if (cond.patternRe && !(ctx.pattern && new RegExp(cond.patternRe).test(ctx.pattern))) return false;
-    if (cond.lineSizeMin != null || cond.lineSizeEq != null || cond.topIsHead != null) {
+    if (cond.lineSizeMin != null || cond.lineSizeEq != null || cond.topIsHead != null || cond.topNotTail != null) {
       const l0 = (lines || []).find((x) => x.includes(ranked[0]));
       if (cond.lineSizeMin != null && !(l0 && l0.length >= cond.lineSizeMin)) return false;
       if (cond.lineSizeEq != null && !(l0 && l0.length === cond.lineSizeEq)) return false;
       if (cond.topIsHead != null) {
         const isHead = !!(l0 && l0.length >= 2 && l0[0] === ranked[0]);
         if (isHead !== cond.topIsHead) return false;
+      }
+      if (cond.topNotTail === true) {
+        const isTail = !!(l0 && l0.length >= 2 && l0[l0.length - 1] === ranked[0]);
+        if (isTail) return false;
       }
     }
     if (cond.gradeRe && !(ctx.grade && new RegExp(cond.gradeRe).test(ctx.grade))) return false;
