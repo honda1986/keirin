@@ -12,7 +12,7 @@ jobs:
         with:
           node-version: 20
       - name: バックテスト
-        run: node verify.js
+        run: node dbg_harai.js 2026-06-03
       - name: コミット
         run: |
           git config user.name "race-bot"
