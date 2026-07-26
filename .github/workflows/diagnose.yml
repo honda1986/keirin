@@ -2,21 +2,19 @@ name: 評価値
 on:
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
-  simulate:
+  evaluate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: バックテスト
-        run: node verify.js
-      - name: コミット
+      - name: 評価値
         run: |
-          git config user.name "race-bot"
-          git config user.email "actions@github.com"
-          git add sim.json
-          git diff --cached --quiet || git commit -m "sim update"
-          git push
+          node verify.js
+          echo ""
+          echo "########## 診断 ##########"
+          echo ""
+          node diagnose.js
