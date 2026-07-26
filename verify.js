@@ -68,3 +68,59 @@ console.log("=== 参考: 2車単スジ相手を全レースに適用 ===");
 console.log("  対象", n, "R / 的中率", (hit / n * 100).toFixed(1) + "% / 回収率", (ret / (bet * 100) * 100).toFixed(1) + "%");
 console.log("  ※ 競輪の控除率は25%。無条件で買えば回収率は75%前後になるのが自然です。");
 console.log("     ここが100%を大きく超えている場合、配当データが実際より高い可能性があります。");
+
+// ===== 実ページと突き合わせ(原因の切り分け) =====
+// 保存されている値と、いま払戻ページを取得して新パーサーで読んだ値を並べて表示する。
+//  ・両者が一致 → パーサーはページ通りに読んでいる(=別の原因/ページ側の並び)
+//  ・両者が不一致 → 保存データが古い(修正が未反映=コミット漏れ 等)
+(async () => {
+  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
+  const get = async (url) => {
+    const c = new AbortController(); const t = setTimeout(() => c.abort(), 20000);
+    try { const r = await fetch(url, { headers: { "User-Agent": UA, "Accept-Language": "ja" }, signal: c.signal }); return r.ok ? await r.text() : null; }
+    catch (e) { return null; } finally { clearTimeout(t); }
+  };
+  const parseHL = (html) => {
+    const out = {};
+    const re = /([぀-ヿ一-龥]{2,5})競輪|class="race"[^>]*>\s*(\d{1,2})R[\s\S]{0,300}?class="order"([\s\S]{0,600}?)<\/td>[\s\S]{0,200}?class="refund"[^>]*>\s*([\d,]+)/g;
+    let m, v = null;
+    while ((m = re.exec(html))) {
+      if (m[1]) { v = m[1]; continue; }
+      if (!v) continue;
+      const chunk = m[3], pay = +m[4].replace(/,/g, "");
+      const cars = [...chunk.matchAll(/class="n(\d)"[^>]*>\s*(\d)\s*</g)].map((x) => +x[2]);
+      if (!cars.length || !pay) continue;
+      const syms = [...chunk.matchAll(/class="symbol"[^>]*>([\s\S]{0,8}?)<\//g)].map((x) => x[1]);
+      const fuku = syms.some((s) => s.includes("=") || s.includes("＝"));
+      const key = v + "_" + m[2] + "R";
+      const o = (out[key] = out[key] || { raw: [] });
+      o.raw.push({ cars: cars.join(fuku ? "=" : "-"), pay, fuku });   // 生の並び(診断用)
+      if (fuku) continue;
+      if (cars.length === 3 && o.first == null) { o.first = cars[0]; o.second = cars[1]; o.third = cars[2]; o.p3pay = pay; }
+      else if (cars.length === 2 && o.p2pay == null) { o.p2pay = pay; }
+    }
+    return out;
+  };
+
+  const bad = E.filter((e) => e.p2pay != null && e.p3pay != null && e.p2pay >= e.p3pay);
+  if (!bad.length) { console.log("\n(異常データなし。突き合わせ不要)"); return; }
+  const targets = [];
+  const seen = new Set();
+  for (const e of bad) { if (!seen.has(e.date)) { seen.add(e.date); targets.push(e); } if (targets.length >= 3) break; }
+
+  console.log("\n=== 実ページとの突き合わせ(異常データ" + bad.length + "件のうち代表" + targets.length + "件) ===");
+  for (const e of targets) {
+    const d = e.date, url = `https://keirin.kdreams.jp/harailist/${d.slice(0,4)}/${d.slice(4,6)}/${d.slice(6,8)}/`;
+    const html = await get(url);
+    if (!html) { console.log("  " + d + " " + e.place + e.raceNo + ": ページ取得失敗"); continue; }
+    const t = parseHL(html)[e.place + "_" + e.raceNo];
+    console.log("\n  【" + d + " " + e.place + " " + e.raceNo + "】 " + url);
+    console.log("    保存値  : 着順 " + e.f + "-" + e.s + "-" + e.t + " / 3連単 " + (e.p3pay||0).toLocaleString() + "円 / 2車単 " + (e.p2pay||0).toLocaleString() + "円");
+    if (!t) { console.log("    ページ  : このレースが見つかりません(場名・R番号が一致しない)"); continue; }
+    console.log("    ページ  : 着順 " + (t.first!=null ? t.first+"-"+t.second+"-"+t.third : "—") + " / 3連単 " + (t.p3pay||0).toLocaleString() + "円 / 2車単 " + (t.p2pay||0).toLocaleString() + "円");
+    console.log("    ページ内の全行(賭式ごと):");
+    for (const r of (t.raw || []).slice(0, 8)) console.log("      " + (r.fuku ? "[複式]" : "[単式]") + " " + r.cars + " → " + r.pay.toLocaleString() + "円");
+    const same = t.first === e.f && t.second === e.s && t.third === e.t && t.p3pay === e.p3pay && (t.p2pay ?? null) === (e.p2pay ?? null);
+    console.log("    判定: " + (same ? "保存値=ページ値(パーサーはページ通りに読んでいる)" : "⚠ 不一致 → 保存データが古い(fixpayの結果が未コミットの可能性)"));
+  }
+})();
