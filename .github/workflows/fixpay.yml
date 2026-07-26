@@ -6,6 +6,9 @@ on:
         description: '過去何日ぶんを修正するか(空欄=全期間)'
         required: false
         default: ''
+concurrency:
+  group: history-write
+  cancel-in-progress: false
 permissions:
   contents: write
 jobs:
