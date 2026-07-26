@@ -6,6 +6,9 @@ on:
         description: '過去何日ぶんに種別を後付けするか(まず 3 で試すのを推奨)'
         required: false
         default: '3'
+concurrency:
+  group: history-write
+  cancel-in-progress: false
 permissions:
   contents: write
 jobs:
