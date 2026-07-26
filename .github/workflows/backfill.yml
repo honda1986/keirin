@@ -12,6 +12,9 @@ on:
       to:
         description: '終了日 YYYY-MM-DD(任意・from とセット)'
         required: false
+concurrency:
+  group: history-write
+  cancel-in-progress: false
 permissions:
   contents: write
 jobs:
