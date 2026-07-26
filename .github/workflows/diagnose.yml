@@ -12,7 +12,7 @@ jobs:
         with:
           node-version: 20
       - name: バックテスト
-        run: node diagnose.js
+        run: node verify.js
       - name: コミット
         run: |
           git config user.name "race-bot"
