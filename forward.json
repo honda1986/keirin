@@ -13,6 +13,21 @@
       "pastRoi": 113,
       "pastRaces": 446,
       "pastHitRate": 19.1
+    },
+    {
+      "startDate": "20260728",
+      "patternId": "n2_box12",
+      "patternName": "2車単 1-2位BOX(2点)",
+      "filterName": "荒れ・拮抗・予選",
+      "betType": "nishatan",
+      "cond": {
+        "verdict": "×荒れ含み",
+        "gapMax": 3,
+        "gradeRe": "予選"
+      },
+      "pastRoi": 122.1,
+      "pastRaces": 47,
+      "pastHitRate": 25.5
     }
   ]
 }
