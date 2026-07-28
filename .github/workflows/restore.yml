@@ -1,0 +1,47 @@
+name: 復旧
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: '書き込むなら apply を選ぶ'
+        type: choice
+        options:
+          - '点検のみ'
+          - 'apply'
+        default: '点検のみ'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: history-write
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 復旧
+        run: node restore.js ${{ github.event.inputs.mode == 'apply' && '--apply' || '' }}
+
+      - name: コミット
+        if: github.event.inputs.mode == 'apply'
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add history.json
+          if git diff --cached --quiet; then
+            echo "変更なし"
+          else
+            git commit -m "history.json を復旧(10,059件版と合体)"
+            git push
+          fi
