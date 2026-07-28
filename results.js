@@ -59,6 +59,9 @@ function parseHaraiList(html) {
       // 賭式は区切り文字で判別: "-"=順序あり(3連単/2車単) / "="=順序なし(複式)は無視。
       // 複式は着順ではなく番号順に並ぶため、取り込むと着順データまで壊れる。
       const syms = [...chunk.matchAll(/class="symbol"[^>]*>([\s\S]{0,8}?)<\//g)].map((x) => x[1]);
+      // 記号の個数が「車数 - 1」と合わない行は判別不能なので捨てる。
+      // これが無いと syms が空のとき素通りし、複式が単式として取り込まれる(着順が番号順に化ける)。
+      if (syms.length !== cars.length - 1) continue;
       if (syms.some((s) => s.includes("=") || s.includes("＝"))) continue;
       const key = venue + "_" + heads[k].rno + "R";
       const o = (out[key] = out[key] || {});
@@ -153,7 +156,17 @@ async function main() {
   }
   if (p2added) console.log("既存", p2added, "件に2車単配当を追記");
 
-  if (hist.entries.length > 8000) hist.entries = hist.entries.slice(-8000);
+  // ---- 件数上限は撤廃(2026-07-29)----
+  // 以前ここに `if (hist.entries.length > 8000) hist.entries = hist.entries.slice(-8000);` があった。
+  // これが過去4回の大量消失の原因:
+  //   7/26 02:15  9877 → 8000  (-1877)
+  //   7/26 12:18 11170 → 8000  (-3170)  ← 引き継ぎメモの「3,000件消失」はこれ
+  //   7/26 14:00  8726 → 8000  ( -726)
+  //   7/27 06:05 10059 → 8000  (-2059)  ← 5月分の復旧と3連複配当が消えた
+  // 「同時実行による消失」と診断していたが誤り。concurrency では防げない。
+  // slice(-8000) は末尾を残すので、消えるのは常に先頭 = 最も古いレース。
+  // 再び絞る必要が出たら、件数ではなく日付で切ること(古い順に切ると復旧分が失われる)。
+  console.log("history 件数:", hist.entries.length);
   fs.writeFileSync(histPath, JSON.stringify(hist));
   console.log("history:", added, "件追加 / 累計", hist.entries.length);
 
