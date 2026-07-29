@@ -1,0 +1,27 @@
+name: 払戻ページ点検
+
+on:
+  workflow_dispatch:
+    inputs:
+      date:
+        description: '日付 (例 20260729)。空なら今日'
+        type: string
+        default: ''
+      venue:
+        description: '生HTMLを見たい場名 (例 広島)。空でOK'
+        type: string
+        default: ''
+      race:
+        description: '生HTMLを見たいレース番号 (例 4)。空でOK'
+        type: string
+        default: ''
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node diagharai.js ${{ github.event.inputs.date }} ${{ github.event.inputs.venue }} ${{ github.event.inputs.race }}
