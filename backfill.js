@@ -22,6 +22,14 @@ const MAX_RETRY = 2;            // レート制限(429/503)時のリトライ回
 const DEADLINE_MS = 5 * 60 * 60 * 1000; // 5時間で打ち切り(Actions上限6時間に余裕を持たせる)
 const startedAt = Date.now();
 const VENUE_PIDS = [11,12,13,21,22,23,24,25,26,27,28,31,32,34,35,36,37,38,42,43,44,45,46,47,48,51,53,54,55,56,61,62,63,71,73,74,75,81,83,84,85,86,87];
+// 場名 → 場コード(pid)。bankdata.js の TRACK_NAMES と上の VENUE_PIDS は同じ並び順
+// (函館=11 / 青森=12 / いわき平=13 … 別府=86 / 熊本=87)。件数が食い違ったら作らない。
+const NAME2PID = {};
+if (TRACK_NAMES.length === VENUE_PIDS.length) {
+  TRACK_NAMES.forEach((n, i) => { NAME2PID[n] = VENUE_PIDS[i]; });
+} else {
+  console.log("警告: TRACK_NAMES(" + TRACK_NAMES.length + ")と VENUE_PIDS(" + VENUE_PIDS.length + ")の件数が違うため、全場走査で動作します");
+}
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function getOnce(url) {
@@ -244,13 +252,40 @@ async function main() {
     // 途中で強制終了されても成果が残るよう、日ごとに保存する
     const saveNow = () => { try { fs.writeFileSync(path.join(dir, "history.json"), JSON.stringify(hist)); } catch (e) {} };
 
-    // 2) 全pid × 全R(1..12)を候補化。全国の全開催場を確実にカバーし、結果一覧に無いものは後で捨てる
-    const urls = [];
-    for (const pid of VENUE_PIDS) {
-      for (let rno = 1; rno <= 12; rno++) {
+    // 2) 払戻ページで確定しているレースだけを候補化する。
+    //    以前は 全43場 × 12R = 516URL を毎日叩いていたが、実際の開催は1日8場・72レース前後。
+    //    結果一覧に無いレースは後段の `if (!res) return;` でどのみち捨てられるので、
+    //    ここで絞っても取り込めるデータは1件も変わらない(取得URLだけが約1/7になる)。
+    const allUrls = () => {
+      const u = [];
+      for (const pid of VENUE_PIDS) {
+        for (let rno = 1; rno <= 12; rno++) {
+          u.push({ pid, rno, url: `https://gamboo.jp/keirin/yoso/?rdt=${dH}&pid=${pid}&rno=${rno}` });
+        }
+      }
+      return u;
+    };
+    let urls = [];
+    const unknownVenues = new Set();
+    if (Object.keys(NAME2PID).length) {
+      for (const key of Object.keys(results)) {
+        const sep = key.lastIndexOf("_");
+        if (sep < 1) continue;
+        const venue = key.slice(0, sep);
+        const rno = parseInt(key.slice(sep + 1), 10);
+        const pid = NAME2PID[venue];
+        if (!pid) { unknownVenues.add(venue); continue; }
+        if (!(rno >= 1 && rno <= 12)) continue;
         urls.push({ pid, rno, url: `https://gamboo.jp/keirin/yoso/?rdt=${dH}&pid=${pid}&rno=${rno}` });
       }
     }
+    if (unknownVenues.size || !urls.length) {
+      // 場コードを引けない場名があった日、または1件も絞り込めなかった日は、
+      // 取りこぼしを避けるため従来どおり全場を走査する(安全側に倒す)
+      if (unknownVenues.size) console.log(dH, "場コード不明:", [...unknownVenues].join(","), "→ 全場走査に切り替え");
+      urls = allUrls();
+    }
+    console.log(dH, "出走表を取得:", urls.length, "件");
     let dayAdded = 0;
     let gErr = {}, gOk = 0, gEmpty = 0;
     await pool(urls, async (item) => {
