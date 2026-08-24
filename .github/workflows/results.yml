@@ -1,29 +1,51 @@
 name: 結果収集
+
 on:
   schedule:
     - cron: '50 14 * * *'
   workflow_dispatch:
+
 concurrency:
   group: history-write
   cancel-in-progress: false
+
 permissions:
   contents: write
+
 jobs:
   results:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+
       - name: 汚染データ掃除
         run: node cleanup.js
+
       - name: 結果収集
         run: node results.js
-      - name: コミット
+
+      # 3連複の配当(p3fpay)を直近10日分だけ取り込む。
+      # 払戻ページは1日1リクエストなので10日でも数秒。
+      # ここが失敗しても当日の結果は残したいので continue-on-error にしてある。
+      - name: 3連複の配当を取り込む(直近10日)
+        continue-on-error: true
+        run: node sanpuku.js 10 --apply
+
+      - name: コミット(競合対策リトライ付き)
         run: |
           git config user.name "race-bot"
           git config user.email "actions@github.com"
           git add history.json stats.json
-          git diff --cached --quiet || git commit -m "results update"
-          git push
+          git diff --cached --quiet && echo "変更なし" && exit 0
+          git commit -m "results update"
+          for i in 1 2 3 4 5 6; do
+            if git pull --rebase --autostash origin main && git push; then
+              echo "push成功 (試行 $i)"; exit 0
+            fi
+            echo "競合のためリトライ $i/6"; sleep 6
+          done
+          echo "6回リトライしても push できませんでした"; exit 1
