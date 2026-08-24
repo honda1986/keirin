@@ -1,0 +1,75 @@
+name: オッズ取得
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: '書き込むなら apply を選ぶ'
+        type: choice
+        options:
+          - '点検のみ'
+          - 'apply'
+        default: '点検のみ'
+      from:
+        description: '開始日 YYYY-MM-DD(必ずハイフン付き)'
+        required: false
+      to:
+        description: '終了日 YYYY-MM-DD(必ずハイフン付き)'
+        required: false
+      days:
+        description: '直近何日ぶんか(from/to を使うなら空でOK)'
+        required: false
+        default: '1'
+      conc:
+        description: '同時リクエスト数(既定6・上げすぎ注意)'
+        required: false
+        default: '6'
+      wait:
+        description: 'リクエスト間隔ミリ秒(既定150)'
+        required: false
+        default: '150'
+
+concurrency:
+  group: odds-write
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  odds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: オッズ取得
+        run: |
+          APPLY=""
+          if [ "${{ github.event.inputs.mode }}" = "apply" ]; then APPLY="--apply"; fi
+          OPTS="--conc=${{ github.event.inputs.conc }} --wait=${{ github.event.inputs.wait }}"
+          if [ -n "${{ github.event.inputs.from }}" ] && [ -n "${{ github.event.inputs.to }}" ]; then
+            node odds.js "${{ github.event.inputs.from }}" "${{ github.event.inputs.to }}" $APPLY $OPTS
+          else
+            node odds.js "${{ github.event.inputs.days }}" $APPLY $OPTS
+          fi
+
+      - name: コミット(競合対策リトライ付き)
+        if: github.event.inputs.mode == 'apply'
+        run: |
+          git config user.name "race-bot"
+          git config user.email "actions@github.com"
+          git add odds-*.json
+          git diff --cached --quiet && echo "変更なし" && exit 0
+          git commit -m "オッズ取得"
+          for i in 1 2 3 4 5 6; do
+            if git pull --rebase --autostash origin main && git push; then
+              echo "push成功 (試行 $i)"; exit 0
+            fi
+            echo "競合のためリトライ $i/6"; sleep 6
+          done
+          echo "6回リトライしても push できませんでした"; exit 1
