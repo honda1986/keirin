@@ -341,7 +341,15 @@ async function main() {
     console.log(dH, "→", dayAdded, "レース追加 (予想成功" + gOk + " 空" + gEmpty + " エラー" + JSON.stringify(gErr) + ")");
   }
 
-  if (hist.entries.length > 20000) hist.entries = hist.entries.slice(-20000);
+  // ---- 件数上限は撤廃(results.js と同じ理由)----
+  // 以前ここに `if (hist.entries.length > 20000) hist.entries = hist.entries.slice(-20000);` があった。
+  // slice(-20000) は配列の末尾を残すので、消えるのは常に「先に集めたレース」。
+  // backfill は古い日付を後ろに足していくため、上限に達した瞬間に
+  // 既存の新しい月のデータが黙って削られる。
+  //   2026-08-24 の実行で 3月 2,257→1,065件 / 2月 2,038→1,829件 が消失(計1,401件)。
+  // results.js では 2026-07-29 に撤廃済みだったが、こちらに残っていた。
+  // 再び絞る必要が出たら、件数ではなく日付で切ること。
+  console.log("history 件数:", hist.entries.length);
   fs.writeFileSync(histPath, JSON.stringify(hist));
   console.log("backfill完了:", added, "件追加 /", p2added, "件に2車単配当を追記 / 累計", hist.entries.length);
 
