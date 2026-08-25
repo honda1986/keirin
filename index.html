@@ -1259,10 +1259,15 @@ function f3PlanFrom(ranked, lines) {
   const rankSum = trio.reduce((a, c) => a + (ranked.indexOf(c) + 1), 0);
   const ticket = trio.slice().sort((a, b) => a - b).join("=");
   const o = { cars, trio, rankSum, ticket, hot: false, roi: 85.7, hitRate: 29.4, oddsHint: "", note: "" };
-  if (cars >= 8) {
-    o.hot = true; o.roi = 103.2; o.hitRate = 17.3;
-    o.oddsHint = "オッズ5倍以上ならさらに良化(実測106.1%)。15倍を超えたら見送り。";
-    o.note = "9車立ては市場がライン決着を過小評価(実力/市場 1.34倍)。実測 回収103.2%(2,278R)。";
+  const solo = lines.filter((x) => Array.isArray(x) && x.length === 1).length;
+  if (cars >= 8 && solo >= 2) {
+    // 単騎が2人以上いる9車立ては隊列が読めず、実測61.5%(226R・前半57%→後半65%)。対象外にする。
+    o.roi = 61.5; o.hitRate = 13.7;
+    o.note = "9車立てだが単騎が" + solo + "人。隊列が読めず実測 回収61.5%(226R)。見送り推奨。";
+  } else if (cars >= 8) {
+    o.hot = true; o.roi = 108.1; o.hitRate = 17.8;
+    o.oddsHint = "オッズ5倍以上ならさらに良い。15倍を超えたら見送り。";
+    o.note = "9車立て・単騎1人以下。市場がライン決着を過小評価(実力/市場 1.34倍)。実測 回収108.1%(2,189R・誤差幅96〜120%・前半110%→後半106%)。";
   } else if (cars === 7 && rankSum >= 12) {
     o.hot = true; o.roi = 103.5; o.hitRate = 15.0;
     o.oddsHint = "オッズが4〜15倍のときだけ買う。この帯を外れたら見送り。";
