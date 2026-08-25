@@ -70,14 +70,14 @@
   <section class="card" id="shoubuCard" style="border:1px solid #5FC08B">
     <h2 style="color:#5FC08B">🔥 本日の勝負レース(出走時間順)</h2>
     <button class="io-btn" id="loadTodayTop" style="border-color:#5FC08B;color:#5FC08B;width:100%;margin-bottom:8px">📅 本日の全レースを読み込む</button>
-    <p class="note" style="margin:0 0 8px">学習した回収率100%超の条件に合致したレースだけを、出走時間順にまとめました。買い目と締切時刻を確認して、期待値が乗るオッズのときだけ勝負を。</p>
+    <p class="note" style="margin:0 0 8px">3連複「本命ライン3人」で実測回収率100%超だったレースだけを、出走時間順に並べています。9車立ては無条件、7車立ては評価順位の合計12以上が対象。<b style="color:#F2C230">買う前に必ずオッズ帯を確認</b>してください。</p>
     <p class="note" style="margin:0 0 8px;font-size:10px;color:#5E7573">用語: <b>期待度</b>=ライン通りに決まりそうな度合い(%) / <b>点差</b>=評価1位と2位の総合点の差(大きいほど本命が抜けている) / <b>先頭・番手</b>=ライン内の位置</p>
     <div id="topSection" class="hidden">
       <h3 style="font-size:12px;font-weight:900;color:#5FC08B;margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid #26363B">📌 TOP構成(最も回収率が高い条件に合致)</h3>
       <div id="topList"></div>
     </div>
     <div id="otherSection" class="hidden">
-      <h3 style="font-size:12px;font-weight:900;color:#F2C230;margin:14px 0 6px;padding-bottom:4px;border-bottom:1px solid #26363B">🔥 その他の勝負レース(回収率100%超の条件に合致)</h3>
+      <h3 style="font-size:12px;font-weight:900;color:#F2C230;margin:14px 0 6px;padding-bottom:4px;border-bottom:1px solid #26363B">🔥 7車立ての勝負レース(評価順位の合計12以上・オッズ4〜15倍限定)</h3>
       <div id="shoubuList"></div>
     </div>
     <div id="shoubuEmpty" style="font-size:12px;color:#8CA3A0">「本日の全レースを読み込む」を押すと、買うべきレースだけが出走時間順に並びます。</div>
@@ -125,6 +125,7 @@
   <section class="card hl hidden" id="tenkaiCard"><h2>⑤ 展開予想</h2><p class="tenkai" id="tenkai"></p><p class="bankfit" id="bankFit"></p></section>
   <section class="card hidden" id="markCard"><h2>⑥ 予想印</h2><div id="markBox"></div></section>
   <section class="card hidden" id="betCard"><h2>⑦ 買い目</h2>
+    <div id="f3Box" style="display:none;margin:0 0 12px;padding:10px 12px;border-radius:8px"></div>
     <div id="winnerBox" style="display:none;margin:0 0 12px;padding:10px 12px;background:rgba(95,192,139,.1);border:1px solid #5FC08B;border-radius:8px"></div>
     <p class="note" id="betPlan" style="margin:0 0 10px;padding:8px 10px;background:#1C282C;border-left:3px solid #F2C230;border-radius:0 6px 6px 0;font-size:12px;line-height:1.7"></p>
     <p class="note" style="margin:0 0 5px;font-size:11px">2車単</p><div class="bets" id="bets2"></div>
@@ -1241,16 +1242,51 @@ $("addRace").addEventListener("click", () => {
   }
 });
 $("clearList").addEventListener("click", () => { raceList = []; renderSearch(); });
+// ===== 3連複「本命ライン3人」= 主戦略 =====
+// 実測(2025/01〜2026/08・42,891レース・全レースの確定オッズで検証):
+//   全体          回収 87.3%
+//   9車立て        回収103.2%(2,278R / 誤差幅92〜114% / 前半107%→後半100%)
+//   7車・順位合計12以上 かつ オッズ4〜15倍  回収103.5%(2,427R / 誤差幅95〜112% / 前半105%→後半102%)
+//   7車・上記以外    回収 85.7%
+// 市場は「30倍まではほぼ正確・50倍超は買われすぎ(回収55%以下)」なので、
+// 7車はオッズ帯を外れたら見送る。9車は市場がライン決着を過小評価している(実力/市場 1.34倍)。
+function f3PlanFrom(ranked, lines) {
+  if (!Array.isArray(ranked) || !ranked.length || !Array.isArray(lines)) return null;
+  const cars = ranked.length;
+  const l = lines.find((x) => Array.isArray(x) && x.includes(ranked[0]));
+  if (!l || l.length < 3) return { cars, trio: null, hot: false, note: "本命ラインが3人未満のため3連複の対象外。" };
+  const trio = [l[0], l[1], l[2]];
+  const rankSum = trio.reduce((a, c) => a + (ranked.indexOf(c) + 1), 0);
+  const ticket = trio.slice().sort((a, b) => a - b).join("=");
+  const o = { cars, trio, rankSum, ticket, hot: false, roi: 85.7, hitRate: 29.4, oddsHint: "", note: "" };
+  if (cars >= 8) {
+    o.hot = true; o.roi = 103.2; o.hitRate = 17.3;
+    o.oddsHint = "オッズ5倍以上ならさらに良化(実測106.1%)。15倍を超えたら見送り。";
+    o.note = "9車立ては市場がライン決着を過小評価(実力/市場 1.34倍)。実測 回収103.2%(2,278R)。";
+  } else if (cars === 7 && rankSum >= 12) {
+    o.hot = true; o.roi = 103.5; o.hitRate = 15.0;
+    o.oddsHint = "オッズが4〜15倍のときだけ買う。この帯を外れたら見送り。";
+    o.note = "7車立て・評価順位の合計" + rankSum + "(12以上)。オッズ4〜15倍で実測 回収103.5%(2,427R)。";
+  } else if (cars === 7) {
+    o.roi = 85.7; o.hitRate = 29.4;
+    o.note = "7車立て・評価順位の合計" + rankSum + "(12未満)。実測 回収85.7%で長期はマイナス。";
+  } else {
+    o.roi = cars === 6 ? 79.1 : 85.7; o.hitRate = cars === 6 ? 34.2 : 29.4;
+    o.note = cars + "車立て。実測 回収" + o.roi + "%で長期はマイナス。";
+  }
+  return o;
+}
+function f3Plan(p, r) {
+  if (!p || !r || !r.scores) return null;
+  return f3PlanFrom(r.scores.map((sc) => sc.car), p.lines || []);
+}
+
 // 勝負レース判定: バックテストで回収率100%超だった勝ちパターンのいずれかに合致するか
 function isShoubu(sx, gap, klass, ranked, lines, grade, pattern) {
-  const ctx = { score: sx ? sx.score : 0, gap, klass, verdict: sx ? sx.verdict : null, grade: grade || "", pattern: pattern || "" };
-  // 勝負レースカードと完全に同じ判定(条件一致＋実際に買い目が作れる＋回収率100%超)にそろえる
-  if (ALL_PATTERNS.length) {
-    const b = matchBestShoubu(ctx, ranked || [], lines || []);
-    return !!b;
-  }
-  if (!WINNERS.length) return !!(sx && sx.score >= 58 && gap != null && gap >= 5); // sim.json未取得時のフォールバック
-  return !!matchWinner({ ...ctx, ranked: ranked || [], lines: lines || [] });
+  // 判定は3連複「本命ライン3人」の実測成績のみ(sim.jsonの総当たり構成は
+  // 未使用データで再現しなかったため使わない)。
+  const pl = f3PlanFrom(ranked || [], lines || []);
+  return !!(pl && pl.hot);
 }
 function renderShoubu() {
   const card = $("shoubuCard"), listA = $("topList"), listB = $("shoubuList");
@@ -1263,34 +1299,31 @@ function renderShoubu() {
   const rows = [];
   for (const x of raceList) {
     if (!x.raw || !ALL_PATTERNS.length) continue;
-    let p, r, sx0, best;
+    let p, r, pl;
     try {
       p = parseCard(x.raw, TRACK_NAMES);
       const tn = detect(x.raw) || p.place;
       r = predict(p, T[tn], tn, LEARN_W);
-      sx0 = sujiExpect(p, r, T[tn] ? T[tn][10] : null);
-      const gap0 = r.scores && r.scores[1] ? +(r.scores[0].total - r.scores[1].total).toFixed(1) : null;
-      const ranked0 = r.scores.map((sc) => sc.car);
-      best = matchBestShoubu({ score: sx0 ? sx0.score : 0, gap: gap0, klass: r.klass, verdict: sx0 ? sx0.verdict : null, grade: p.grade || "", pattern: r.linePattern || "" }, ranked0, p.lines);
+      pl = f3Plan(p, r);
     } catch (e) { continue; }
-    if (!best || !best.tickets || !best.tickets.length) continue;
-    const isN2 = best.betType === "nishatan";
-    // 確定済みなら結果を突き合わせる
+    if (!pl || !pl.hot || !pl.trio) continue;
+    // 確定済みなら結果を突き合わせる(3連複なので着順は順不同で判定)
     const res = (TODAY_RESULTS || []).find((z) => z.place === (p.place || "") && z.raceNo === (p.raceNo || ""));
     let result = null;
-    if (res && res.f != null) {
-      const hitTicket = isN2 ? (res.f + "-" + res.s) : (res.f + "-" + res.s + "-" + res.t);
-      const hit = best.tickets.includes(hitTicket);
-      const pay = hit ? (isN2 ? res.p2pay : res.p3pay) : 0;
-      result = { order: res.f + "-" + res.s + (isN2 ? "" : "-" + res.t), hit, pay: pay || 0, cost: best.tickets.length * 100 };
+    if (res && res.f != null && res.t != null) {
+      const hit = [res.f, res.s, res.t].sort((a, b) => a - b).join("=") === pl.ticket;
+      const pay = hit ? (res.p3fpay != null ? res.p3fpay : 0) : 0;
+      result = { order: res.f + "-" + res.s + "-" + res.t, hit, pay: pay || 0, cost: 100, unknownPay: hit && res.p3fpay == null };
     }
     rows.push({
       startTime: x.startTime || p.startTime || "",
       place: p.place || "?", raceNo: p.raceNo || "",
-      betType: isN2 ? "2車単" : "3連単",
-      roi: best.roi, tickets: best.tickets, hitRate: best.hitRate,
-      beOdds: best.hitRate > 0 ? (best.tickets.length / (best.hitRate / 100)).toFixed(1) : "—",
-      filterName: best.filterName || "", isTop: isTopCfg(best), result,
+      betType: "3連複",
+      roi: pl.roi, tickets: [pl.ticket], hitRate: pl.hitRate,
+      beOdds: (100 / pl.hitRate).toFixed(1),
+      filterName: pl.cars >= 8 ? "9車立て" : "7車・順位合計" + pl.rankSum,
+      oddsHint: pl.oddsHint, note: pl.note,
+      isTop: pl.cars >= 8, result,
     });
   }
   const byTime = (a, b) => {
@@ -1311,7 +1344,7 @@ function renderShoubu() {
       "</div>" +
       '<div style="font-size:12px;color:#8CA3A0;margin-bottom:4px">' + x.betType + " " + x.tickets.length + "点 / 的中率" + x.hitRate + "%</div>" +
       "<div>" + x.tickets.map((t) => {
-        const won = x.result && x.result.hit && t === (x.betType === "2車単" ? x.result.order : x.result.order);
+        const won = !!(x.result && x.result.hit);
         return '<span class="bet3" style="border-color:' + (won ? "#5FC08B" : accent) + ';' + (won ? "background:rgba(95,192,139,.18);font-weight:900" : "") + '">' + t + "</span>";
       }).join("") + "</div>" +
       (x.result
@@ -1320,7 +1353,8 @@ function renderShoubu() {
             ' <span style="color:#8CA3A0">着順 ' + esc(x.result.order) + "</span>" +
             (x.result.hit ? ' <b style="color:#5FC08B">' + x.result.pay.toLocaleString() + "円</b>" : "") +
             ' <span style="color:' + (x.result.pay - x.result.cost >= 0 ? "#5FC08B" : "#E4726B") + '">(' + (x.result.pay - x.result.cost >= 0 ? "+" : "") + (x.result.pay - x.result.cost).toLocaleString() + "円)</span></div>"
-        : '<div style="font-size:11px;color:#EAF2EF;margin-top:6px">💰 損益分岐 <b style="color:' + accent + '">' + x.beOdds + "倍</b> — これを超えるオッズなら期待値プラス</div>") +
+        : '<div style="font-size:11px;color:#EAF2EF;margin-top:6px">💰 損益分岐 <b style="color:' + accent + '">' + x.beOdds + "倍</b>" +
+            (x.oddsHint ? ' <span style="color:#F2C230">' + esc(x.oddsHint) + "</span>" : "") + "</div>") +
     "</div>";
 
   if (!rows.length) {
@@ -1403,7 +1437,7 @@ function renderSearch() {
   }
 
   const shoubuCount = raceList.filter((x) => x.shoubu).length;
-  $("shoubuHint").textContent = shoubuCount ? "🔥 勝負レース " + shoubuCount + "件(学習した回収率100%超の条件に合致)" : "本日は勝負レース(学習回収率100%超の条件)に合致するレースはありません";
+  $("shoubuHint").textContent = shoubuCount ? "🔥 勝負レース " + shoubuCount + "件(3連複 本命ライン3人・実測100%超)" : "本日は勝負レース(9車立て / 7車・順位合計12以上)に該当するレースはありません";
   $("shoubuHint").style.color = shoubuCount ? "#F2C230" : "#5E7573";
   let lastVenue = null;
   body.innerHTML = sorted.map((x) => {
@@ -1700,6 +1734,26 @@ function render(p, tName) {
   $("bets3").innerHTML = mainTickets.map((x) => '<span class="bet3">' + x + "</span>").join("");
   if (best && best.tickets.length) {
     $("betPlan").textContent = "学習した最良構成「" + best.patternName + "」を採用(条件: " + best.filterName + " / 過去" + best.races + "レースの回収率" + best.roi + "%)。" + (r.planNote || "");
+  }
+  // ---- 3連複「本命ライン3人」= 主戦略。全レースで表示する ----
+  const f3 = f3Plan(p, r);
+  const f3b = $("f3Box");
+  if (f3 && f3.trio) {
+    const hot = f3.hot;
+    const ac = hot ? "#5FC08B" : "#8CA3A0";
+    f3b.style.display = "";
+    f3b.style.background = hot ? "rgba(95,192,139,.10)" : "#1C282C";
+    f3b.style.border = "1px solid " + (hot ? "#5FC08B" : "#26363B");
+    f3b.innerHTML =
+      '<div style="font-weight:900;color:' + ac + ';font-size:14px;margin-bottom:6px">' +
+        (hot ? "🔥 3連複 本命ライン3人 — 実測回収率 " + f3.roi + "%" : "3連複 本命ライン3人(参考) — 実測回収率 " + f3.roi + "%") + "</div>" +
+      '<div style="margin-bottom:6px"><span class="bet3" style="border-color:' + ac + ';font-size:16px;font-weight:900;padding:4px 10px">' + f3.ticket + "</span>" +
+        '<span style="font-size:11px;color:#8CA3A0;margin-left:8px">1点 / 的中率' + f3.hitRate + "%</span></div>" +
+      '<div style="font-size:11px;color:#8CA3A0;line-height:1.7">' + esc(f3.note) + "</div>" +
+      '<div style="font-size:11px;color:#EAF2EF;background:#10181A;border-radius:6px;padding:6px 8px;margin-top:6px">💰 損益分岐 <b style="color:' + ac + ';font-size:13px">' + (100 / f3.hitRate).toFixed(1) + "倍</b>" +
+        (f3.oddsHint ? ' <span style="color:#F2C230">' + esc(f3.oddsHint) + "</span>" : ' <span style="color:#8CA3A0">この倍率を超えていなければ見送り。</span>') + "</div>";
+  } else {
+    f3b.style.display = "none";
   }
   $("conf").textContent = "信頼度:" + r.confidence;
   $("conf").style.color = r.confidence === "高" ? "#5FC08B" : r.confidence === "低" ? "#E4726B" : "#F2C230";
