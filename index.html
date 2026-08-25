@@ -1231,7 +1231,7 @@ $("addRace").addEventListener("click", () => {
     const sx = sujiExpect(p, r, bank ? bank[10] : null);
     const gap = r.scores && r.scores[1] ? +(r.scores[0].total - r.scores[1].total).toFixed(1) : null;
     const key = (p.place || "?") + (p.raceNo || "?");
-    const item = { key, startTime: p.startTime || "", label: (p.place || "?") + " " + (p.raceNo || ""), sub: (r.fLabel || "") + " " + (r.linePattern ? r.linePattern + "型" : ""), klass: r.klass, sx, gap, shoubu: isShoubu(sx, gap, r.klass, r.scores.map((sc) => sc.car), p.lines, p.grade || "", r.linePattern || ""), raw: text };
+    const item = { key, startTime: p.startTime || "", label: (p.place || "?") + " " + (p.raceNo || ""), sub: (r.fLabel || "") + " " + patLabel(r.linePattern), klass: r.klass, sx, gap, shoubu: isShoubu(sx, gap, r.klass, r.scores.map((sc) => sc.car), p.lines, p.grade || "", r.linePattern || ""), raw: text };
     const i = raceList.findIndex((x) => x.key === key);
     if (i >= 0) raceList[i] = item; else raceList.push(item);
     renderSearch();
@@ -1250,6 +1250,19 @@ $("clearList").addEventListener("click", () => { raceList = []; renderSearch(); 
 //   7車・上記以外    回収 85.7%
 // 市場は「30倍まではほぼ正確・50倍超は買われすぎ(回収55%以下)」なので、
 // 7車はオッズ帯を外れたら見送る。9車は市場がライン決着を過小評価している(実力/市場 1.34倍)。
+// 全員が単騎(ガールズ等)の隊形表記「1-1-1-1-1-1」は横に長く画面が崩れるので出さない
+function patLabel(pat) {
+  if (!pat) return "";
+  return /^1(-1)+$/.test(pat) ? "" : pat + "型";
+}
+// races.json の1行から「全選手を評価順に並べた車番配列」を作る。
+// marksCars は上位6人しか入っていないので、車立ての判定には使えない(riders を優先する)。
+function rankedOfRow(x) {
+  if (x && Array.isArray(x.riders) && x.riders.length) {
+    return [...x.riders].sort((a, b) => (a[4] || 99) - (b[4] || 99)).map((r) => r[0]);
+  }
+  return (x && x.marksCars) || [];
+}
 function f3PlanFrom(ranked, lines) {
   if (!Array.isArray(ranked) || !ranked.length || !Array.isArray(lines)) return null;
   const cars = ranked.length;
@@ -1494,8 +1507,8 @@ $("loadToday").addEventListener("click", async () => {
       const sx = x.score != null ? { score: x.score, verdict: x.verdict, reasons: x.reasons || [] } : null;
       const gap = x.gap != null ? x.gap : null;
       const item = { key: x.key, startTime: x.startTime || "", label: (x.place || "?") + " " + (x.raceNo || ""),
-        sub: (x.fLabel || "") + " " + (x.pattern ? x.pattern + "型" : ""), klass: x.klass,
-        sx, gap, shoubu: isShoubu(sx, gap, x.klass, x.marksCars || [], x.lines || [], x.grade || "", x.pattern || ""),
+        sub: (x.fLabel || "") + " " + patLabel(x.pattern), klass: x.klass,
+        sx, gap, shoubu: isShoubu(sx, gap, x.klass, rankedOfRow(x), x.lines || [], x.grade || "", x.pattern || ""),
         raw: x.raw || "" };
       const i = raceList.findIndex((y) => y.key === item.key);
       if (i >= 0) raceList[i] = item; else raceList.push(item);
@@ -1655,7 +1668,7 @@ function render(p, tName) {
   $("parseMeta").textContent = [p.date, p.weather || "天候情報なし"].filter(Boolean).join(" / ");
   const lpChip = r.lpInfo
     ? '<p class="note" style="margin-top:10px">隊形 <b style="color:#F2C230">' + r.linePattern + "型・" + r.lpInfo.kind + "戦</b>(" + (r.lpInfo.kind === "2分" ? "先行有利" : "捲り有利") + "・S級7車での出現率" + r.lpInfo.freq + "%・スジ率" + r.lpInfo.suji + "%/研究所029)</p>"
-    : '<p class="note" style="margin-top:10px">隊形 ' + r.linePattern + "型</p>";
+    : (patLabel(r.linePattern) ? '<p class="note" style="margin-top:10px">隊形 ' + patLabel(r.linePattern) + "</p>" : "");
   $("lineBox").innerHTML = p.lines.map((l) => {
     const isLead = r.leadLine && l[0] === r.leadLine[0] && l.length > 1;
     return '<div class="linebox' + (isLead ? " lead" : "") + '">' +
