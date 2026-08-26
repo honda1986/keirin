@@ -1276,4 +1276,352 @@ async function main() {
       for (
         let rno = 1;
         rno <= 12;
-        rn
+        rno++
+      ) {
+
+        const url =
+          `${BASE_URL}/keirin/yoso/?pid=${pid}&rdt=${rdt}&rno=${rno}`;
+
+        try {
+
+          await sleep(
+            WAIT_MS
+          );
+
+          const html =
+            await get(url);
+
+          processRace(
+            html,
+            url,
+            races
+          );
+
+        } catch (e) {
+
+          console.error(
+            "discovered race skip:",
+            url,
+            e.message
+          );
+        }
+      }
+    }
+
+    console.log(
+      "discovery phase done:",
+      races.length,
+      "races"
+    );
+  }
+
+  // ----------------------------------------------------------
+  // 第3段
+  //
+  // トップ/予想ページの実リンクを巡回
+  //
+  // 第1・第2段で少ない場合のみ実行
+  // ----------------------------------------------------------
+
+  if (
+    races.length < 30
+  ) {
+
+    console.log(
+      "phase3: リンク巡回"
+    );
+
+    const seen =
+      new Set();
+
+    const queue =
+      [];
+
+    for (
+      const idx of INDEX_URLS
+    ) {
+
+      if (
+        Date.now() - startedAt >
+        DEADLINE_MS
+      ) {
+        break;
+      }
+
+      try {
+
+        await sleep(
+          WAIT_MS
+        );
+
+        const html =
+          await get(idx);
+
+        const links =
+          collectRaceLinks(
+            html,
+            idx
+          );
+
+        console.log(
+          "race links:",
+          idx,
+          links.length
+        );
+
+        for (
+          const u of links
+        ) {
+
+          if (
+            !seen.has(u)
+          ) {
+
+            seen.add(u);
+
+            queue.push(u);
+          }
+        }
+
+      } catch (e) {
+
+        console.error(
+          "index skip:",
+          idx,
+          e.message
+        );
+      }
+    }
+
+    console.log(
+      "candidate race links:",
+      queue.length
+    );
+
+    // yoso優先
+    queue.sort(
+      (a, b) => {
+
+        const aa =
+          /\/yoso(?:u)?\//i.test(a)
+            ? 1
+            : 0;
+
+        const bb =
+          /\/yoso(?:u)?\//i.test(b)
+            ? 1
+            : 0;
+
+        return bb - aa;
+      }
+    );
+
+    for (
+      const url of queue
+    ) {
+
+      if (
+        races.length >= MAX_RACES
+      ) {
+        break;
+      }
+
+      if (
+        Date.now() - startedAt >
+        DEADLINE_MS
+      ) {
+
+        console.log(
+          "deadline reached"
+        );
+
+        break;
+      }
+
+      try {
+
+        await sleep(
+          WAIT_MS
+        );
+
+        const html =
+          await get(url);
+
+        if (
+          !/基本出走データ/.test(
+            html
+          )
+        ) {
+          continue;
+        }
+
+        processRace(
+          html,
+          url,
+          races
+        );
+
+      } catch (e) {
+
+        console.error(
+          "race skip:",
+          url,
+          e.message
+        );
+      }
+    }
+
+    console.log(
+      "phase3 done:",
+      races.length,
+      "races"
+    );
+  }
+
+  // ----------------------------------------------------------
+  // 重複除去
+  // ----------------------------------------------------------
+
+  const unique =
+    new Map();
+
+  for (
+    const race of races
+  ) {
+
+    if (
+      !unique.has(
+        race.key
+      )
+    ) {
+
+      unique.set(
+        race.key,
+        race
+      );
+    }
+  }
+
+  const finalRaces =
+    [
+      ...unique.values()
+    ];
+
+  // ----------------------------------------------------------
+  // スコア順
+  // ----------------------------------------------------------
+
+  finalRaces.sort(
+    (a, b) =>
+      (b.score ?? -1) -
+      (a.score ?? -1)
+  );
+
+  // ----------------------------------------------------------
+  // 出力
+  // ----------------------------------------------------------
+
+  const outPath =
+    path.join(
+      __dirname,
+      "races.json"
+    );
+
+  fs.mkdirSync(
+    path.dirname(outPath),
+    {
+      recursive: true,
+    }
+  );
+
+  const output = {
+    updatedAt:
+      new Date().toISOString(),
+
+    count:
+      finalRaces.length,
+
+    races:
+      finalRaces,
+  };
+
+  fs.writeFileSync(
+    outPath,
+    JSON.stringify(
+      output,
+      null,
+      0
+    ),
+    "utf8"
+  );
+
+  console.log(
+    "========================================"
+  );
+
+  console.log(
+    "written:",
+    outPath
+  );
+
+  console.log(
+    "races:",
+    finalRaces.length
+  );
+
+  console.log(
+    "elapsed:",
+    Math.round(
+      (Date.now() - startedAt) /
+      1000
+    ),
+    "sec"
+  );
+
+  console.log(
+    "========================================"
+  );
+
+  // ----------------------------------------------------------
+  // 0件はGitHub Actions失敗
+  // ----------------------------------------------------------
+
+  if (
+    finalRaces.length === 0
+  ) {
+
+    console.error(
+      "ERROR: レースを1件も取得できませんでした。"
+    );
+
+    console.error(
+      "GambooのHTML構造またはアクセス仕様が変更された可能性があります。"
+    );
+
+    process.exitCode = 1;
+
+    return;
+  }
+
+  console.log(
+    "SUCCESS:",
+    finalRaces.length,
+    "races"
+  );
+}
+
+// ------------------------------------------------------------
+// 実行
+// ------------------------------------------------------------
+
+main().catch(
+  (e) => {
+
+    console.error(
+      "FATAL:",
+      e
+    );
+
+    process.exit(1);
+  }
+);
