@@ -178,11 +178,20 @@ function buildEntry(text, item) {
   });
 
   races.sort((a, b) => (a.startTime || "99:99").localeCompare(b.startTime || "99:99") || a.place.localeCompare(b.place));
+  if (!races.length) {
+    // 空で上書きするとアプリの一覧が消えるので、1件も作れなかったときは書かない
+    console.error("1件も作れませんでした。races.json はそのままにします。");
+    process.exit(1);
+  }
+  // アプリは { updatedAt, count, races } の形を期待している(配列そのままだと読めない)
   const outPath = path.join(__dirname, "races.json");
-  fs.writeFileSync(outPath, JSON.stringify(races));
+  fs.writeFileSync(outPath, JSON.stringify({
+    updatedAt: new Date().toISOString(),
+    count: races.length,
+    races,
+  }));
   console.log("\n========================================");
   console.log(" 書き出し:", races.length, "レース /", list.length, "件中");
   console.log(" 所要:", Math.round((Date.now() - startedAt) / 1000), "秒");
   console.log("========================================");
-  if (!races.length) { console.error("1件も作れませんでした。races.json は空です。"); process.exit(1); }
 })();
