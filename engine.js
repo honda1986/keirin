@@ -379,32 +379,42 @@ function parseKdreams(text, trackNames) {
   entries.sort((a, b) => a.car - b.car);
 
   // ---- 並び予想 ----
-  // kdreams の表記は「← 1 7 4  8 2  5 6 3」。
-  // ラインの区切りは "半角スペース2個"(ほかに ・ や全角スペースのことも)。
-  // スペース1個は同じライン内の区切りなので、空白をつぶすと並びが壊れる。
-  const ni = L.findIndex((x) => x === "並び予想");
+  // kdreams の並びは色付きチップで、ラインの切れ目は「中身が空のspan」。
+  // fetch.js 側で「← 1 7 4・8 2・5 6 3」の1行に直してから渡している。
+  // ブラウザからコピペした文字列は「← 1 7 4  8 2  5 6 3」(空白2個で区切り)。
+  // 保険として「1 / 先行 / 7 / 追込 / …」と1行ずつ並ぶ形にも対応する。
+  const ni = L.findIndex((x) => /並び予想/.test(x) && x.length <= 40);
   const linesArr = []; const narabi = [];
+  const pushCar = (c, cont) => {
+    if (!(c >= 1 && c <= 9) || narabi.indexOf(c) >= 0) return;
+    narabi.push(c);
+    if (cont && linesArr.length) linesArr[linesArr.length - 1].push(c);
+    else linesArr.push([c]);
+  };
   if (ni >= 0) {
+    const STOP = /^(レース評|さらに|【|※|投票|オッズ|結果)/;
     let raw = "";
-    for (let j = ni + 1; j < Math.min(L.length, ni + 6); j++) {
-      if (/^(レース評|さらに|【|※|投票|オッズ)/.test(L[j])) break;
-      if ((L[j].match(/\d/g) || []).length >= 3) { raw = L[j]; break; }
+    for (let j = ni; j < Math.min(L.length, ni + 6); j++) {
+      const s = j === ni ? L[j].replace(/^[\s\S]*並び予想/, "") : L[j];   // 同じ行に続くこともある
+      if (j > ni && STOP.test(s)) break;
+      if ((s.match(/\d/g) || []).length >= 3) { raw = s; break; }
     }
-    if (/(先行|追込|押え先|押さえ先|単騎|番手)/.test(raw)) {
-      // 役割つき表記(1先行 7追込 4追込 8押え先 …)のとき
-      const FOLLOW = /^(追込|番手|マーク|付)/;
-      let cur = null;
-      for (const m of raw.matchAll(/([1-9])[\s]*(先行|追込|押え先|押さえ先|自力|単騎|番手|マーク|捲|逃|カマシ|付)?/g)) {
-        const c = parseInt(m[1], 10);
-        if (narabi.indexOf(c) >= 0) continue;
-        narabi.push(c);
-        if (FOLLOW.test(m[2] || "") && cur) cur.push(c);
-        else { cur = [c]; linesArr.push(cur); }
+    const ROLE = /(先行|押え先|押さえ先|単騎|追込|番手|マーク)/;
+    const FOLLOW = /^(追込|番手|マーク|付)/;
+    if (raw && !ROLE.test(raw)) {
+      // 記号や空白2個だけで区切られている表記
+      for (const grp of raw.replace(/^[←→\s]+/, "").split(/ {2,}|[・･／\/|、]|　/)) {
+        (grp.match(/\d/g) || []).map(Number).forEach((c, k) => pushCar(c, k > 0));
       }
     } else {
-      for (const grp of raw.replace(/^[←→\s]+/, "").split(/ {2,}|[・･／\/|、]|　/)) {
-        const cars = (grp.match(/\d/g) || []).map(Number).filter((c) => c >= 1 && c <= 9 && narabi.indexOf(c) < 0);
-        if (cars.length) { cars.forEach((c) => narabi.push(c)); linesArr.push(cars); }
+      // 役割つき(1行にまとまっている場合と、1行ずつ並んでいる場合の両方)
+      const toks = raw
+        ? raw.replace(/([1-9])/g, " $1 ").split(/\s+/).filter(Boolean)
+        : L.slice(ni + 1, Math.min(L.length, ni + 60));
+      for (let k = 0; k < toks.length; k++) {
+        if (STOP.test(toks[k])) break;
+        if (!/^[1-9]$/.test(toks[k])) continue;
+        pushCar(parseInt(toks[k], 10), FOLLOW.test(toks[k + 1] || ""));
       }
     }
   }
