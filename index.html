@@ -617,10 +617,117 @@ function parseGamboo(text, trackNames) {
 }
 
 // 形式自動判別ディスパッチャ(WINTICKET / Gamboo基本出走データ)
+// ---- kdreams(楽天Kドリームス)のレース詳細ページ用パーサー ----
+// 目印は「府県/年齢/期別」の行(例: 静　岡/24/121)。そこから前後を読む。
+//   -2行: 車番   -1行: 選手名
+//   +1: 級班  +2: 脚質  +3: ギヤ  +4: 競走得点
+//   +5..+10: S B 逃 捲 差 マ
+//   +11..+14: 1着 2着 3着 着外
+//   +15..+17: 勝率 2連対率 3連対率
+// 並びは「並び予想」以降の「車番 + 先行/追込/押え先…」の列から復元する。
+//   先行・押え先・自力系 = 新しいラインの先頭 / 追込 = 直前のラインに続く
+function parseKdreams(text, trackNames) {
+  const L = String(text).split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  const joined = L.join("\n");
+
+  const meta = {};
+  { let best = "", bi = Infinity;
+    for (const n of trackNames || []) { const i = joined.indexOf(n); if (i !== -1 && i < bi) { bi = i; best = n; } }
+    meta.place = best; }
+  const mR = joined.match(/(\d{1,2})\s*R/);           meta.raceNo = mR ? mR[1] + "R" : "";
+  const mG = joined.match(/[ＳＡＬSAL]級[^\n]{0,8}/);  meta.grade = mG ? mG[0].trim() : "";
+  const mD = joined.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/); meta.date = mD ? mD[0] : "";
+  const iSt = L.findIndex((x) => /^発走予定/.test(x));
+  const mSt = iSt >= 0 ? (L[iSt].match(/(\d{1,2}):(\d{2})/) || (L[iSt + 1] || "").match(/^(\d{1,2}):(\d{2})$/)) : null;
+  meta.startTime = mSt ? mSt[1].padStart(2, "0") + ":" + mSt[2] : "";
+  meta.weather = ""; meta.windSpeed = null;   // kdreamsには無い(Gamboo版も同じ)
+
+  const PROF = /^([^\/\s]{1,6}[\s　]?[^\/\s]{0,6})\/(\d{1,2})\/(\d{1,3})$/;
+  const isNum = (s) => /^-?\d{1,3}(\.\d{1,2})?$/.test(s);
+  const numOf = (s) => { const v = parseFloat(s); return isNaN(v) ? 0 : v; };
+
+  const entries = []; const seen = new Set();
+  for (let i = 0; i < L.length; i++) {
+    const pm = L[i].match(PROF);
+    if (!pm) continue;
+    const car = parseInt(L[i - 2], 10);
+    const name = L[i - 1];
+    if (!(car >= 1 && car <= 9) || !name || isNum(name)) continue;
+    if (seen.has(car)) break;                       // 2周目(別タブ)に入ったら終了
+    const kl = L[i + 1] || "";                      // 級班
+    if (!/^[SAL]\d$/.test(kl)) continue;
+    const kyakuRaw = L[i + 2] || "";                // 脚質
+    if (!/^(逃|追|両|自|マ)$/.test(kyakuRaw)) continue;
+    const nums = [];
+    for (let j = i + 3; j < Math.min(L.length, i + 3 + 16) && nums.length < 16; j++) {
+      if (!isNum(L[j])) break;
+      nums.push(numOf(L[j]));
+    }
+    if (nums.length < 15) continue;                 // ギヤ,得点,S,B,逃,捲,差,マ,1着,2着,3着,着外,勝率,2連,3連 = 15
+    const waku = isNum(L[i - 3]) ? parseInt(L[i - 3], 10) : null;
+    seen.add(car);
+    entries.push({
+      waku, car, name, pref: pm[1].replace(/[\s　]/g, ""), grade: kl,
+      age: parseInt(pm[2], 10), ki: pm[3] + "期",
+      gear: nums[0], score: nums[1],
+      S: nums[2], B: nums[3], H: nums[3],          // HはGamboo版と同じくBを流用
+      kyaku: kyakuRaw === "両" ? "両" : kyakuRaw === "逃" ? "逃" : "追",
+      k: { nige: nums[4], makuri: nums[5], sashi: nums[6], mark: nums[7] },
+      seiseki: { win1: nums[8], win2: nums[9], win3: nums[10], out: nums[11] },
+      rate: { win: nums[12], niren: nums[13], sanren: nums[14] },
+      prevScore: null, scoreDiff: 0, avgTime: null,
+      recentWinRate: null, recentRaces: 0, kiken: false, comment: "",
+    });
+  }
+  if (entries.length < 5) throw new Error("kdreams: 選手データを" + entries.length + "名しか読み取れませんでした");
+  entries.sort((a, b) => a.car - b.car);
+
+  // ---- 並び予想 ----
+  const ni = L.findIndex((x) => x === "並び予想");
+  const linesArr = []; const narabi = [];
+  if (ni >= 0) {
+    let cur = null;
+    for (let j = ni + 1; j < Math.min(L.length, ni + 60); j++) {
+      const t = L[j];
+      if (t === "←" || t === "→") continue;
+      if (/^レース評|^【|^※/.test(t)) break;
+      if (/^\d$/.test(t)) {                       // 車番
+        const c = parseInt(t, 10);
+        const role = L[j + 1] || "";
+        narabi.push(c);
+        if (/追込|番手|マーク/.test(role)) { if (cur) cur.push(c); else { cur = [c]; linesArr.push(cur); } }
+        else { cur = [c]; linesArr.push(cur); }   // 先行・押え先・自力・単騎 = 新しいライン
+        continue;
+      }
+      if (/^(先行|追込|押え先|自力|単騎|番手|マーク|捲り)/.test(t)) continue;
+      if (linesArr.length) break;                 // 並びが終わった
+    }
+  }
+  const known = new Set(linesArr.flat());
+  for (const e of entries) if (!known.has(e.car)) linesArr.push([e.car]);   // 並びに出てこない車は単騎扱い
+  return { ...meta, entries, lines: linesArr, narabi: narabi.length ? narabi : entries.map((e) => e.car) };
+}
+
+// kdreams は「府県/年齢/期別」の行(例: 静　岡/24/121)が選手数ぶん並ぶのが特徴。
+// Gamboo / WINTICKET にはこの形が無いので、これで振り分けられる。
+function looksKdreams(text) {
+  if (/基本出走データ/.test(text)) return false;          // Gamboo は対象外
+  if (!/並び予想/.test(text)) return false;                // kdreams には必ずある
+  const re = /^[^\/\s]{1,6}[\s　]?[^\/\s]{0,6}\/\d{1,2}\/\d{1,3}$/;
+  let n = 0;
+  for (const l of String(text).split(/\r?\n/)) { if (re.test(l.trim())) n++; if (n >= 5) return true; }
+  return false;
+}
+
 function parseCard(text, trackNames) {
+  // 判定の順序が大事: Gamboo → kdreams → WINTICKET。
+  // Gamboo の生データにも「県/数字/数字」に見える行があるので、Gamboo を先に確かめる。
   const looksGamboo = /基本出走データ/.test(text) || (text.match(/\([^)]*\)\/\d{1,3}\/\d{1,3}/g) || []).length >= 5;
   if (looksGamboo) {
     try { return parseGamboo(text, trackNames); } catch (e) { /* fallback */ }
+  }
+  if (looksKdreams(text)) {
+    try { return parseKdreams(text, trackNames); } catch (e) { /* fallback */ }
   }
   return parseWinticket(text, trackNames);
 }
