@@ -379,24 +379,33 @@ function parseKdreams(text, trackNames) {
   entries.sort((a, b) => a.car - b.car);
 
   // ---- 並び予想 ----
+  // kdreams の表記は「← 1 7 4  8 2  5 6 3」。
+  // ラインの区切りは "半角スペース2個"(ほかに ・ や全角スペースのことも)。
+  // スペース1個は同じライン内の区切りなので、空白をつぶすと並びが壊れる。
   const ni = L.findIndex((x) => x === "並び予想");
   const linesArr = []; const narabi = [];
   if (ni >= 0) {
-    let cur = null;
-    for (let j = ni + 1; j < Math.min(L.length, ni + 60); j++) {
-      const t = L[j];
-      if (t === "←" || t === "→") continue;
-      if (/^レース評|^【|^※/.test(t)) break;
-      if (/^\d$/.test(t)) {                       // 車番
-        const c = parseInt(t, 10);
-        const role = L[j + 1] || "";
+    let raw = "";
+    for (let j = ni + 1; j < Math.min(L.length, ni + 6); j++) {
+      if (/^(レース評|さらに|【|※|投票|オッズ)/.test(L[j])) break;
+      if ((L[j].match(/\d/g) || []).length >= 3) { raw = L[j]; break; }
+    }
+    if (/(先行|追込|押え先|押さえ先|単騎|番手)/.test(raw)) {
+      // 役割つき表記(1先行 7追込 4追込 8押え先 …)のとき
+      const FOLLOW = /^(追込|番手|マーク|付)/;
+      let cur = null;
+      for (const m of raw.matchAll(/([1-9])[\s]*(先行|追込|押え先|押さえ先|自力|単騎|番手|マーク|捲|逃|カマシ|付)?/g)) {
+        const c = parseInt(m[1], 10);
+        if (narabi.indexOf(c) >= 0) continue;
         narabi.push(c);
-        if (/追込|番手|マーク/.test(role)) { if (cur) cur.push(c); else { cur = [c]; linesArr.push(cur); } }
-        else { cur = [c]; linesArr.push(cur); }   // 先行・押え先・自力・単騎 = 新しいライン
-        continue;
+        if (FOLLOW.test(m[2] || "") && cur) cur.push(c);
+        else { cur = [c]; linesArr.push(cur); }
       }
-      if (/^(先行|追込|押え先|自力|単騎|番手|マーク|捲り)/.test(t)) continue;
-      if (linesArr.length) break;                 // 並びが終わった
+    } else {
+      for (const grp of raw.replace(/^[←→\s]+/, "").split(/ {2,}|[・･／\/|、]|　/)) {
+        const cars = (grp.match(/\d/g) || []).map(Number).filter((c) => c >= 1 && c <= 9 && narabi.indexOf(c) < 0);
+        if (cars.length) { cars.forEach((c) => narabi.push(c)); linesArr.push(cars); }
+      }
     }
   }
   const known = new Set(linesArr.flat());
