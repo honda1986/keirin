@@ -78,6 +78,38 @@ function htmlToText(html) {
   return s.replace(/\u00a0/g, " ").replace(/\t/g, " ").replace(/ {2,}/g, "  ");
 }
 
+// ---- 並び予想は「色付きの番号チップ」で書かれている ----
+//   <div class="line_position">
+//     <span class="icon_p"><span class="p001">1</span><span class="p201">先行</span></span>
+//     <span class="icon_p"><span class="p007">7</span><span class="p105">追込</span></span>
+//     <span class="icon_p space"></span>          ← ★ラインの切れ目(中身が空)
+//     <span class="icon_p"><span class="p008">8</span><span class="p202">押え先</span></span>
+//     ...
+//   </div>
+// 普通にタグを消すと空の span が消えて区切りが失われるので、
+// HTML→テキストに渡す前に「← 1 7 4・8 2・5 6 3」という1行に置き換えておく。
+function narabiFromHtml(html) {
+  const m = String(html).match(/<div[^>]*class="[^"]*line_position[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+  if (!m) return null;
+  const parts = m[1].split(/<span[^>]*\bclass\s*=\s*"([^"]*icon_p[^"]*)"[^>]*>/i);
+  const groups = []; let cur = [];
+  for (let i = 1; i + 1 < parts.length; i += 2) {
+    const cls = parts[i] || "", body = parts[i + 1] || "";
+    if (/(^|[\s])space([\s]|$)/.test(cls)) { if (cur.length) { groups.push(cur); cur = []; } continue; }
+    const d = body.replace(/<[^>]+>/g, " ").match(/[1-9]/);
+    if (d) cur.push(d[0]);
+  }
+  if (cur.length) groups.push(cur);
+  if (!groups.length) return null;
+  return "← " + groups.map((g) => g.join(" ")).join("・");
+}
+function withNarabiText(html) {
+  const s = narabiFromHtml(html);
+  if (!s) return html;
+  // <br> にしておくと HTML→テキストで必ず独立した1行になる
+  return String(html).replace(/<div[^>]*class="[^"]*line_position[^"]*"[^>]*>[\s\S]*?<\/div>/i, "<br>" + s + "<br>");
+}
+
 // ---- ページは4万字あるので、予想に必要な部分だけ残す(races.json を太らせないため) ----
 const PROF = /^[^\/\s]{1,6}[\s　]?[^\/\s]{0,6}\/\d{1,2}\/\d{1,3}$/;
 function compactCard(text, place, raceNo) {
@@ -98,7 +130,7 @@ function compactCard(text, place, raceNo) {
     seen.add(car);
     for (let j = Math.max(0, i - 3); j <= i + 18 && j < L.length; j++) out.push(L[j]);
   }
-  const ni = L.indexOf("並び予想");
+  const ni = L.findIndex((x) => /並び予想/.test(x) && x.length <= 40);
   if (ni >= 0) for (let j = ni; j < Math.min(L.length, ni + 45); j++) { out.push(L[j]); if (/^レース評/.test(L[j])) break; }
   return out.join("\n");
 }
@@ -172,7 +204,7 @@ function buildEntry(text, item) {
   const races = [];
   await pool(list, async (item) => {
     const html = await get(item.url);
-    const text = htmlToText(html);
+    const text = htmlToText(withNarabiText(html));   // 並びを先に1行テキストに直す
     const e = buildEntry(text, item);
     if (races.some((x) => x.key === e.key)) return;
     races.push(e);
