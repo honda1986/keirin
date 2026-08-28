@@ -1,20 +1,33 @@
 name: 評価値
+
 on:
   workflow_dispatch:
+    inputs:
+      cmd:
+        description: '実行するコマンド(読み取り専用のスクリプトだけにすること)'
+        required: false
+        default: 'node verify.js && echo "" && echo "########## 診断 ##########" && echo "" && node diagnose.js'
+
 permissions:
   contents: read
+
 jobs:
   evaluate:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: 評価値
+
+      # コマンドは環境変数で渡す(YAMLに直接埋め込まない)
+      - name: 実行
+        env:
+          CMD: ${{ github.event.inputs.cmd }}
         run: |
-          node verify.js
-          echo ""
-          echo "########## 診断 ##########"
-          echo ""
-          node diagnose.js
+          RUN="${CMD:-node verify.js}"
+          echo "▶ $RUN"
+          echo "----------------------------------------"
+          eval "$RUN"
