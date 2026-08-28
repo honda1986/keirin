@@ -73,7 +73,9 @@ function htmlToText(html) {
        .replace(/<[^>]+>/g, " ")
        .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
        .replace(/&#(\d+);/g, (_, n) => { try { return String.fromCodePoint(+n); } catch { return " "; } });
-  return s.replace(/ /g, " ").replace(/[ \t]+/g, " ");
+  // 空白は2個までは残す。並び予想は「空白2個」でラインを区切っているので、
+  // 1個につぶすと 1 7 4  8 2  5 6 3 → 1 7 4 8 2 5 6 3 になり並びが消える。
+  return s.replace(/\u00a0/g, " ").replace(/\t/g, " ").replace(/ {2,}/g, "  ");
 }
 
 // ---- ページは4万字あるので、予想に必要な部分だけ残す(races.json を太らせないため) ----
