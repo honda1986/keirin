@@ -1028,6 +1028,12 @@ function predict(parsed, bank, trackName, learnW) {
       const a = e.age || 0;
       const ab = a > 0 && a <= 23 ? "23歳以下" : a <= 27 && a > 0 ? "24-27歳" : a <= 35 && a > 0 ? "28-35歳" : a > 35 ? "36歳以上" : null;
       if (ab && learnW.ageBonus && learnW.ageBonus[ab]) lw += learnW.ageBonus[ab];
+      // 位置×年齢の交互作用(learn.js が「3着以内率」で学習した残差)。
+      // 位置と年齢を別々に足すだけでは表せない組み合わせがある。実測の乖離(3着以内):
+      //   単騎 28-35歳 +1.8pt / 単騎 50歳〜 -11.6pt   ← 単騎は年齢で真逆
+      //   先頭 〜23歳   +4.2pt / 先頭 44歳〜   -8.1pt   ← 高齢の先行役は先行しきれない
+      const a6 = a > 0 ? (a <= 23 ? "〜23" : a <= 27 ? "24-27" : a <= 35 ? "28-35" : a <= 43 ? "36-43" : a <= 49 ? "44-49" : "50〜") : null;
+      if (a6 && learnW.posAgeBonus && learnW.posAgeBonus[posKey + "|" + a6]) lw += learnW.posAgeBonus[posKey + "|" + a6];
     }
     const total = ptScore + form + wins + fit + pos + sB + gap + lw;
     return { car: e.car, name: e.name, total, br: { 得点: ptScore, 調子: form, 勝ち星: wins, 適性: fit, 位置: pos, S: sB, 乖離: gap, 学習: +lw.toFixed(1) }, role: r };
