@@ -1,6 +1,12 @@
 name: オッズ取得
 
 on:
+  # 月1回の自動取得。7車立ての判定にはオッズ帯(4〜15倍)が要るので、
+  # 溜めておかないと後から成績を検証できなくなる。
+  # 毎月1日 02:00 UTC = 11:00 JST。odds.js は「昨日から遡る」ので当日は含まず、
+  # 確定オッズだけが入る。他のワークフロー(03:00/08:00/14:50 UTC)とも重ならない。
+  schedule:
+    - cron: '0 2 1 * *'
   workflow_dispatch:
     inputs:
       mode:
@@ -48,18 +54,34 @@ jobs:
           node-version: 20
 
       - name: オッズ取得
+        env:
+          MODE: ${{ github.event.inputs.mode }}
+          FROM: ${{ github.event.inputs.from }}
+          TO:   ${{ github.event.inputs.to }}
+          DAYS: ${{ github.event.inputs.days }}
+          CONC: ${{ github.event.inputs.conc }}
+          WAIT: ${{ github.event.inputs.wait }}
         run: |
+          # 定時実行(schedule)では inputs が全部空になるので、ここで既定値を入れる。
+          # 手動実行のときは入力に既定値が付いているので、この既定値は効かない。
+          # 45日にしてあるのは、1回失敗しても次の月に取りこぼしを拾えるようにするため。
+          # 取得済みのレースは odds.js が飛ばすので、重なっても無駄にはならない。
+          MODE="${MODE:-apply}"
+          DAYS="${DAYS:-45}"
+          CONC="${CONC:-6}"
+          WAIT="${WAIT:-150}"
           APPLY=""
-          if [ "${{ github.event.inputs.mode }}" = "apply" ]; then APPLY="--apply"; fi
-          OPTS="--conc=${{ github.event.inputs.conc }} --wait=${{ github.event.inputs.wait }}"
-          if [ -n "${{ github.event.inputs.from }}" ] && [ -n "${{ github.event.inputs.to }}" ]; then
-            node odds.js "${{ github.event.inputs.from }}" "${{ github.event.inputs.to }}" $APPLY $OPTS
+          if [ "$MODE" = "apply" ]; then APPLY="--apply"; fi
+          OPTS="--conc=$CONC --wait=$WAIT"
+          if [ -n "$FROM" ] && [ -n "$TO" ]; then
+            node odds.js "$FROM" "$TO" $APPLY $OPTS
           else
-            node odds.js "${{ github.event.inputs.days }}" $APPLY $OPTS
+            node odds.js "$DAYS" $APPLY $OPTS
           fi
 
       - name: コミット(競合対策リトライ付き)
-        if: github.event.inputs.mode == 'apply'
+        # 定時実行は常に書き込む。手動実行は apply を選んだときだけ。
+        if: ${{ github.event_name == 'schedule' || github.event.inputs.mode == 'apply' }}
         run: |
           git config user.name "race-bot"
           git config user.email "actions@github.com"
