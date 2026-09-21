@@ -82,6 +82,23 @@ function parseHaraiList(html) {
 }
 function toMd(html) { return html; } // 生HTMLをそのまま parseHaraiList に渡す(互換のため関数は残す)
 
+// レース日を "YYYY-MM-DD" で返す。取れなければ null。
+// 2026-08-28の楽天Kドリームス移行で races.json の url から rdt= が消えた。
+// url だけを見ていたため 8/26〜9/21 のあいだ baseDates が空になり、
+// 払戻一覧を1ページも取りに行かず history.json に1件も追加されていなかった。
+// ★kdreamsの16桁IDに入っている日付は「開催初日」なので使ってはいけない。
+//   例: 広島 6220260920020001 は 2026-09-21 のレース(IDは 20260920)。
+//   races.json の date("2026年09月21日") を正とする。
+const raceDate = (x) => {
+  const m = String(x.url || "").match(/rdt=(\d{4}-\d{2}-\d{2})/);      // Gamboo時代のraces.json
+  if (m) return m[1];
+  const j = String(x.date || "").match(/(\d{4})年(\d{1,2})月(\d{1,2})日/); // kdreams
+  if (j) return j[1] + "-" + j[2].padStart(2, "0") + "-" + j[3].padStart(2, "0");
+  const i = String(x.date || "").match(/^\d{4}-\d{2}-\d{2}$/);          // 念のため
+  if (i) return i[0];
+  return null;
+};
+
 const sujiHit = (lines, f, s) => (lines || []).some((l) => {
   for (let i = 0; i + 1 < l.length; i++) {
     if ((l[i] === f && l[i + 1] === s) || (l[i] === s && l[i + 1] === f)) return true;
@@ -97,7 +114,13 @@ async function main() {
   const done = new Set(hist.entries.map((e) => e.id));
 
   // races.json内の日付を集めて、日付ごとに払戻一覧を1回取得
-  const baseDates = [...new Set(races.map((x) => ((x.url || "").match(/rdt=([\d-]+)/) || [])[1]).values())].filter(Boolean);
+  const baseDates = [...new Set(races.map(raceDate).filter(Boolean))];
+  // レース日が1件も取れないのは取得元の形式が変わったとき。黙って0件追加を続けないよう、ここで落とす。
+  if (races.length && !baseDates.length) {
+    console.error("レース日を1件も特定できません。races.json の url / date の形式が変わった可能性があります。");
+    console.error("先頭レース:", JSON.stringify({ url: races[0].url, date: races[0].date }));
+    process.exit(1);
+  }
   // races.jsonの日付 + その前日 も一覧を見る(ナイター開催は結果一覧が前日ページに載るため)
   const dateSet = new Set(baseDates);
   for (const dH of baseDates) {
@@ -127,7 +150,7 @@ async function main() {
   const entryById = new Map(hist.entries.map((e) => [e.id, e]));
   let added = 0, p2added = 0;
   for (const x of races) {
-    const dH = ((x.url || "").match(/rdt=([\d-]+)/) || [])[1];
+    const dH = raceDate(x);
     if (!dH) continue;
     const d8 = dH.replace(/-/g, "");
     const id = d8 + "_" + x.key;
