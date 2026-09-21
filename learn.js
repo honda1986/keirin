@@ -100,6 +100,49 @@ console.log("勝ちライン先頭の評価順位分布:",
   Object.entries(headRankWin).sort((a, b) => a[0] - b[0]).map(([r, n]) => r + "位:" + (n / lineRaces * 100).toFixed(0) + "%").join(" "));
 console.log("");
 
+// --- 位置×年齢 の交互作用(的は「3着以内率」) ---
+// なぜ的を変えるか:
+//   上の posBonus / ageBonus は「1着率」の乖離から作っている。ところがアプリが買うのは
+//   三連複(本命ライン3人)で、当たるかどうかは「3人が揃って3着以内に入るか」で決まる。
+//   実測では、1着率で学習した補正は三連複の成績をむしろ下げた(回収 104.3%→103.9%)。
+//   的を3着以内率に変えると 104.3%→106.3% に改善したので、この項だけ的を変える。
+// なぜ加法項では足りないか:
+//   例: 単騎は年齢で真逆になる。28-35歳は3着内が期待より +2.5pt、50歳以上は -11.6pt。
+//   位置と年齢を別々に足すだけでは、この差は表現できない。
+const AGE6 = (a) => !(a > 0) ? null : a <= 23 ? "〜23" : a <= 27 ? "24-27" : a <= 35 ? "28-35" : a <= 43 ? "36-43" : a <= 49 ? "44-49" : "50〜";
+const AGE6_LABELS = ["〜23", "24-27", "28-35", "36-43", "44-49", "50〜"];
+const isIn3 = (e, car) => e.f === car || e.s === car || e.t === car;
+
+// 3着以内率のベースライン(評価順位ごと)
+const rankIn3 = {};
+for (const e of ALL) for (const rd of e.riders) {
+  const r = rd[4];
+  (rankIn3[r] = rankIn3[r] || { n: 0, hit: 0 });
+  rankIn3[r].n++;
+  if (isIn3(e, rd[0])) rankIn3[r].hit++;
+}
+const pIn3ByRank = {};
+for (const [r, v] of Object.entries(rankIn3)) pIn3ByRank[r] = v.n ? v.hit / v.n : 0;
+
+// 3着以内率を的にしたグループ集計(上の groupStats と同じ作りで、的だけ違う)
+function groupIn3(assignFn) {
+  const g = {};
+  for (const e of ALL) for (const rd of e.riders) {
+    const key = assignFn(rd);
+    if (key == null) continue;
+    (g[key] = g[key] || { n: 0, hit: 0, exp: 0 });
+    g[key].n++;
+    g[key].exp += pIn3ByRank[rd[4]] || 0;
+    if (isIn3(e, rd[0])) g[key].hit++;
+  }
+  const o = {};
+  for (const [k, v] of Object.entries(g)) o[k] = { n: v.n, bias: +((v.hit / v.n - v.exp / v.n) * 100).toFixed(1) };
+  return o;
+}
+const posIn3 = groupIn3((rd) => POS_LABELS[rd[3]]);
+const ageIn3 = groupIn3((rd) => ageBand(rd[1]));
+const cellIn3 = groupIn3((rd) => POS_LABELS[rd[3]] + "|" + AGE6(rd[1]));
+
 // --- 補正値の算出(乖離ptを控えめな係数で採点ボーナスに変換、±5点でクリップ) ---
 const toBonus = (bias) => Math.max(-5, Math.min(5, +(bias * 0.55).toFixed(1)));
 const posBonus = {};
@@ -109,16 +152,43 @@ for (const s of kiStats) kiBonus[s.key] = s.n >= 200 ? toBonus(s.bias) : 0;
 const ageBonus = {};
 for (const s of ageStats) ageBonus[s.key] = s.n >= 200 ? toBonus(s.bias) : 0;
 
+// 位置×年齢: セルの補正から「位置だけ」「年齢だけ」で説明できる分を引いた残り(=交互作用)。
+// 引かないと、加法項と二重に効いてしまう。
+const POS_KEY = { "先頭": "head", "番手": "second", "3番手+": "third", "単騎": "tanki" };
+const AGE6_MID = { "〜23": 23, "24-27": 25, "28-35": 30, "36-43": 40, "44-49": 46, "50〜": 55 };
+const posAgeBonus = {};
+for (const p of POS_LABELS) for (const a of AGE6_LABELS) {
+  const v = cellIn3[p + "|" + a];
+  if (!v || v.n < 200) continue;                       // サンプル不足のセルは作らない
+  const pb = (posIn3[p] && posIn3[p].n >= 200) ? toBonus(posIn3[p].bias) : 0;
+  const ab0 = ageIn3[ageBand(AGE6_MID[a])];
+  const ab = (ab0 && ab0.n >= 200) ? toBonus(ab0.bias) : 0;
+  const d = +(toBonus(v.bias) - pb - ab).toFixed(2);
+  if (d !== 0) posAgeBonus[POS_KEY[p] + "|" + a] = d;
+}
+
 const weights = {
   updatedAt: new Date().toISOString(), sample: ALL.length,
   posBonus,   // {head, second, third, tanki} 採点への加点
   kiBonus,    // 期数帯 → 加点
   ageBonus,   // 年齢帯 → 加点
-  note: "実測1着率とモデル期待値の乖離から算出(係数0.55, ±5点クリップ, n>=200のみ)",
+  posAgeBonus, // "head|36-43" → 加点。位置×年齢の交互作用のみ(的は3着以内率)
+  note: "実測1着率とモデル期待値の乖離から算出(係数0.55, ±5点クリップ, n>=200のみ)。" +
+        "posAgeBonus だけは三連複の的中(3人が3着以内)に合わせ、3着以内率の乖離から算出している。",
 };
 fs.writeFileSync(path.join(dir, "weights.json"), JSON.stringify(weights, null, 0));
 console.log("=== 学習した補正値(weights.json) ===");
 console.log("位置ボーナス:", JSON.stringify(posBonus));
 console.log("期数ボーナス:", JSON.stringify(kiBonus));
+console.log("");
+console.log("=== 位置×年齢の交互作用(的=3着以内率) ===");
+console.log("位置      年齢      n      実測-期待  交互作用");
+for (const p of POS_LABELS) for (const a of AGE6_LABELS) {
+  const v = cellIn3[p + "|" + a]; if (!v) continue;
+  const k = POS_KEY[p] + "|" + a;
+  console.log("  " + p.padEnd(6) + a.padEnd(8) + String(v.n).padStart(6) + "  " +
+    ((v.bias >= 0 ? "+" : "") + v.bias + "pt").padStart(8) + "  " +
+    (v.n < 200 ? "(n不足)" : String(posAgeBonus[k] != null ? posAgeBonus[k] : 0).padStart(6)));
+}
 console.log("年齢ボーナス:", JSON.stringify(ageBonus));
 console.log("\nエンジンがこの補正を採点に反映します(weights.json を読み込み)。");
