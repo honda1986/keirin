@@ -12,8 +12,31 @@ const path = require("path");
 const dir = __dirname;
 const hist = JSON.parse(fs.readFileSync(path.join(dir, "history.json"), "utf8"));
 // 2車単だけを評価するため、3連単配当が無いレースも対象に含める(2車単配当があれば十分)
-const ALL = (hist.entries || []).filter((e) => Array.isArray(e.ranks) && e.ranks.length >= 4 && (e.p2pay || e.p3pay || e.p3fpay));
-console.log("シミュレーション対象:", ALL.length, "レース (ranks付き)");
+// 評価順に並べた「全車番」を返す。
+// ★ranks は印6つ分しか入っていないため、これを使うと車立てが常に6になる。
+//   実測: ranks の長さ分布 {5:452, 6:42525} に対し、riders(=実際の出走数)は
+//   {5:452, 6:2090, 7:36477, 8:235, 9:3723}。7車立て/9車立てを区別できない。
+//   index.html の rankedOfRow() と同じく riders を優先する(本命の特定は
+//   どちらでも一致するが、車立てと順位合計は riders でないと出せない)。
+const rankedOf = (e) => {
+  if (Array.isArray(e.riders) && e.riders.length) {
+    return [...e.riders].sort((a, b) => (a[4] || 99) - (b[4] || 99)).map((r) => r[0]);
+  }
+  return Array.isArray(e.ranks) ? e.ranks : [];
+};
+const ALL = (hist.entries || []).filter((e) => (e.p2pay || e.p3pay || e.p3fpay) && rankedOf(e).length >= 4);
+// 毎回ソートすると パターン×フィルタ の総当たりで重くなるので、1回だけ作って持たせる
+for (const e of ALL) e.rk = rankedOf(e);
+console.log("シミュレーション対象:", ALL.length, "レース");
+{
+  const src = { riders: 0, ranks: 0 }, cars = {};
+  for (const e of ALL) {
+    src[Array.isArray(e.riders) && e.riders.length ? "riders" : "ranks"]++;
+    cars[e.rk.length] = (cars[e.rk.length] || 0) + 1;
+  }
+  console.log("  評価順の取得元: riders", src.riders, "件 / ranks(旧データ)", src.ranks, "件");
+  console.log("  車立ての内訳:", Object.keys(cars).sort().map((k) => k + "車:" + cars[k]).join(" / "));
+}
 {
   const n2 = ALL.filter((e) => e.p2pay != null).length;
   const f3 = ALL.filter((e) => e.p3fpay != null && e.t != null).length;
@@ -26,22 +49,13 @@ let LW = null;
 try { LW = JSON.parse(fs.readFileSync(path.join(dir, "weights.json"), "utf8")); } catch (e) {}
 const kiBand = (ki) => ki >= 121 ? "期121+(若手)" : ki >= 111 ? "期111-120" : ki >= 100 ? "期100-110" : ki > 0 ? "期99以下(ベテラン)" : null;
 const ageBand = (a) => a > 0 && a <= 23 ? "23歳以下" : a > 0 && a <= 27 ? "24-27歳" : a > 0 && a <= 35 ? "28-35歳" : a > 35 ? "36歳以上" : null;
-let adjCount = 0;
+// adjCount は 0 のまま増えないので [補正後] の評価は走らない(下の adjCount >= 100 が常に false)。
+// 以前はここで補正後の並びを計算していたが、直後に e.adjRanks = e.ranks で捨てており
+// 結果に一切効いていなかったため、計算そのものを削除した。
+const adjCount = 0;
 if (LW) {
-  for (const e of ALL) {
-    if (!Array.isArray(e.riders) || e.riders.length < 5) continue;
-    const adj = e.riders.map((rd) => {
-      const [car, age, ki, pos, , total] = rd;
-      let b = 0;
-      const pk = ["head", "second", "third", "tanki"][pos];
-      if (LW.posBonus && LW.posBonus[pk]) b += LW.posBonus[pk];
-      const kb = kiBand(ki); if (kb && LW.kiBonus && LW.kiBonus[kb]) b += LW.kiBonus[kb];
-      const ab = ageBand(age); if (ab && LW.ageBonus && LW.ageBonus[ab]) b += LW.ageBonus[ab];
-      return { car, t: (total || 0) + b };
-    }).sort((x, y) => y.t - x.t).map((x) => x.car);
-    e.adjRanks = e.ranks; // 二重補正を廃止: 保存ranksが既に補正込み
-  }
-  console.log("注: 保存ランクが既に学習補正込みのため、二重補正[補正後]は生成しません (weights " + (LW ? LW.updatedAt : "なし") + ")");
+  for (const e of ALL) e.adjRanks = e.rk;   // 保存ランクが既に学習補正込みなので二重補正はしない
+  console.log("注: 保存ランクが既に学習補正込みのため、二重補正[補正後]は生成しません (weights " + LW.updatedAt + ")");
 }
 
 // 3連単の順列を生成するヘルパ
@@ -253,10 +267,17 @@ const F3_PATTERNS = {
 // フィルタ定義(どのレースを買うか)。e.score=期待度%, e.p3pay=3連単配当, e.verdict/klass/place
 const FILTERS_ANCHOR = true;
 // ライン構造の判定ヘルパ(複合条件で使う)
-const _l0 = (e) => ((e.lines || []).find((x) => x.includes((e.ranks || [])[0])) || null);
-const _isHead = (e) => { const l = _l0(e); return !!(l && l.length >= 2 && l[0] === e.ranks[0]); };
-const _isTail = (e) => { const l = _l0(e); return !!(l && l.length >= 2 && l[l.length - 1] === e.ranks[0]); };
+const _l0 = (e) => ((e.lines || []).find((x) => x.includes(e.rk[0])) || null);
+const _isHead = (e) => { const l = _l0(e); return !!(l && l.length >= 2 && l[0] === e.rk[0]); };
+const _isTail = (e) => { const l = _l0(e); return !!(l && l.length >= 2 && l[l.length - 1] === e.rk[0]); };
 const _lsize = (e) => { const l = _l0(e); return l ? l.length : 1; };
+// 本命ライン先頭3人の評価順位の合計(index.html の f3PlanFrom の rankSum と同じ定義)。
+// 本命ラインが3人未満なら0を返す(=3連複の対象外)。
+const _lineRankSum = (e) => {
+  const l = _l0(e);
+  if (!l || l.length < 3) return 0;
+  return l.slice(0, 3).reduce((a, c) => a + (e.rk.indexOf(c) + 1), 0);
+};
 const _isYosen = (e) => /予選/.test(e.grade || "");
 const _isKesshou = (e) => /決勝/.test((e.grade || "").replace(/準決勝?/, ""));
 
@@ -279,12 +300,12 @@ const FILTERS = {
   // ===== ライン構造フィルタ =====
   "二分戦": (e) => /^(4-3|5-2|3-4|2-5|4-4|5-4|6-3)/.test(e.pattern || ""),
   "三分戦": (e) => /^(3-3-1|3-2-2|2-3-2|3-3-3|4-2-1|2-2-3|3-3-2)/.test(e.pattern || ""),
-  "本命ライン3人以上": (e) => { const l = (e.lines || []).find((x) => x.includes((e.ranks || [])[0])); return !!(l && l.length >= 3); },
-  "本命ライン2人": (e) => { const l = (e.lines || []).find((x) => x.includes((e.ranks || [])[0])); return !!(l && l.length === 2); },
-  "本命が先頭": (e) => { const l = (e.lines || []).find((x) => x.includes((e.ranks || [])[0])); return !!(l && l.length >= 2 && l[0] === e.ranks[0]); },
-  "本命が番手以降": (e) => { const l = (e.lines || []).find((x) => x.includes((e.ranks || [])[0])); return !!(l && l.length >= 2 && l[0] !== e.ranks[0]); },
-  "本命ライン3人以上・期待度58%以上": (e) => { const l = (e.lines || []).find((x) => x.includes((e.ranks || [])[0])); return !!(l && l.length >= 3) && e.score >= 58; },
-  "本命が先頭・期待度58%以上": (e) => { const l = (e.lines || []).find((x) => x.includes((e.ranks || [])[0])); return !!(l && l.length >= 2 && l[0] === e.ranks[0]) && e.score >= 58; },
+  "本命ライン3人以上": (e) => { const l = (e.lines || []).find((x) => x.includes(e.rk[0])); return !!(l && l.length >= 3); },
+  "本命ライン2人": (e) => { const l = (e.lines || []).find((x) => x.includes(e.rk[0])); return !!(l && l.length === 2); },
+  "本命が先頭": (e) => { const l = (e.lines || []).find((x) => x.includes(e.rk[0])); return !!(l && l.length >= 2 && l[0] === e.rk[0]); },
+  "本命が番手以降": (e) => { const l = (e.lines || []).find((x) => x.includes(e.rk[0])); return !!(l && l.length >= 2 && l[0] !== e.rk[0]); },
+  "本命ライン3人以上・期待度58%以上": (e) => { const l = (e.lines || []).find((x) => x.includes(e.rk[0])); return !!(l && l.length >= 3) && e.score >= 58; },
+  "本命が先頭・期待度58%以上": (e) => { const l = (e.lines || []).find((x) => x.includes(e.rk[0])); return !!(l && l.length >= 2 && l[0] === e.rk[0]) && e.score >= 58; },
   // ===== 再検証: データ修復後に効き目を測り直す複合条件 =====
   // 予選 × ライン構造
   "予選・本命が先頭": (e) => _isYosen(e) && _isHead(e),
@@ -320,14 +341,14 @@ const FILTERS = {
   "拮抗・本命が先頭": (e) => e.gap != null && e.gap < 3 && _isHead(e),
 
   // ===== 複合条件(診断:ライン人数が多い/本命が先頭 ほど有利) =====
-  "本命が先頭・ライン3人以上": (e) => { const l = (e.lines || []).find((x) => x.includes((e.ranks || [])[0])); return !!(l && l.length >= 3 && l[0] === e.ranks[0]); },
-  "本命が先頭・ライン3人以上・期待度58%以上": (e) => { const l = (e.lines || []).find((x) => x.includes((e.ranks || [])[0])); return !!(l && l.length >= 3 && l[0] === e.ranks[0]) && e.score >= 58; },
-  "本命が先頭・ライン3人以上・期待度60%以上": (e) => { const l = (e.lines || []).find((x) => x.includes((e.ranks || [])[0])); return !!(l && l.length >= 3 && l[0] === e.ranks[0]) && e.score >= 60; },
-  "本命が先頭・期待度60%以上": (e) => { const l = (e.lines || []).find((x) => x.includes((e.ranks || [])[0])); return !!(l && l.length >= 2 && l[0] === e.ranks[0]) && e.score >= 60; },
-  "本命が先頭・期待度60%以上・S級除外": (e) => { const l = (e.lines || []).find((x) => x.includes((e.ranks || [])[0])); return !!(l && l.length >= 2 && l[0] === e.ranks[0]) && e.score >= 60 && e.klass !== "s"; },
-  "本命が最後尾のレースを除外": (e) => { const l = (e.lines || []).find((x) => x.includes((e.ranks || [])[0])); return !(l && l.length >= 2 && l[l.length - 1] === e.ranks[0]); },
-  "最後尾除外・期待度60%以上": (e) => { const l = (e.lines || []).find((x) => x.includes((e.ranks || [])[0])); return !(l && l.length >= 2 && l[l.length - 1] === e.ranks[0]) && e.score >= 60; },
-  "本命が先頭・5点差以上リード": (e) => { const l = (e.lines || []).find((x) => x.includes((e.ranks || [])[0])); return !!(l && l.length >= 2 && l[0] === e.ranks[0]) && e.gap != null && e.gap >= 5; },
+  "本命が先頭・ライン3人以上": (e) => { const l = (e.lines || []).find((x) => x.includes(e.rk[0])); return !!(l && l.length >= 3 && l[0] === e.rk[0]); },
+  "本命が先頭・ライン3人以上・期待度58%以上": (e) => { const l = (e.lines || []).find((x) => x.includes(e.rk[0])); return !!(l && l.length >= 3 && l[0] === e.rk[0]) && e.score >= 58; },
+  "本命が先頭・ライン3人以上・期待度60%以上": (e) => { const l = (e.lines || []).find((x) => x.includes(e.rk[0])); return !!(l && l.length >= 3 && l[0] === e.rk[0]) && e.score >= 60; },
+  "本命が先頭・期待度60%以上": (e) => { const l = (e.lines || []).find((x) => x.includes(e.rk[0])); return !!(l && l.length >= 2 && l[0] === e.rk[0]) && e.score >= 60; },
+  "本命が先頭・期待度60%以上・S級除外": (e) => { const l = (e.lines || []).find((x) => x.includes(e.rk[0])); return !!(l && l.length >= 2 && l[0] === e.rk[0]) && e.score >= 60 && e.klass !== "s"; },
+  "本命が最後尾のレースを除外": (e) => { const l = (e.lines || []).find((x) => x.includes(e.rk[0])); return !(l && l.length >= 2 && l[l.length - 1] === e.rk[0]); },
+  "最後尾除外・期待度60%以上": (e) => { const l = (e.lines || []).find((x) => x.includes(e.rk[0])); return !(l && l.length >= 2 && l[l.length - 1] === e.rk[0]) && e.score >= 60; },
+  "本命が先頭・5点差以上リード": (e) => { const l = (e.lines || []).find((x) => x.includes(e.rk[0])); return !!(l && l.length >= 2 && l[0] === e.rk[0]) && e.gap != null && e.gap >= 5; },
   "◎スジ堅いのみ": (e) => e.verdict === "◎スジ堅い",
   // 期待度スコアの閾値(判定バケットより細かく)
   "期待度55%以上": (e) => (e.score || 0) >= 55,
@@ -353,6 +374,16 @@ const FILTERS = {
   "期待度66%以上": (e) => (e.score || 0) >= 66,
   "A級・期待度58%以上": (e) => e.klass === "a12" && (e.score || 0) >= 58,
   "チャレンジ・期待度58%以上": (e) => e.klass === "challenge" && (e.score || 0) >= 58,
+  // ===== 車立て(riders由来。ranks では常に6になるため従来は表現できなかった) =====
+  // アプリ(index.html の f3PlanFrom)の🔥判定を集計側でも再現するためのフィルタ。
+  // 「3連複 本命ライン3人(1点)」パターンと組み合わせると表示ルールと一致する。
+  "9車立て(8車以上)": (e) => e.rk.length >= 8,
+  "9車立て・単騎1人以下": (e) => e.rk.length >= 8 && (e.lines || []).filter((l) => l.length === 1).length <= 1,
+  "9車立て・単騎2人以上": (e) => e.rk.length >= 8 && (e.lines || []).filter((l) => l.length === 1).length >= 2,
+  "7車立て": (e) => e.rk.length === 7,
+  "7車立て・順位合計12以上": (e) => e.rk.length === 7 && _lineRankSum(e) >= 12,
+  "7車立て・順位合計12未満": (e) => e.rk.length === 7 && _lineRankSum(e) > 0 && _lineRankSum(e) < 12,
+  "6車立て以下": (e) => e.rk.length <= 6,
   // 接戦度(評価1位と2位の点差)。gapフィールドがあるデータのみ対象
   "本命が5点差以上リード": (e) => (e.gap || 0) >= 5,
   "本命が8点差以上リード": (e) => (e.gap || 0) >= 8,
@@ -376,8 +407,8 @@ function evaluate(patternFn, filterFn, useAdj, bet) {
     if (B === "n2" && e.p2pay == null) continue;
     if (B === "p3" && (e.p3pay == null || e.t == null)) continue;
     if (B === "f3" && (e.p3fpay == null || e.t == null)) continue;
-    const rk = useAdj ? e.adjRanks : e.ranks;
-    if (!rk) continue;
+    const rk = useAdj ? e.adjRanks : e.rk;
+    if (!rk || !rk.length) continue;
     const tickets = patternFn(rk, e);
     if (!tickets.length) continue;
     races++;
@@ -641,8 +672,8 @@ const allPatterns = results
     for (const e of ALL) {
       if (!ff(e)) continue;
       if (isN2 && e.p2pay == null) continue;
-      const rk = e.ranks;
-      if (!rk) continue;
+      const rk = e.rk;   // evaluate() と同じ並びを使う(ここがズレると採用レースが食い違う)
+      if (!rk || !rk.length) continue;
       const t = pf(rk, e);
       if (t && t.length) out.add(keyOf(e));
     }
