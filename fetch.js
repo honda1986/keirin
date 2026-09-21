@@ -17,7 +17,7 @@
 "use strict";
 const fs = require("fs");
 const path = require("path");
-const { parseCard, predict, sujiExpect, applyScoreLog } = require("./engine.js");
+const { parseCard, predict, sujiExpect, applyScoreLog, f3PlanFrom } = require("./engine.js");
 const { T, TRACK_NAMES } = require("./bankdata.js");
 
 // 競走得点の日次ログ。Kドリームスには前得点が無いので、ここから scoreDiff を復元する。
@@ -195,6 +195,12 @@ function buildEntry(text, item) {
     reasons: sx ? sx.reasons : ["ガールズ(ライン無し)"],
     marks: (r.marks || []).slice(0, 3).map((mk) => `${mk.mark}${mk.car} ${mk.name}`).join(" / "),
     lines: p.lines || [], marksCars: (r.marks || []).map((mk) => mk.car), riders,
+    // 買い目の判定。これまではアプリ(index.html)がブラウザ側で計算するだけで
+    // ファイルに残っていなかった。自動投票クライアントが f3PlanFrom の3つ目の
+    // コピーを持たずに済むよう、ここで確定させて書き出す。
+    // ★needOdds が true(7車立て)のときは、買う前にオッズが bandLo〜bandHi に
+    //   入っているか確認すること。帯を外すと実測87.7%でマイナスになる。
+    plan: f3PlanFrom((r.scores || []).map((sc) => sc.car), p.lines || []),
     gap: r.scores && r.scores[1] ? Number((r.scores[0].total - r.scores[1].total).toFixed(1)) : null,
     nishatan: r.bets?.nishatan, sanrentan: r.bets?.sanrentan,
     raw: compactCard(text, p.place, p.raceNo), url: item.url,
