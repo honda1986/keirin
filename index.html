@@ -73,11 +73,11 @@
     <p class="note" style="margin:0 0 8px">3連複「本命ライン3人」で実測回収率100%超だったレースだけを、出走時間順に並べています。9車立ては無条件、7車立ては評価順位の合計12以上が対象。<b style="color:#F2C230">買う前に必ずオッズ帯を確認</b>してください。</p>
     <p class="note" style="margin:0 0 8px;font-size:10px;color:#5E7573">用語: <b>期待度</b>=ライン通りに決まりそうな度合い(%) / <b>点差</b>=評価1位と2位の総合点の差(大きいほど本命が抜けている) / <b>先頭・番手</b>=ライン内の位置</p>
     <div id="topSection" class="hidden">
-      <h3 style="font-size:12px;font-weight:900;color:#5FC08B;margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid #26363B">📌 TOP構成(最も回収率が高い条件に合致)</h3>
+      <h3 style="font-size:12px;font-weight:900;color:#5FC08B;margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid #26363B">🔥 9車立ての勝負レース(単騎1人以下・オッズ確認なしで買える)</h3>
       <div id="topList"></div>
     </div>
     <div id="otherSection" class="hidden">
-      <h3 style="font-size:12px;font-weight:900;color:#F2C230;margin:14px 0 6px;padding-bottom:4px;border-bottom:1px solid #26363B">🔥 7車立ての勝負レース(評価順位の合計12以上・オッズ4〜15倍限定)</h3>
+      <h3 style="font-size:12px;font-weight:900;color:#F2C230;margin:14px 0 6px;padding-bottom:4px;border-bottom:1px solid #26363B">🔥 7車立ての勝負レース(評価順位の合計12以上) ※オッズ4〜15倍のときだけ買う</h3>
       <div id="shoubuList"></div>
     </div>
     <div id="shoubuEmpty" style="font-size:12px;color:#8CA3A0">「本日の全レースを読み込む」を押すと、買うべきレースだけが出走時間順に並びます。</div>
@@ -1397,20 +1397,31 @@ function f3PlanFrom(ranked, lines) {
   const trio = [l[0], l[1], l[2]];
   const rankSum = trio.reduce((a, c) => a + (ranked.indexOf(c) + 1), 0);
   const ticket = trio.slice().sort((a, b) => a - b).join("=");
-  const o = { cars, trio, rankSum, ticket, hot: false, roi: 85.7, hitRate: 29.4, oddsHint: "", note: "" };
+  // 実測値は 2026-09-21 時点の history.json(44,787R) と odds-*.json で測り直したもの。
+  //   9車系      2,252R 回収107.3% 的中17.8%   / うち5〜15倍 1,068R 113.0%
+  //   7車(帯なし) 4,395R 回収 96.1% 的中17.2%  ← オッズを見ずに買うとマイナス
+  //   7車 4〜15倍 2,535R 回収102.3% 的中14.8% (+5,800円)
+  //   7車 帯外    1,860R 回収 87.7% 的中20.5% (-22,930円)
+  // needOdds: 買う前にオッズを確認しないと成立しない買い目かどうか。
+  //   9車系は帯を外しても102%台で成立するが、7車は帯が生命線なので true。
+  const o = { cars, trio, rankSum, ticket, hot: false, roi: 85.7, hitRate: 29.4, oddsHint: "", note: "", needOdds: false, bandLo: null, bandHi: null, bandNote: "" };
   const solo = lines.filter((x) => Array.isArray(x) && x.length === 1).length;
   if (cars >= 8 && solo >= 2) {
     // 単騎が2人以上いる9車立ては隊列が読めず、実測61.5%(226R・前半57%→後半65%)。対象外にする。
     o.roi = 61.5; o.hitRate = 13.7;
     o.note = "9車立てだが単騎が" + solo + "人。隊列が読めず実測 回収61.5%(226R)。見送り推奨。";
   } else if (cars >= 8) {
-    o.hot = true; o.roi = 108.1; o.hitRate = 17.8;
-    o.oddsHint = "オッズ5倍以上ならさらに良い。15倍を超えたら見送り。";
-    o.note = "9車立て・単騎1人以下。市場がライン決着を過小評価(実力/市場 1.34倍)。実測 回収108.1%(2,189R・誤差幅96〜120%・前半110%→後半106%)。";
+    o.hot = true; o.roi = 107.3; o.hitRate = 17.8;
+    o.oddsHint = "オッズ5〜15倍ならさらに良い(実測113.0%)。";
+    o.bandNote = "オッズを見ずに買っても実測 回収107.3%(2,252R)。5〜15倍に絞ると113.0%(1,068R)。";
+    o.note = "9車立て・単騎1人以下。市場がライン決着を過小評価。実測 回収107.3%(2,252R・的中17.8%)。";
   } else if (cars === 7 && rankSum >= 12) {
-    o.hot = true; o.roi = 103.5; o.hitRate = 15.0;
+    o.hot = true; o.roi = 102.3; o.hitRate = 14.8;
+    o.needOdds = true; o.bandLo = 4; o.bandHi = 15;
     o.oddsHint = "オッズが4〜15倍のときだけ買う。この帯を外れたら見送り。";
-    o.note = "7車立て・評価順位の合計" + rankSum + "(12以上)。オッズ4〜15倍で実測 回収103.5%(2,427R)。";
+    o.bandNote = "帯内(4〜15倍) 実測102.3%(2,535R・+5,800円) / 帯外 87.7%(1,860R・-22,930円)。" +
+                 "オッズを確認せず全部買うと 96.1%(4,395R・-17,130円)でマイナスになる。";
+    o.note = "7車立て・評価順位の合計" + rankSum + "(12以上)。オッズ4〜15倍で実測 回収102.3%(2,535R)。";
   } else if (cars === 7) {
     o.roi = 85.7; o.hitRate = 29.4;
     o.note = "7車立て・評価順位の合計" + rankSum + "(12未満)。実測 回収85.7%で長期はマイナス。";
@@ -1423,6 +1434,28 @@ function f3PlanFrom(ranked, lines) {
 function f3Plan(p, r) {
   if (!p || !r || !r.scores) return null;
   return f3PlanFrom(r.scores.map((sc) => sc.car), p.lines || []);
+}
+
+// 買う前のオッズ確認を促す帯。🔥カードと個別レース表示の両方で使う。
+// 確定後は助言として意味が無いので出さない(x.result があるとき)。
+// 7車立ては帯(4〜15倍)を外すと実測87.7%で、確認しないなら買わない方が良い水準。
+// 引数: { tickets:[買い目], needOdds, bandLo, bandHi, bandNote, result }
+function oddsGate(x) {
+  if (x.result) return "";
+  if (x.needOdds) {
+    return '<div style="margin-top:7px;padding:8px 9px;border-radius:6px;background:rgba(228,114,107,.12);border:1px solid #E4726B">' +
+      '<div style="font-size:12px;font-weight:900;color:#E4726B">⚠ 買う前にオッズを確認</div>' +
+      '<div style="font-size:12px;color:#EAF2EF;margin-top:3px">三連複 <b>' + esc(x.tickets[0]) + '</b> が ' +
+        '<b style="color:#F2C230">' + x.bandLo + '〜' + x.bandHi + '倍</b> のときだけ買う。外れていたら<b>見送り</b>。</div>' +
+      (x.bandNote ? '<div style="font-size:11px;color:#8CA3A0;margin-top:4px">' + esc(x.bandNote) + "</div>" : "") +
+    "</div>";
+  }
+  return x.bandNote
+    ? '<div style="margin-top:7px;padding:7px 9px;border-radius:6px;background:rgba(95,192,139,.10);border:1px solid #26363B">' +
+        '<div style="font-size:12px;color:#5FC08B;font-weight:700">オッズ確認なしで買える</div>' +
+        '<div style="font-size:11px;color:#8CA3A0;margin-top:3px">' + esc(x.bandNote) + "</div>" +
+      "</div>"
+    : "";
 }
 
 // 勝負レース判定: バックテストで回収率100%超だった勝ちパターンのいずれかに合致するか
@@ -1467,6 +1500,7 @@ function renderShoubu() {
       beOdds: (100 / pl.hitRate).toFixed(1),
       filterName: pl.cars >= 8 ? "9車立て" : "7車・順位合計" + pl.rankSum,
       oddsHint: pl.oddsHint, note: pl.note,
+      needOdds: !!pl.needOdds, bandLo: pl.bandLo, bandHi: pl.bandHi, bandNote: pl.bandNote,
       isTop: pl.cars >= 8, result,
     });
   }
@@ -1491,14 +1525,14 @@ function renderShoubu() {
         const won = !!(x.result && x.result.hit);
         return '<span class="bet3" style="border-color:' + (won ? "#5FC08B" : accent) + ';' + (won ? "background:rgba(95,192,139,.18);font-weight:900" : "") + '">' + t + "</span>";
       }).join("") + "</div>" +
+      oddsGate(x) +
       (x.result
         ? '<div style="margin-top:6px;padding:6px 8px;border-radius:6px;background:' + (x.result.hit ? "rgba(95,192,139,.12)" : "rgba(228,114,107,.10)") + ';font-size:12px">' +
             (x.result.hit ? '<b style="color:#5FC08B">✅ 的中</b>' : '<b style="color:#E4726B">✗ 不的中</b>') +
             ' <span style="color:#8CA3A0">着順 ' + esc(x.result.order) + "</span>" +
             (x.result.hit ? ' <b style="color:#5FC08B">' + x.result.pay.toLocaleString() + "円</b>" : "") +
             ' <span style="color:' + (x.result.pay - x.result.cost >= 0 ? "#5FC08B" : "#E4726B") + '">(' + (x.result.pay - x.result.cost >= 0 ? "+" : "") + (x.result.pay - x.result.cost).toLocaleString() + "円)</span></div>"
-        : '<div style="font-size:11px;color:#EAF2EF;margin-top:6px">💰 損益分岐 <b style="color:' + accent + '">' + x.beOdds + "倍</b>" +
-            (x.oddsHint ? ' <span style="color:#F2C230">' + esc(x.oddsHint) + "</span>" : "") + "</div>") +
+        : '<div style="font-size:11px;color:#EAF2EF;margin-top:6px">💰 損益分岐 <b style="color:' + accent + '">' + x.beOdds + "倍</b></div>") +
     "</div>";
 
   if (!rows.length) {
@@ -1895,7 +1929,9 @@ function render(p, tName) {
         '<span style="font-size:11px;color:#8CA3A0;margin-left:8px">1点 / 的中率' + f3.hitRate + "%</span></div>" +
       '<div style="font-size:11px;color:#8CA3A0;line-height:1.7">' + esc(f3.note) + "</div>" +
       '<div style="font-size:11px;color:#EAF2EF;background:#10181A;border-radius:6px;padding:6px 8px;margin-top:6px">💰 損益分岐 <b style="color:' + ac + ';font-size:13px">' + (100 / f3.hitRate).toFixed(1) + "倍</b>" +
-        (f3.oddsHint ? ' <span style="color:#F2C230">' + esc(f3.oddsHint) + "</span>" : ' <span style="color:#8CA3A0">この倍率を超えていなければ見送り。</span>') + "</div>";
+        // 🔥のときは下の oddsGate が同じことを書くので、ここには出さない
+        (hot ? "" : ' <span style="color:#8CA3A0">この倍率を超えていなければ見送り。</span>') + "</div>" +
+      (hot ? oddsGate({ tickets: [f3.ticket], needOdds: f3.needOdds, bandLo: f3.bandLo, bandHi: f3.bandHi, bandNote: f3.bandNote, result: null }) : "");
   } else {
     f3b.style.display = "none";
   }
