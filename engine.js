@@ -457,6 +457,52 @@ function parseCard(text, trackNames) {
   return parseWinticket(text, trackNames);
 }
 
+// ---- 買い目の判定(三連複・本命ラインの先頭3人) ----
+// ★index.html にも同じ関数がある。片方だけ直すと表示と保存がズレるので必ず両方直すこと。
+//   fetch.js がこれを呼んで races.json の plan に書き、アプリと自動投票が同じ判定を使う。
+function f3PlanFrom(ranked, lines) {
+  if (!Array.isArray(ranked) || !ranked.length || !Array.isArray(lines)) return null;
+  const cars = ranked.length;
+  const l = lines.find((x) => Array.isArray(x) && x.includes(ranked[0]));
+  if (!l || l.length < 3) return { cars, trio: null, hot: false, note: "本命ラインが3人未満のため3連複の対象外。" };
+  const trio = [l[0], l[1], l[2]];
+  const rankSum = trio.reduce((a, c) => a + (ranked.indexOf(c) + 1), 0);
+  const ticket = trio.slice().sort((a, b) => a - b).join("=");
+  // 実測値は 2026-09-21 時点の history.json(44,787R) と odds-*.json で測り直したもの。
+  //   9車系      2,252R 回収107.3% 的中17.8%   / うち5〜15倍 1,068R 113.0%
+  //   7車(帯なし) 4,395R 回収 96.1% 的中17.2%  ← オッズを見ずに買うとマイナス
+  //   7車 4〜15倍 2,535R 回収102.3% 的中14.8% (+5,800円)
+  //   7車 帯外    1,860R 回収 87.7% 的中20.5% (-22,930円)
+  // needOdds: 買う前にオッズを確認しないと成立しない買い目かどうか。
+  //   9車系は帯を外しても102%台で成立するが、7車は帯が生命線なので true。
+  const o = { cars, trio, rankSum, ticket, hot: false, roi: 85.7, hitRate: 29.4, oddsHint: "", note: "", needOdds: false, bandLo: null, bandHi: null, bandNote: "" };
+  const solo = lines.filter((x) => Array.isArray(x) && x.length === 1).length;
+  if (cars >= 8 && solo >= 2) {
+    // 単騎が2人以上いる9車立ては隊列が読めず、実測61.5%(226R・前半57%→後半65%)。対象外にする。
+    o.roi = 61.5; o.hitRate = 13.7;
+    o.note = "9車立てだが単騎が" + solo + "人。隊列が読めず実測 回収61.5%(226R)。見送り推奨。";
+  } else if (cars >= 8) {
+    o.hot = true; o.roi = 107.3; o.hitRate = 17.8;
+    o.oddsHint = "オッズ5〜15倍ならさらに良い(実測113.0%)。";
+    o.bandNote = "オッズを見ずに買っても実測 回収107.3%(2,252R)。5〜15倍に絞ると113.0%(1,068R)。";
+    o.note = "9車立て・単騎1人以下。市場がライン決着を過小評価。実測 回収107.3%(2,252R・的中17.8%)。";
+  } else if (cars === 7 && rankSum >= 12) {
+    o.hot = true; o.roi = 102.3; o.hitRate = 14.8;
+    o.needOdds = true; o.bandLo = 4; o.bandHi = 15;
+    o.oddsHint = "オッズが4〜15倍のときだけ買う。この帯を外れたら見送り。";
+    o.bandNote = "帯内(4〜15倍) 実測102.3%(2,535R・+5,800円) / 帯外 87.7%(1,860R・-22,930円)。" +
+                 "オッズを確認せず全部買うと 96.1%(4,395R・-17,130円)でマイナスになる。";
+    o.note = "7車立て・評価順位の合計" + rankSum + "(12以上)。オッズ4〜15倍で実測 回収102.3%(2,535R)。";
+  } else if (cars === 7) {
+    o.roi = 85.7; o.hitRate = 29.4;
+    o.note = "7車立て・評価順位の合計" + rankSum + "(12未満)。実測 回収85.7%で長期はマイナス。";
+  } else {
+    o.roi = cars === 6 ? 79.1 : 85.7; o.hitRate = cars === 6 ? 34.2 : 29.4;
+    o.note = cars + "車立て。実測 回収" + o.roi + "%で長期はマイナス。";
+  }
+  return o;
+}
+
 // ---- 競走得点の日次ログ(scores.json)から「前回開催の得点」を復元する ----
 // Kドリームスの出走表には前得点が無く、移行後は scoreDiff が常に0だった。
 // scorelog.js が貯めた日次の得点から前回開催の得点を引き当てて埋める。
@@ -900,4 +946,4 @@ function sujiExpect(parsed, r, bankSuji) {
   return { score: +s.toFixed(1), verdict, reasons };
 }
 
-if (typeof module !== "undefined") module.exports = { parseCard, predict, detectKlass, sujiExpect, applyScoreLog, prevMeetScore };
+if (typeof module !== "undefined") module.exports = { parseCard, predict, detectKlass, sujiExpect, applyScoreLog, prevMeetScore, f3PlanFrom };
