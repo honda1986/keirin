@@ -457,6 +457,48 @@ function parseCard(text, trackNames) {
   return parseWinticket(text, trackNames);
 }
 
+// ---- 競走得点の日次ログ(scores.json)から「前回開催の得点」を復元する ----
+// Kドリームスの出走表には前得点が無く、移行後は scoreDiff が常に0だった。
+// scorelog.js が貯めた日次の得点から前回開催の得点を引き当てて埋める。
+//
+// なぜ「前日」ではなく「前回開催」か:
+//   実測(8/28〜9/21、11,126組)では同じ開催中(間隔2日以内)の99.7%が同じ得点で、
+//   更新は開催をまたぐときに起きる。前日差を使うとほぼ常に0になる。
+//   開催をまたぐ差は 5〜95%で ±1.1〜1.2 で、predict のクリップ幅 ±1.5 と同じ桁。
+function prevMeetScore(log, d8) {
+  if (!Array.isArray(log) || !log.length || !d8) return null;
+  const toT = (s) => Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8));
+  const gapDays = (a, b) => Math.round((toT(b) - toT(a)) / 86400000);
+  let cur = d8;
+  for (let i = log.length - 1; i >= 0; i--) {
+    const d = log[i][0];
+    if (d >= d8) continue;                          // 当日以降は見ない
+    if (gapDays(d, cur) <= 2) { cur = d; continue; } // 同じ開催の続き(3日制なので2日以内)
+    return log[i][1];                                // 開催が変わった = 前回開催の得点
+  }
+  return null;
+}
+
+// p.entries に prevScore / scoreDiff を埋める。埋めた人数を返す。
+// scores が無ければ何もしない(従来どおり scoreDiff は0のまま)。
+// 既に prevScore が入っている Gamboo 由来のエントリには触らない。
+function applyScoreLog(p, scores) {
+  if (!p || !Array.isArray(p.entries) || !scores || !scores.riders) return 0;
+  const m = String(p.date || "").match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  const d8 = m ? m[1] + m[2].padStart(2, "0") + m[3].padStart(2, "0") : null;
+  if (!d8) return 0;
+  let n = 0;
+  for (const e of p.entries) {
+    if (e.prevScore != null || !e.name || !e.ki || !(e.score > 0)) continue;
+    const prev = prevMeetScore(scores.riders[e.name + "|" + String(e.ki).replace(/期$/, "")], d8);
+    if (prev == null) continue;
+    e.prevScore = prev;
+    e.scoreDiff = +(e.score - prev).toFixed(2);
+    n++;
+  }
+  return n;
+}
+
 // ---- 記事014: クラス×バンク長別の決まり手(2017/5〜2019/4実測) ----
 // CLS_K[バンク長][クラス] = 1着決まり手 [逃げ,捲り,差し] %
 const CLS_K = {
@@ -852,4 +894,4 @@ function sujiExpect(parsed, r, bankSuji) {
   return { score: +s.toFixed(1), verdict, reasons };
 }
 
-if (typeof module !== "undefined") module.exports = { parseCard, predict, detectKlass, sujiExpect };
+if (typeof module !== "undefined") module.exports = { parseCard, predict, detectKlass, sujiExpect, applyScoreLog, prevMeetScore };
