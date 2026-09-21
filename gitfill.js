@@ -34,7 +34,8 @@ const argOf = (n) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : 
 const FROM = argOf("--from");
 const TO = argOf("--to");
 const isDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s || "");
-if (!isDate(FROM) || !isDate(TO) || FROM > TO) {
+// 引数の検査は直接実行したときだけ。require されたときに落ちないようにする。
+if (require.main === module && (!isDate(FROM) || !isDate(TO) || FROM > TO)) {
   console.error("使い方: node gitfill.js --from YYYY-MM-DD --to YYYY-MM-DD [--apply]");
   process.exit(1);
 }
@@ -45,7 +46,9 @@ const git = (args) => execFileSync("git", args, { cwd: dir, maxBuffer: 256 * 102
 // fetch.js は夜に「翌日ぶん」を取るので、レース日はコミット日の当日か翌日になる。
 const shift = (d, n) => { const t = new Date(d + "T00:00:00Z"); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
 
-function snapshots() {
+// レース日ごとに「そのレース日のレースを最も多く含む races.json スナップショット」を返す。
+// Map<"YYYY-MM-DD", {sha, races}>。scorelog.js からも使う。
+function snapshots(FROM, TO) {
   let out;
   try {
     out = git(["log", "--format=%H", `--since=${shift(FROM, -2)}`, `--until=${shift(TO, 2)}`, "--", "races.json"]).toString();
@@ -93,7 +96,7 @@ async function main() {
   console.log("history 現在:", before, "件");
   console.log("対象期間:", FROM, "〜", TO, APPLY ? "(書き込みます)" : "(点検のみ・書き込みません)");
 
-  const best = snapshots();
+  const best = snapshots(FROM, TO);
   const dates = [...best.keys()].sort();
   console.log("予想が残っている日:", dates.length, "日");
   const missing = [];
@@ -147,4 +150,7 @@ async function main() {
   console.log("★このあと node sanpuku.js 40 --apply を回して3連複配当(p3fpay)を入れてください。");
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+// 直接実行したときだけ走らせる(scorelog.js から snapshots を使い回すため)
+if (require.main === module) main().catch((e) => { console.error(e); process.exit(1); });
+
+module.exports = { snapshots, raceDate, shift };
