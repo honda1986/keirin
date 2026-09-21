@@ -761,6 +761,48 @@ function parseCard(text, trackNames) {
   return parseWinticket(text, trackNames);
 }
 
+// ---- 競走得点の日次ログ(scores.json)から「前回開催の得点」を復元する ----
+// Kドリームスの出走表には前得点が無く、移行後は scoreDiff が常に0だった。
+// scorelog.js が貯めた日次の得点から前回開催の得点を引き当てて埋める。
+//
+// なぜ「前日」ではなく「前回開催」か:
+//   実測(8/28〜9/21、11,126組)では同じ開催中(間隔2日以内)の99.7%が同じ得点で、
+//   更新は開催をまたぐときに起きる。前日差を使うとほぼ常に0になる。
+//   開催をまたぐ差は 5〜95%で ±1.1〜1.2 で、predict のクリップ幅 ±1.5 と同じ桁。
+function prevMeetScore(log, d8) {
+  if (!Array.isArray(log) || !log.length || !d8) return null;
+  const toT = (s) => Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8));
+  const gapDays = (a, b) => Math.round((toT(b) - toT(a)) / 86400000);
+  let cur = d8;
+  for (let i = log.length - 1; i >= 0; i--) {
+    const d = log[i][0];
+    if (d >= d8) continue;                          // 当日以降は見ない
+    if (gapDays(d, cur) <= 2) { cur = d; continue; } // 同じ開催の続き(3日制なので2日以内)
+    return log[i][1];                                // 開催が変わった = 前回開催の得点
+  }
+  return null;
+}
+
+// p.entries に prevScore / scoreDiff を埋める。埋めた人数を返す。
+// scores が無ければ何もしない(従来どおり scoreDiff は0のまま)。
+// 既に prevScore が入っている Gamboo 由来のエントリには触らない。
+function applyScoreLog(p, scores) {
+  if (!p || !Array.isArray(p.entries) || !scores || !scores.riders) return 0;
+  const m = String(p.date || "").match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  const d8 = m ? m[1] + m[2].padStart(2, "0") + m[3].padStart(2, "0") : null;
+  if (!d8) return 0;
+  let n = 0;
+  for (const e of p.entries) {
+    if (e.prevScore != null || !e.name || !e.ki || !(e.score > 0)) continue;
+    const prev = prevMeetScore(scores.riders[e.name + "|" + String(e.ki).replace(/期$/, "")], d8);
+    if (prev == null) continue;
+    e.prevScore = prev;
+    e.scoreDiff = +(e.score - prev).toFixed(2);
+    n++;
+  }
+  return n;
+}
+
 // ---- 記事014: クラス×バンク長別の決まり手(2017/5〜2019/4実測) ----
 // CLS_K[バンク長][クラス] = 1着決まり手 [逃げ,捲り,差し] %
 const CLS_K = {
@@ -1169,6 +1211,10 @@ let TODAY_RESULTS = [];  // 本日の確定結果(stats.jsonのtodayRaces)
 })();
 let LEARN_W = null; // 学習補正(learn.jsが生成したweights.json)
 (async () => { try { const r = await fetch("./weights.json", { cache: "no-store" }); if (r.ok) LEARN_W = await r.json(); } catch (e) {} })();
+// 競走得点の日次ログ。Kドリームスには前得点が無いので、ここから scoreDiff を復元する。
+// 読み込み前に予想すると scoreDiff が0になるので、使う側は SCORES_READY を待つ。
+let SCORES = null;
+const SCORES_READY = (async () => { try { const r = await fetch("./scores.json", { cache: "no-store" }); if (r.ok) SCORES = await r.json(); } catch (e) {} })();
 // 買い目タイプID → 3連単の目リストを生成(simulate.jsのPATTERNSと一致させること)
 const perms3App = (fs, ss, ts) => { const o = new Set(); for (const a of fs) for (const b of ss) for (const c of ts) { if (a === b || b === c || a === c) continue; o.add(a + "-" + b + "-" + c); } return [...o]; };
 const lineOfApp = (lines, c) => (lines || []).find((l) => l.includes(c)) || null;
@@ -1361,6 +1407,7 @@ $("addRace").addEventListener("click", () => {
   if (!text.trim()) { $("searchErr").textContent = "出走表を貼ってから追加してください"; $("searchErr").classList.remove("hidden"); return; }
   try {
     const p = parseCard(text, TRACK_NAMES);
+    applyScoreLog(p, SCORES);
     const tn = T[$("track").value] ? $("track").value : p.place;
     const bank = T[tn];
     const r = predict(p, bank, tn, LEARN_W);
@@ -1489,6 +1536,7 @@ function renderShoubu() {
     let p, r, pl;
     try {
       p = parseCard(x.raw, TRACK_NAMES);
+      applyScoreLog(p, SCORES);
       const tn = detect(x.raw) || p.place;
       r = predict(p, T[tn], tn, LEARN_W);
       pl = f3Plan(p, r);
@@ -1669,6 +1717,7 @@ window.loadRace = (key) => {
 $("loadToday").addEventListener("click", async () => {
   $("searchErr").classList.add("hidden");
   try {
+    await SCORES_READY;                       // 得点ログが揃ってから予想する
     const res = await fetch("./races.json", { cache: "no-store" });
     if (!res.ok) throw new Error("races.json が見つかりません(" + res.status + ")");
     const data = await res.json();
@@ -1798,6 +1847,7 @@ $("run").addEventListener("click", () => {
   let p, tName;
   try {
     p = parseCard($("src").value, TRACK_NAMES);
+    applyScoreLog(p, SCORES);
     tName = T[$("track").value] ? $("track").value : p.place;
     if (T[tName]) $("track").value = tName;
   } catch (e) {

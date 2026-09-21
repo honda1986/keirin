@@ -17,8 +17,14 @@
 "use strict";
 const fs = require("fs");
 const path = require("path");
-const { parseCard, predict, sujiExpect } = require("./engine.js");
+const { parseCard, predict, sujiExpect, applyScoreLog } = require("./engine.js");
 const { T, TRACK_NAMES } = require("./bankdata.js");
+
+// 競走得点の日次ログ。Kドリームスには前得点が無いので、ここから scoreDiff を復元する。
+// この実行で書き足すより前の状態を読む(当日ぶんは prevMeetScore が見ないので順序は問わない)。
+let SCORE_LOG = null;
+try { SCORE_LOG = JSON.parse(fs.readFileSync(path.join(__dirname, "scores.json"), "utf8")); }
+catch (e) { console.log("得点ログなし(scoreDiff は0のまま)"); }
 
 let LEARN_W = null;
 try { LEARN_W = JSON.parse(fs.readFileSync(path.join(__dirname, "weights.json"), "utf8"));
@@ -154,6 +160,7 @@ function parseDayIndex(html) {
 function buildEntry(text, item) {
   const p = parseCard(text, TRACK_NAMES);
   if (!p || !Array.isArray(p.entries) || p.entries.length < 5) throw new Error("選手データ不足 " + (p?.entries?.length ?? 0));
+  applyScoreLog(p, SCORE_LOG);                   // 前回開催の得点から scoreDiff を復元
   if (!p.place) p.place = item.place;
   p.raceNo = item.raceNo;                        // レース番号はURLの値を正とする
   const bank = T[p.place];
