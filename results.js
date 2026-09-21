@@ -106,6 +106,33 @@ const sujiHit = (lines, f, s) => (lines || []).some((l) => {
   return false;
 });
 
+// 払戻一覧の1レース分を使える形にそろえる。使えるなら true。
+// 3連単が取れなくても、2車単の並びが「1着-2着」なので記録できる。
+const normalizeResult = (r) => {
+  if (r.first == null && r.p2first != null) { r.first = r.p2first; r.second = r.p2second; r.third = null; r.p3pay = null; }
+  return r.first != null;   // false = 着順がまだ確定していない
+};
+
+// history.json の1エントリを作る。
+// ★results.js と gitfill.js で必ず同じ形を書くため、ここに1箇所だけ置いて共有する。
+//   2026-08-28の移行では同じロジックが複数ファイルに散っていたせいで
+//   results.js だけが取り残された。同じ事故を繰り返さないこと。
+function makeEntry(x, r, d8) {
+  const { first: f, second: s, third: t, p3pay, p2pay } = r;
+  return {
+    id: d8 + "_" + x.key, date: d8, place: x.place, raceNo: x.raceNo, klass: x.klass, grade: x.grade || "",
+    score: x.score, verdict: x.verdict, pattern: x.pattern,
+    f, s, t, p3pay, p2pay: p2pay != null ? p2pay : null,
+    suji: sujiHit(x.lines, f, s),
+    honmeiWin: !!(x.marksCars && x.marksCars[0] === f),
+    honmeiRen: !!(x.marksCars && (x.marksCars[0] === f || x.marksCars[0] === s)),
+    n2cnt: (x.nishatan || []).length, n2hit: (x.nishatan || []).includes(f + "-" + s),
+    n3cnt: (x.sanrentan || []).length, n3hit: (x.sanrentan || []).includes(f + "-" + s + "-" + t),
+    ranks: x.marksCars || [], gap: x.gap != null ? x.gap : null,
+    riders: x.riders || null, lines: x.lines || null,
+  };
+}
+
 async function main() {
   const dir = __dirname;
   const races = JSON.parse(fs.readFileSync(path.join(dir, "races.json"), "utf8")).races || [];
@@ -157,26 +184,14 @@ async function main() {
     const r = results[d8 + "_" + x.place + "_" + x.raceNo]; // 開催日が一致する結果だけを使う
     // 3連単が取れなくても、2車単の並びが「1着-2着」なので記録できる
     if (!r) continue;
-    if (r.first == null && r.p2first != null) { r.first = r.p2first; r.second = r.p2second; r.third = null; r.p3pay = null; }
-    if (r.first == null) continue; // 着順がまだ確定していない
+    if (!normalizeResult(r)) continue; // 着順がまだ確定していない
     if (done.has(id)) {
       // 既存レース: 2車単配当が未設定なら追記
       if (r.p2pay != null) { const ex = entryById.get(id); if (ex && ex.p2pay == null) { ex.p2pay = r.p2pay; p2added++; } }
       continue;
     }
-    const { first: f, second: s, third: t, p3pay, p2pay } = r;
-    const newEntry = {
-      id, date: d8, place: x.place, raceNo: x.raceNo, klass: x.klass, grade: x.grade || "",
-      score: x.score, verdict: x.verdict, pattern: x.pattern,
-      f, s, t, p3pay, p2pay: p2pay != null ? p2pay : null,
-      suji: sujiHit(x.lines, f, s),
-      honmeiWin: !!(x.marksCars && x.marksCars[0] === f),
-      honmeiRen: !!(x.marksCars && (x.marksCars[0] === f || x.marksCars[0] === s)),
-      n2cnt: (x.nishatan || []).length, n2hit: (x.nishatan || []).includes(f + "-" + s),
-      n3cnt: (x.sanrentan || []).length, n3hit: (x.sanrentan || []).includes(f + "-" + s + "-" + t),
-      ranks: x.marksCars || [], gap: x.gap != null ? x.gap : null,
-      riders: x.riders || null, lines: x.lines || null,
-    };
+    const f = r.first, s = r.second, t = r.third, p3pay = r.p3pay;
+    const newEntry = makeEntry(x, r, d8);
     hist.entries.push(newEntry);
     entryById.set(id, newEntry);
     added++;
@@ -401,4 +416,7 @@ async function main() {
   console.log("stats: 累計" + E.length + "R / 当日" + (today ? today.races + "R 回収率" + today.roi + "%" : "データなし"));
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+// 直接実行したときだけ走らせる(gitfill.js から require して部品を使い回すため)
+if (require.main === module) main().catch((e) => { console.error(e); process.exit(1); });
+
+module.exports = { get, parseHaraiList, sujiHit, raceDate, normalizeResult, makeEntry };
