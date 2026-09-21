@@ -355,22 +355,32 @@ function parseKdreams(text, trackNames) {
     const kyakuRaw = L[i + 2] || "";                // 脚質
     if (!/^(逃|追|両|自|マ)$/.test(kyakuRaw)) continue;
     const nums = [];
-    for (let j = i + 3; j < Math.min(L.length, i + 3 + 16) && nums.length < 16; j++) {
+    for (let j = i + 3; j < Math.min(L.length, i + 3 + 18) && nums.length < 18; j++) {
       if (!isNum(L[j])) break;
       nums.push(numOf(L[j]));
     }
-    if (nums.length < 15) continue;                 // ギヤ,得点,S,B,逃,捲,差,マ,1着,2着,3着,着外,勝率,2連,3連 = 15
+    // ★ギヤが2つ並ぶ選手がいる(ギヤ変更があると「前 今」の2つが出る)。
+    //   位置決め打ちで score = nums[1] にすると2つ目のギヤ(3.9x)を競走得点として
+    //   読んでしまう。実測で 13,421人中32人(0.24%)・1,896レース中32レース(1.7%)が
+    //   得点3.9x になっており、その選手は評価が最下位に落ちて買い目が変わっていた。
+    //   ギヤは 3.00〜4.50 の2桁小数、競走得点は実測 30〜121 で値域が重ならないので、
+    //   位置ではなく値で見分ける。
+    let g = 0;
+    while (g < nums.length && nums[g] >= 3 && nums[g] <= 4.5) g++;
+    const gear = g > 0 ? nums[g - 1] : null;        // 複数あるときは最後(=今回のギヤ)
+    const n = nums.slice(g);                        // n[0]=得点, n[1]=S, n[2]=B, ...
+    if (n.length < 14) continue;                    // 得点,S,B,逃,捲,差,マ,1着,2着,3着,着外,勝率,2連,3連 = 14
     const waku = isNum(L[i - 3]) ? parseInt(L[i - 3], 10) : null;
     seen.add(car);
     entries.push({
       waku, car, name, pref: pm[1].replace(/[\s　]/g, ""), grade: kl,
       age: parseInt(pm[2], 10), ki: pm[3] + "期",
-      gear: nums[0], score: nums[1],
-      S: nums[2], B: nums[3], H: nums[3],          // HはGamboo版と同じくBを流用
+      gear, score: n[0],
+      S: n[1], B: n[2], H: n[2],                    // HはGamboo版と同じくBを流用
       kyaku: kyakuRaw === "両" ? "両" : kyakuRaw === "逃" ? "逃" : "追",
-      k: { nige: nums[4], makuri: nums[5], sashi: nums[6], mark: nums[7] },
-      seiseki: { win1: nums[8], win2: nums[9], win3: nums[10], out: nums[11] },
-      rate: { win: nums[12], niren: nums[13], sanren: nums[14] },
+      k: { nige: n[3], makuri: n[4], sashi: n[5], mark: n[6] },
+      seiseki: { win1: n[7], win2: n[8], win3: n[9], out: n[10] },
+      rate: { win: n[11], niren: n[12], sanren: n[13] },
       prevScore: null, scoreDiff: 0, avgTime: null,
       recentWinRate: null, recentRaces: 0, kiken: false, comment: "",
     });
