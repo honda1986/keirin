@@ -165,7 +165,7 @@ function predictOne(html, url) {
   const bank = T[p.place];
   const r = predict(p, bank, p.place, LEARN_W);
   const sx = sujiExpect(p, r, bank ? bank[10] : null);
-  // 選手詳細: [車番, 年齢, 期, 位置(0=先頭1=番手2=3番手以降3=単騎), 評価順位, 総合点]
+  // 選手詳細: [車番, 年齢, 期, 位置(0=先頭1=番手2=3番手以降3=単騎), 評価順位, 総合点, 競走得点]
   const posOf = {};
   for (const l of p.lines) {
     if (l.length === 1) posOf[l[0]] = 3;
