@@ -21,6 +21,6 @@ jobs:
         run: |
           git config user.name "race-bot"
           git config user.email "actions@github.com"
-          git add races.json
+          git add races.json scores.json
           git diff --cached --quiet || git commit -m "races update"
           git push

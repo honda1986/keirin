@@ -11,7 +11,8 @@
 //
 //   ページには出走表・競走得点・着度数・連対率・ギヤ・脚質・並び予想が
 //   すべて最初から入っているので、1レース1リクエストで足りる。
-//   ただし「前得点」だけは無い(得点差の補正が効かない)。
+//   ただし「前得点」だけは無い。その代わり scorelog.js で毎日の競走得点を
+//   scores.json に貯め、「前回の開催からの増減」で代用できるようにしてある。
 // ============================================================
 "use strict";
 const fs = require("fs");
@@ -224,6 +225,20 @@ function buildEntry(text, item) {
     count: races.length,
     races,
   }));
+  // 競走得点の日次ログを更新する(ネットワークには出ない。いま作った races を読み直すだけ)。
+  // Kドリームスには前得点が無いので、毎日の得点を貯めて「前回の開催との差」で代用する。
+  // ★ここが失敗してもレース取得自体は成功させる(races.json は既に書いてある)。
+  try {
+    const SL = require("./scorelog.js");
+    const store = SL.load();
+    const r = SL.updateFromRaces(store, races);
+    SL.finalize(store);
+    fs.writeFileSync(SL.SCORES, JSON.stringify(store));
+    console.log(" 競走得点ログ:", r.added, "件追加 / 累計", store.dates.length, "日");
+  } catch (e) {
+    console.error(" 競走得点ログの更新に失敗(レース取得は成功しています):", e.message);
+  }
+
   console.log("\n========================================");
   console.log(" 書き出し:", races.length, "レース /", list.length, "件中");
   console.log(" 所要:", Math.round((Date.now() - startedAt) / 1000), "秒");
