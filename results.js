@@ -5,6 +5,7 @@
 // ============================================================
 const fs = require("fs");
 const path = require("path");
+const { f3PlanFrom } = require("./engine.js");
 
 const UA = "keirin-local-app (personal use)";
 const FETCH_TIMEOUT = 15000;
@@ -344,12 +345,57 @@ async function main() {
     const hit = t.includes(hitTicket);
     return { cnt: t.length, hit, pay: hit ? (isN2 ? e.p2pay : e.p3pay) : 0 };
   };
+  // ---- いま実際に買っている方法(3連複・本命ライン3人)の答え合わせ ----
+  // sim.json 由来の stratEval / topEval は総当たり構成を評価するもので、
+  // アプリが 2026-09 に採用をやめた古い戦略。成績カードがそちらを映したままだと
+  // 「表示されている数字」と「買っている買い目」が別物になるので、こちらを足す。
+  // ranks は上位6人しか入っておらず車立てを誤るため、riders から並べ直す。
+  const rankedOf = (e) => {
+    if (Array.isArray(e.riders) && e.riders.length) {
+      return [...e.riders].sort((a, b) => (a[4] || 99) - (b[4] || 99)).map((r) => r[0]);
+    }
+    return Array.isArray(e.ranks) ? e.ranks : [];
+  };
+  const f3Eval = (e) => {
+    if (e.p3fpay == null || e.f == null || e.s == null || e.t == null) return null;
+    const rk = rankedOf(e);
+    if (rk.length < 4 || !Array.isArray(e.lines)) return null;
+    const pl = f3PlanFrom(rk, e.lines);
+    if (!pl || !pl.trio) return null;
+    const hit = [e.f, e.s, e.t].sort((a, b) => a - b).join("=") === pl.ticket;
+    return { hot: !!pl.hot, cars: pl.cars, needOdds: !!pl.needOdds, hit, pay: hit ? e.p3fpay : 0 };
+  };
+  // 1点100円を1レース1点だけ買う前提なので、bet = レース数 * 100。
+  const f3Group = (arr, pick) => {
+    let n = 0, ret = 0, hitN = 0; const hits = [];
+    for (const e of arr) {
+      const v = f3Eval(e);
+      if (!v || !pick(v)) continue;
+      n++; ret += v.pay;
+      if (v.hit) { hitN++; hits.push({ place: e.place, raceNo: e.raceNo, pay: v.pay }); }
+    }
+    if (!n) return null;
+    return {
+      races: n, hit: rate(hitN, n), roi: rate(ret, n * 100), profit: ret - n * 100,
+      hits: hits.sort((a, b) => b.pay - a.pay).slice(0, 5),
+    };
+  };
+
   const summarize = (arr) => {
     if (!arr.length) return null;
     const bet = arr.reduce((a, e) => a + (e.n3cnt || 0), 0);
     const ret = arr.reduce((a, e) => a + (e.n3hit ? e.p3pay : 0), 0);
     return {
       races: arr.length,
+      // 🔥7車は「オッズ4〜15倍のときだけ買う」条件付きだが、過去分は当時のオッズを
+      // 全期間ぶん持っていない。hot7 はその確認をせず全部買った場合の数字なので、
+      // 実運用(帯内のみ)より低く出る。表示側でもそう断ること。
+      f3: {
+        hot: f3Group(arr, (v) => v.hot),
+        hot9: f3Group(arr, (v) => v.hot && v.cars >= 8),
+        hot7: f3Group(arr, (v) => v.hot && v.cars === 7),
+        all: f3Group(arr, () => true),
+      },
       honmeiWin: rate(arr.filter((e) => e.honmeiWin).length, arr.length),
       honmeiRen: rate(arr.filter((e) => e.honmeiRen).length, arr.length),
       sujiRate: rate(arr.filter((e) => e.suji).length, arr.length),
@@ -403,7 +449,7 @@ async function main() {
     nishatan: { hit: rate(E.filter((e) => e.n2hit).length, E.length), roi: null },
     sanrentan: { hit: rate(E.filter((e) => e.n3hit).length, E.length), roi: rate(n3ret, n3bet * 100) },
     todayDate: todayStr,
-    overall: (function () { const o = summarize(E); return o ? { st: o.st || null, sh: o.sh || null, shTop: o.shTop || null } : null; })(),
+    overall: (function () { const o = summarize(E); return o ? { st: o.st || null, sh: o.sh || null, shTop: o.shTop || null, f3: o.f3 || null } : null; })(),
     today,          // 当日成績(無ければnull)
     // 本日の確定レース(アプリの勝負レースカードで結果を表示するため)
     todayRaces: E.filter((e) => e.date === todayStr).map((e) => ({

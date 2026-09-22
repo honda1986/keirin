@@ -1758,6 +1758,19 @@ $("loadStats").addEventListener("click", async () => {
     const s = await res.json();
     const roiCol = (v) => v >= 100 ? "#5FC08B" : v >= 75 ? "#F2C230" : "#E4726B";
     const fmtDate = (d) => d && d.length === 8 ? (+d.slice(4, 6)) + "/" + (+d.slice(6, 8)) : d || "";
+    // 成績カードは 3連複「本命ライン3人」(いまアプリが出している買い目)の実測。
+    // 以前ここに出していた sim.json 由来の構成は採用をやめたので参照しない。
+    const yen = (v) => (v >= 0 ? "+" : "") + v.toLocaleString() + "円";
+    const f3Box = (g, label, accent, note) => !g ? "" :
+      '<div style="margin-top:8px;padding:8px;background:' + accent.bg + ';border-radius:6px">' +
+        '<div style="font-size:12px;font-weight:900;color:' + accent.fg + '">' + label + ": " + g.races + "R / 的中" + g.hit +
+        '% / 回収率 <span style="color:' + roiCol(g.roi) + '">' + g.roi + '%</span>' +
+        ' / 収支 <span style="color:' + (g.profit >= 0 ? "#5FC08B" : "#E4726B") + '">' + yen(g.profit) + "</span></div>" +
+        (note ? '<div style="font-size:10px;color:#8CA3A0;margin-top:3px">' + note + "</div>" : "") +
+        (g.hits && g.hits.length ? '<div style="font-size:10px;color:#8CA3A0;margin-top:3px">的中: ' + g.hits.map((h) => esc(h.place + h.raceNo) + " " + h.pay.toLocaleString() + "円").join(" / ") + "</div>" : "") +
+      "</div>";
+    const GOLD = { bg: "rgba(242,194,48,.08)", fg: "#F2C230" }, GREEN = { bg: "rgba(95,192,139,.10)", fg: "#5FC08B" };
+    const BAND_NOTE = "※過去の確定オッズを全期間ぶん持っていないため、オッズ4〜15倍の確認をせず全部買った場合の数字。実際は帯内だけ買うので、この数字より良くなる想定。";
 
     // --- 当日成績 ---
     const tb = $("todayBox");
@@ -1772,9 +1785,10 @@ $("loadStats").addEventListener("click", async () => {
         '<div class="chips">' +
         '<span class="chip">◎1着 ' + t.honmeiWin + '%</span>' +
         '<span class="chip">スジ決着 ' + t.sujiRate + "%</span></div>" +
-        (t.sh ? '<div style="margin-top:8px;padding:8px;background:rgba(242,194,48,.08);border-radius:6px"><div style="font-size:12px;font-weight:900;color:#F2C230">🔥 勝負レースのみ(' + (t.sh.betType === "nishatan" ? "2車単" : "3連単") + '): ' + t.sh.races + 'R / 的中' + t.sh.hit + '% / 回収率 <span style="color:' + roiCol(t.sh.roi) + '">' + t.sh.roi + '%</span> / 収支 <span style="color:' + (t.sh.profit >= 0 ? "#5FC08B" : "#E4726B") + '">' + (t.sh.profit >= 0 ? "+" : "") + t.sh.profit.toLocaleString() + '円</span></div>' + (t.sh.hits && t.sh.hits.length ? '<div style="font-size:10px;color:#8CA3A0;margin-top:3px">的中: ' + t.sh.hits.map((h) => esc(h.place + h.raceNo) + " " + h.pay.toLocaleString() + "円").join(" / ") + "</div>" : "") + "</div>" : "") +
-        (t.shTop ? '<div style="margin-top:8px;padding:8px;background:rgba(95,192,139,.10);border-radius:6px"><div style="font-size:12px;font-weight:900;color:#5FC08B">📌 TOP構成のみ: ' + t.shTop.races + 'R / 的中' + t.shTop.hit + '% / 回収率 <span style="color:' + roiCol(t.shTop.roi) + '">' + t.shTop.roi + '%</span> / 収支 <span style="color:' + (t.shTop.profit >= 0 ? "#5FC08B" : "#E4726B") + '">' + (t.shTop.profit >= 0 ? "+" : "") + t.shTop.profit.toLocaleString() + '円</span></div>' + (t.shTop.name ? '<div style="font-size:10px;color:#8CA3A0;margin-top:3px">' + esc(t.shTop.name) + "</div>" : "") + "</div>" : "") +
-        '<div style="font-size:10px;color:#5E7573;margin-top:6px">推奨買い目を100円ずつ買った場合の集計です。</div>';
+        f3Box(t.f3 && t.f3.hot9, "🔥 9車立て(オッズ確認なしで買える)", GREEN, "") +
+        f3Box(t.f3 && t.f3.hot7, "🔥 7車立て(評価順位の合計12以上)", GOLD, BAND_NOTE) +
+        ((t.f3 && (t.f3.hot9 || t.f3.hot7)) ? "" : '<div style="font-size:11px;color:#8CA3A0;margin-top:8px">本日は🔥に該当するレースがありませんでした。</div>') +
+        '<div style="font-size:10px;color:#5E7573;margin-top:6px">3連複「本命ライン3人」を1レース100円ずつ買った場合の集計です。</div>';
     } else {
       tb.style.display = "";
       tb.innerHTML = '<div style="font-size:12px;color:#8CA3A0">本日の確定結果はまだありません(結果収集は23:50に自動実行されます)。</div>';
@@ -1784,8 +1798,14 @@ $("loadStats").addEventListener("click", async () => {
     $("statsChips").innerHTML =
       '<span class="chip">集計 <b>' + s.total + '</b>レース</span>' +
       '<span class="chip">◎1着率 <b>' + s.honmeiWin + '%</b> / 連対率 <b>' + s.honmeiRen + '%</b></span>' +
-      (s.overall && s.overall.sh ? '<span class="chip" style="border-color:#F2C230">🔥勝負レース累計(' + (s.overall.sh.betType === "nishatan" ? "2車単" : "3連単") + ') <b>' + s.overall.sh.races + '</b>R / 回収率 <b style="color:' + roiCol(s.overall.sh.roi) + '">' + s.overall.sh.roi + '%</b> / 収支 <b style="color:' + (s.overall.sh.profit >= 0 ? "#5FC08B" : "#E4726B") + '">' + (s.overall.sh.profit >= 0 ? "+" : "") + (s.overall.sh.profit / 1000).toFixed(1) + 'k</b></span>' : "") +
-      (s.overall && s.overall.shTop ? '<span class="chip" style="border-color:#5FC08B">📌TOP構成のみ <b>' + s.overall.shTop.races + '</b>R / 回収率 <b style="color:' + roiCol(s.overall.shTop.roi) + '">' + s.overall.shTop.roi + '%</b>(バックテスト比較用)</span>' : "");
+      (function () {
+        const f3 = s.overall && s.overall.f3;
+        if (!f3) return '<span class="chip" style="border-color:#E4726B">成績データが古い形式です(結果収集をもう一度動かすと出ます)</span>';
+        const chip = (g, label, col) => !g ? "" :
+          '<span class="chip" style="border-color:' + col + '">' + label + ' <b>' + g.races + '</b>R / 的中 <b>' + g.hit + '%</b> / 回収率 <b style="color:' + roiCol(g.roi) + '">' + g.roi + '%</b> / 収支 <b style="color:' + (g.profit >= 0 ? "#5FC08B" : "#E4726B") + '">' + (g.profit >= 0 ? "+" : "") + (g.profit / 1000).toFixed(1) + 'k</b></span>';
+        return chip(f3.hot9, "🔥9車立て", "#5FC08B") + chip(f3.hot7, "🔥7車立て(帯の確認なし)", "#F2C230") +
+               chip(f3.all, "本命ライン3人 全体(参考)", "#26363B");
+      })();
     $("statsBuckets").innerHTML = Object.entries(s.buckets).map(([k, v]) =>
       '<tr><td class="l">' + k + '</td><td>' + v.n + '</td><td style="font-weight:700">' + (v.n ? v.sujiRate + '%' : '—') + '</td></tr>').join("");
 
@@ -1795,8 +1815,8 @@ $("loadStats").addEventListener("click", async () => {
       rb.innerHTML = '<div style="font-size:11px;font-weight:700;color:#8CA3A0;margin-bottom:6px">日別成績(直近' + s.recentDays.length + '日)</div>' +
         '<div class="tbl-scroll"><table style="font-size:11px"><thead><tr>' +
           '<th class="l">日付</th>' +
-          '<th style="color:#F2C230">🔥R数</th><th style="color:#F2C230">🔥回収率</th><th style="color:#F2C230">🔥収支</th>' +
-          '<th style="color:#5FC08B">📌R数</th><th style="color:#5FC08B">📌回収率</th><th style="color:#5FC08B">📌収支</th>' +
+          '<th style="color:#5FC08B">9車R数</th><th style="color:#5FC08B">9車回収率</th><th style="color:#5FC08B">9車収支</th>' +
+          '<th style="color:#F2C230">7車R数</th><th style="color:#F2C230">7車回収率</th><th style="color:#F2C230">7車収支</th>' +
         '</tr></thead><tbody>' +
         s.recentDays.map((d) => {
           const cell = (g) => g
@@ -1804,13 +1824,13 @@ $("loadStats").addEventListener("click", async () => {
               '<td style="font-weight:700;color:' + roiCol(g.roi) + '">' + g.roi + '%</td>' +
               '<td style="white-space:nowrap;color:' + (g.profit >= 0 ? "#5FC08B" : "#E4726B") + '">' + (g.profit >= 0 ? "+" : "") + (g.profit / 1000).toFixed(1) + "k</td>"
             : '<td style="color:#5E7573">—</td><td style="color:#5E7573">—</td><td style="color:#5E7573">—</td>';
-          return '<tr><td class="l" style="white-space:nowrap">' + fmtDate(d.date) + "</td>" + cell(d.sh) + cell(d.shTop) + "</tr>";
+          return '<tr><td class="l" style="white-space:nowrap">' + fmtDate(d.date) + "</td>" + cell(d.f3 && d.f3.hot9) + cell(d.f3 && d.f3.hot7) + "</tr>";
         }).join("") +
         "</tbody></table></div>" +
-        '<div style="font-size:10px;color:#5E7573;margin-top:4px">🔥=勝負レース(回収率100%超の条件に合致した全レース) / 📌=TOP構成のみ(最も回収率が高い1構成)</div>';
+        '<div style="font-size:10px;color:#5E7573;margin-top:4px">どちらも🔥(3連複・本命ライン3人)。9車=単騎1人以下でオッズ確認なしで買える条件 / 7車=評価順位の合計12以上。' + BAND_NOTE + "</div>";
     } else { rb.innerHTML = ""; }
 
-    $("statsNote").textContent = "更新 " + new Date(s.updatedAt).toLocaleString("ja-JP") + " / 全体スジ決着率 " + s.sujiOverall + "%。判定バケット別の実測スジ率が◎>○>△>×の順に並んでいれば、期待度モデルは機能しています。回収率は各レースの推奨買い目を100円ずつ買った場合のシミュレーションです。";
+    $("statsNote").textContent = "更新 " + new Date(s.updatedAt).toLocaleString("ja-JP") + " / 全体スジ決着率 " + s.sujiOverall + "%。判定バケット別の実測スジ率が◎>○>△>×の順に並んでいれば、期待度モデルは機能しています。回収率は、いまアプリが出している3連複「本命ライン3人」を1レース100円ずつ買った場合の実測です。";
     $("statsBody").classList.remove("hidden");
   } catch (e) {
     $("statsErr").textContent = e.message; $("statsErr").classList.remove("hidden");
