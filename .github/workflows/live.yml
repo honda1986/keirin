@@ -1,12 +1,20 @@
 name: 今日の結果(日中)
 
-# 日中に1時間おき、今日の結果(着順・配当)だけを results-today.json に取り込む。
-# history.json には触らない(夜の results.yml の仕事)。
-# ★UTCで書く。01:17〜15:17 UTC = 10:17〜翌00:17 JST。
-#   GitHub の定時実行は遅れることがある(実測1〜7時間)ので、すぐ見たいときは手動で実行する。
+# 今日の結果(着順・配当)を results-today.json に取り込み続ける。history.json には触らない(夜の results.yml の仕事)。
+#
+# ★GitHub の定時実行は当てにならない。1時間おきに起動する作りでは、実際に一度も起動しない日があった
+#   (2026-09-25: 13:14 UTC の手動実行のあと、毎時の定時実行が1回も走らなかった)。
+#   そこで「1回起動したら、その中で10分おきに取り続ける」形にしている。
+#   ・1回の実行は GitHub の上限(6時間)の手前、5時間40分で区切る
+#   ・時間切れで区切ったときは、自分で次の実行を起動し直す(workflow_dispatch は GITHUB_TOKEN からでも起動できる)
+#   ・深夜1時〜朝8時(JST)はレースが無いので、その時間になったら起動し直さずに終わる
+#   ・朝の起動は定時実行が飛んでも拾えるよう複数仕込む。動いている最中なら、同じグループで順番待ちになるだけ
 on:
   schedule:
-    - cron: '17 1-15 * * *'
+    - cron: '7 23 * * *'   # 08:07 JST
+    - cron: '37 1 * * *'   # 10:37 JST (予備)
+    - cron: '7 5 * * *'    # 14:07 JST (予備)
+    - cron: '37 9 * * *'   # 18:37 JST (予備)
   workflow_dispatch:
 
 concurrency:
@@ -15,29 +23,43 @@ concurrency:
 
 permissions:
   contents: write
+  actions: write    # 時間切れのとき自分を起動し直すため
 
 jobs:
   live:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 355
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: 今日の結果を取得
-        run: node live.js
-      - name: コミット(競合対策リトライ付き)
+      - name: 10分おきに今日の結果を取る
+        id: loop
         run: |
           git config user.name "race-bot"
           git config user.email "actions@github.com"
-          git add results-today.json
-          git diff --cached --quiet && echo "変更なし" && exit 0
-          git commit -m "live results"
-          for i in 1 2 3 4 5 6; do
-            if git pull --rebase --autostash origin main && git push; then
-              echo "push成功 (試行 $i)"; exit 0
+          END=$(( $(date +%s) + 340 * 60 ))
+          RELAY=0
+          while :; do
+            H=$(TZ=Asia/Tokyo date +%-H)
+            if [ "$H" -ge 1 ] && [ "$H" -lt 8 ]; then echo "レースの時間外(JST ${H}時)なので終わります"; break; fi
+            if [ "$(date +%s)" -ge "$END" ]; then echo "5時間40分たったので区切ります"; RELAY=1; break; fi
+            git pull -q --rebase --autostash origin main || true      # 新しい races.json を取り込み、push の競合も避ける
+            node live.js || echo "今回は取得できませんでした(次の回でまた取ります)"
+            git add results-today.json 2>/dev/null || true
+            if ! git diff --cached --quiet; then
+              git commit -q -m "live results"
+              for i in 1 2 3 4 5 6; do
+                if git pull -q --rebase --autostash origin main && git push -q; then echo "push成功"; break; fi
+                echo "競合のためリトライ $i/6"; sleep 6
+              done
             fi
-            echo "競合のためリトライ $i/6"; sleep 6
+            sleep 600
           done
-          echo "6回リトライしても push できませんでした"; exit 1
+          echo "relay=$RELAY" >> "$GITHUB_OUTPUT"
+      - name: 時間切れなら次の実行を起動する
+        if: steps.loop.outputs.relay == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run live.yml --ref main -R "$GITHUB_REPOSITORY"
