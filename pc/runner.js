@@ -14,10 +14,12 @@
 //   3. races.json が今日の分でなければ(GitHub の朝の更新が遅れた日)、自分で出走表を取る
 //      (fetch.js。書き先は snapwork/races-local.json で、main のファイルには触らない)
 //   4. snap.js を1回動かす(締切15〜2分前のレースの3連複を読んで snapwork/ に1行ずつ足す)
-//   5. 10分おきに odds-snap ブランチへ送る: 記録のまとめ(snap/日付.json.gz)と心拍(pc/heartbeat.json)
+//   5. 最新の倍率を odds-live ブランチへ送る(snap_live.js。新しい記録があれば毎分、無くても5分おき)
+//      ・アプリが期待値の計算に読む。これが PC の心拍も兼ねる
+//      ・GitHub の snap.yml は、PC の更新が15分以上止まると「PC が止まった」として代わりに記録を始める
+//   6. 1時間おきに odds-snap ブランチへ記録のまとめ(snap/日付.json.gz)を送る
 //      ・リモートを土台に置き直してから足し合わせる(rebase も --force も使わない)
 //      ・送れなくても何も消さない。次の回がまた送る
-//      ・GitHub の snap.yml は心拍が25分以上古いと「PC が止まった」として代わりに記録を始める
 //
 // 終了コード: 0 正常 / 1 本体が失敗 / 2 前の回がまだ動いていたので何もしなかった / 3 フォルダが違う
 // ============================================================
@@ -39,7 +41,9 @@ const STATE = path.join(WORK, "runner.json");
 const LOCK = path.join(LOGDIR, TASK + ".lock");
 const LOCK_STALE_MIN = 20;       // これより古いロックは、強制終了で残ったものとみなして捨てる(タスクの打ち切り15分+5分)
 const PULL_EVERY_MIN = 10;       // GitHub を取り込む間隔
-const PUSH_EVERY_MIN = 10;       // odds-snap へ送る間隔(= 心拍の間隔。snap.yml は25分で PC 停止とみなす)
+const PUSH_EVERY_MIN = 60;       // odds-snap(記録の保存)へ送る間隔。★短くしないこと: 毎回その日の記録を丸ごと
+                                 //   書き直すので、10分おきだと1年で1GB 以上に膨らむ。記録は PC にも14日残る。
+                                 //   心拍と最新の倍率は snap_live.js が odds-live(履歴なし)へ毎分〜5分おきに送る
 const LOCAL_FETCH_EVERY_MIN = 20;
 const KEEP_DAYS = 14;            // snapwork の日別記録を残す日数(送り終わったものを掃除する)
 
@@ -222,6 +226,8 @@ function main() {
     saveState(st);
     try { ensureRaces(st); } catch (e) { log("出走表の予備取得で例外: " + e.message); }
     if (!snapOnce()) code = 1;
+    // 最新の倍率をアプリ用に送る(新しい記録があれば毎分・無くても5分おき。これが PC の心拍になる)
+    if (!DRY) { const lv = node([path.join(REPO, "snap_live.js"), "--push", "--source", "PC"], { timeout: 90 * 1000 }); if (lv.out) log(lv.out); }
     try { pushSnap(st); } catch (e) { log("送る処理で例外: " + e.message); }
     saveState(st);
     cleanup();

@@ -58,7 +58,7 @@ try {
   git(["init", "-q", "--bare", "-b", "main", ORIGIN]);   // -b main が無いと clone が空になる(HEAD が master を指す)
   const seed = path.join(T, "seed");
   fs.mkdirSync(path.join(seed, "pc"), { recursive: true });
-  for (const f of ["snap_pack.js", "pc/runner.js"]) fs.copyFileSync(path.join(SRC, f), path.join(seed, f));
+  for (const f of ["snap_pack.js", "snap_live.js", "pc/runner.js"]) fs.copyFileSync(path.join(SRC, f), path.join(seed, f));
   // 偽の snap.js: 呼ばれるたびに今日の記録を1行足すだけ(ネットに出ない)
   fs.writeFileSync(path.join(seed, "snap.js"), `
 const fs=require("fs"),path=require("path");const d=path.join(__dirname,"snapwork");fs.mkdirSync(d,{recursive:true});
@@ -76,8 +76,8 @@ fs.appendFileSync(path.join(d,day+".jsonl"),JSON.stringify({t:t.slice(11,23),k:"
   console.log("\n0. 記録がまだ1件も無いとき(夜中など)");
   fs.writeFileSync(path.join(PC, "snap.js"), 'console.log("偽のsnap: レースなし")');   // 何も記録しない snap.js
   let r = runner();
-  const hb0 = spawnSync("git", ["show", "odds-snap:pc/heartbeat.json"], { cwd: ORIGIN, env, encoding: "utf8" });
-  check("記録が無くても心拍は届く", r.code === 0 && hb0.status === 0 && /"at"/.test(hb0.stdout), "code=" + r.code);
+  const hb0 = spawnSync("git", ["show", "odds-live:latest.json"], { cwd: ORIGIN, env, encoding: "utf8" });
+  check("記録が無くても心拍(odds-live の latest.json)は届く", r.code === 0 && hb0.status === 0 && /"source":"PC"/.test(hb0.stdout), "code=" + r.code);
   git(["checkout", "--", "snap.js"], PC);
 
   console.log("\n1. 1回動かす");
@@ -88,6 +88,11 @@ fs.appendFileSync(path.join(d,day+".jsonl"),JSON.stringify({t:t.slice(11,23),k:"
   const hb = spawnSync("git", ["show", "odds-snap:pc/heartbeat.json"], { cwd: ORIGIN, env, encoding: "utf8" });
   check("心拍(pc/heartbeat.json)が届いた", hb.status === 0 && /"at"/.test(hb.stdout));
   check("ログが残った", fs.existsSync(path.join(LOGS, "snap_" + today + ".log")));
+  const lv = spawnSync("git", ["show", "odds-live:latest.json"], { cwd: ORIGIN, env, encoding: "utf8" });
+  let lj = {}; try { lj = JSON.parse(lv.stdout); } catch (e) {}
+  check("最新の倍率(odds-live)に今日のレースが入った", lj.races && lj.races["テスト_1R"] && lj.source === "PC");
+  const nLive = spawnSync("git", ["rev-list", "--count", "odds-live"], { cwd: ORIGIN, env, encoding: "utf8" }).stdout.trim();
+  check("odds-live は履歴を持たない(1コミットだけ)", nLive === "1", nLive + "コミット");
 
   console.log("\n2. GitHub 側も同じ日に書いていた場合");
   git(["clone", "-q", "-b", "odds-snap", ORIGIN, GH]);

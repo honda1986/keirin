@@ -5,8 +5,8 @@ name: 締切前オッズの記録
 # (main に3分おきに入れると GitHub Pages の作り直しと履歴の膨らみが起きるため)。
 #
 # ★ふだんの記録は PC(タスクスケジューラ)の仕事。これは PC が止まったときの予備。
-#   PC は10分おきに odds-snap ブランチの pc/heartbeat.json を更新する。
-#   ここでは5分おきにそれを見て、25分以内に更新されていれば「PC が動いている」として何もしない。
+#   PC は毎分〜5分おきに odds-live ブランチの latest.json(アプリ用の最新の倍率)を上書きする。
+#   ここでは5分おきにそれを見て、source=PC で15分以内に更新されていれば「PC が動いている」として何もしない。
 #   古ければ(PC が止まった・push できない)代わりに記録する。PC が戻れば自動で待機に戻る。
 #   PC とここが同じ時間に記録しても、まとめるときに足し合わせるだけなので壊れない。
 #
@@ -91,12 +91,12 @@ jobs:
               if git fetch -q origin main && git checkout -q FETCH_HEAD -- races.json; then :; else echo "races.json の更新に失敗(前のまま続ける)"; fi
               LASTPULL=$NOW
             fi
-            # PC の心拍を5分おきに見る
+            # PC の心拍を5分おきに見る。心拍 = odds-live ブランチの latest.json(PC が毎分〜5分おきに上書きする)
             if [ $((NOW - LASTHB)) -ge 300 ]; then
-              OLD=$PC; PC=0
-              if git fetch -q origin refs/heads/odds-snap 2>/dev/null; then
-                HB=$(git show FETCH_HEAD:pc/heartbeat.json 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const t=Date.parse(JSON.parse(s).at);console.log(isNaN(t)?"":Math.round((Date.now()-t)/60000))}catch(e){console.log("")}})')
-                if [ -n "$HB" ] && [ "$HB" -le 25 ]; then PC=1; fi
+              OLD=$PC; PC=0; HB=""
+              if git fetch -q origin refs/heads/odds-live 2>/dev/null; then
+                HB=$(git show FETCH_HEAD:latest.json 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);const t=Date.parse(j.updatedAt);console.log(j.source==="PC"&&!isNaN(t)?Math.round((Date.now()-t)/60000):"")}catch(e){console.log("")}})')
+                if [ -n "$HB" ] && [ "$HB" -le 15 ]; then PC=1; fi
               fi
               if [ "$PC" != "$OLD" ]; then
                 if [ "$PC" = 1 ]; then echo "$(TZ=Asia/Tokyo date +%H:%M) PC が動いている(心拍 ${HB}分前)ので待機"; else echo "$(TZ=Asia/Tokyo date +%H:%M) PC の心拍なし/古い(${HB:-なし}分前)ので、こちらで記録する"; fi
@@ -111,7 +111,10 @@ jobs:
               RACES_OUT=snapwork/races-local.json timeout 480 node fetch.js | grep -E "書き出し|所要|作れません" || true
               LASTLF=$NOW
             fi
-            if [ "$PC" = 0 ] && { [ "$H" -ge 8 ] || [ "$H" -lt 1 ]; }; then node snap.js || true; fi
+            if [ "$PC" = 0 ] && { [ "$H" -ge 8 ] || [ "$H" -lt 1 ]; }; then
+              node snap.js || true
+              node snap_live.js --push --source GitHub || true   # アプリ用の最新の倍率(新しい記録があるときだけ送る)
+            fi
             if [ $((NOW - LASTPACK)) -ge 1800 ]; then pack || true; LASTPACK=$NOW; fi
             sleep 60
           done
