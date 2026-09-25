@@ -346,6 +346,9 @@ GitHub Actions
 - **1行の形**: `{t:取得時刻, k:"熊本_7R", rid, left:締切まで何分, upd:画面の「HH:MM現在」, n:車立て, o:[倍率…]}`
 
 **PC が主、GitHub が予備（#25・`pc/`）** — 競艇 v24 と同じ形（v24 の PC 引き継ぎ資料）。詳しい手順は `pc/README.md`。
+- **セットアップは PowerShell に1行**: `irm https://raw.githubusercontent.com/honda1986/keirin/main/pc/install.ps1 | iex`（`pc/install.ps1`。
+  管理者への切り替え・winget で Node.js/Git・clone・ログイン確認（送れなければトークン画面を開いて待つ）・`setup.js`・タスク登録まで。何度貼っても壊れない）。
+  install.ps1 は **BOM なし** UTF-8（irm で読むと BOM が1行目を壊すため）。ほかの .ps1 は BOM 付き
 - Windows のタスクスケジューラ `keirin_snap` が **07:50〜翌01:00 に1分おき**、`pc\task.bat` → `node pc\runner.js snap` を1回ずつ動かす
   （1回ごとに終わる。落ちても失うのは1分ぶん）。フォルダは `C:\keirin\keirin`（リポジトリ）と `C:\keirin\logs`
 - runner.js: ロック（20分より古いものは捨てる）→ 10分おきに main を取り込む（コードを手で直しかけていたら races.json だけ）→
