@@ -14,6 +14,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   for (const rid of pick) {
     const html = await (await fetch(`https://keirin.kdreams.jp/${seen.get(rid)}/racedetail/${rid}/?pageType=odds&kakeshikiType=3renhuku`, { headers: { "User-Agent": UA } })).text();
     const p = parseTrio(html);
+    if (!p.odds.size) { const t = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " "); let k = -1; while ((k = t.indexOf("人気順", k + 1)) >= 0) console.log("   人気順@" + k + ": " + t.slice(k, k + 80)); }
     const keys = [...p.odds.keys()];
     const n = Math.max(...keys.flatMap((k) => k.split("=").map(Number)));
     const cs = combos(n);

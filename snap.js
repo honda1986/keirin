@@ -75,7 +75,8 @@ function combos(n) {
 function parseTrio(html) {
   const text = toText(html);
   const upd = (text.match(/(\d{1,2}:\d{2})\s*現在/) || [])[1] || null;
-  const i = text.indexOf("人気順");
+  // 「人気順」は画面の見出しやタブにも出てくるので、「人気順 1 a=b=c」と一覧が続く所を探す
+  const i = text.search(/人気順\s+1\s+\d\s*=\s*\d\s*=\s*\d/);
   const j = i >= 0 ? text.indexOf("高配当順", i) : -1;
   const seg = i >= 0 ? text.slice(i, j > i ? j : undefined) : "";
   const odds = new Map();
