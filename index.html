@@ -71,6 +71,7 @@
     <h2 style="color:#5FC08B">🔥 本日の勝負レース(出走時間順)</h2>
     <button class="io-btn" id="loadTodayTop" style="border-color:#5FC08B;color:#5FC08B;width:100%;margin-bottom:8px">📅 本日の全レースを読み込む</button>
     <p class="note" style="margin:0 0 8px">3連複「本命ライン3人」で実測回収率100%超だったレースだけを、出走時間順に並べています。9車立ては無条件、7車立ては評価順位の合計12以上が対象。<b style="color:#F2C230">買う前に必ずオッズ帯を確認</b>してください。</p>
+    <p class="note" style="margin:0 0 8px;font-size:10px;color:#5E7573"><b>的中率の推定</b>=競走得点・3連対率・先頭の脚質・評価点・別線の強さから、そのレースで本命ライン3人が当たる確率を計算したもの(過去の2期間で推定と実際が合うことを確認済み)。当たりやすさの目安で、買う/見送るは今まで通りオッズ帯で判断(推定×オッズで選んでも成績は上がらなかった)。</p>
     <p class="note" style="margin:0 0 8px;font-size:10px;color:#5E7573">用語: <b>期待度</b>=ライン通りに決まりそうな度合い(%) / <b>点差</b>=評価1位と2位の総合点の差(大きいほど本命が抜けている) / <b>先頭・番手</b>=ライン内の位置</p>
     <div id="topSection" class="hidden">
       <h3 style="font-size:12px;font-weight:900;color:#5FC08B;margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid #26363B">🔥 9車立ての勝負レース(単騎1人以下・オッズ確認なしで買える)</h3>
@@ -1541,6 +1542,57 @@ function headStyleBox(p, trio) {
       : "") +
     "</div>";
 }
+// 本命ライン3人(3連複)がこのレースで当たる確率の推定。表示だけで、買う/見送るの判定には使わない。
+// 2026-09 に作成: 2025年(13,908R)でロジスティック回帰を学習し、使っていない2期間で確認した。
+//   2026年1〜4月(furoito/keirin-data 由来の値)・2026年7〜9月(出走表そのものの値) とも、
+//   推定と実際の的中がよく合う(例: 🔥 7〜9月 推定7.5→実際8.3% / 21.2→23.4% / 30.6→30.3%)。
+//   🔥の中で当たるレースを上に並べる力(AUC)は 固定値0.49〜0.52 → 0.65〜0.67。
+// ただし「推定 × 確定オッズ」の期待値で買う/見送るを決めても成績は上がらなかった
+//   (期待値1.2以上: 2025年 109% / 2026年1〜4月 86% / 7〜9月 68%)。市場も同じことを見ているため。
+//   だから損益分岐オッズやオッズ帯は、今まで通り条件全体の実測値のまま出す。
+// 特徴量(並び順を変えないこと): 9車立て, 単騎の人数(上限3), 競走得点のレース内z(先頭/番手/3番手/別線で最強),
+//   3連対率のレース平均との差(3番手/別線で最強), 評価点の差(トリオの最低−トリオ以外の最高),
+//   先頭の脚質(逃げ型/捲り型/自力弱), 2人以上の別線の数, 評価順位の合計÷車数
+const F3_HIT_MODEL = {"mu": [0.102819, 0.631507, 0.899169, 0.760535, -0.458099, 0.697053, -0.062477, 0.103791, -25.25348, 0.468651, 0.253523, 0.070966, 1.434139, 1.411311], "sd": [0.303722, 0.764773, 0.882202, 0.815698, 0.79955, 0.573223, 0.127158, 0.083853, 14.535727, 0.499016, 0.435028, 0.256769, 0.596743, 0.278592], "w": [-0.17928, 0.011385, 0.329515, 0.194859, 0.256899, -0.12321, 0.076752, -0.17979, 0.118987, 0.027343, -0.147415, -0.130943, -0.03242, -0.084418], "b": -1.005805};
+function f3HitProb(p, r, lines, trio) {
+  if (!p || !Array.isArray(p.entries) || !r || !Array.isArray(r.scores) || !Array.isArray(lines) || !Array.isArray(trio) || trio.length < 3) return null;
+  const E = {}; for (const e of p.entries) E[e.car] = e;
+  const ranked = r.scores.map((x) => x.car), n = ranked.length;
+  if (n < 5) return null;
+  // 競走得点・3連対率・決まり手のどれかが無い出走表では推定しない(固定値の表示に戻す)
+  for (const c of ranked) {
+    const e = E[c];
+    if (!e || !(+e.score > 0) || !e.rate || !isFinite(+e.rate.sanren) || !e.k) return null;
+  }
+  if (!p.entries.some((e) => e.k && ((+e.k.nige || 0) + (+e.k.makuri || 0) + (+e.k.sashi || 0) + (+e.k.mark || 0)) > 0)) return null;
+  const hl = lines.find((l) => Array.isArray(l) && l.includes(trio[0]));
+  if (!hl || hl.length < 3) return null;
+  const [a, b, c] = trio, inTrio = new Set(trio);
+  const out = ranked.filter((k) => !hl.includes(k));
+  if (!out.length) return null;
+  const sc = {}; for (const k of ranked) sc[k] = +E[k].score;
+  const mu = ranked.reduce((t, k) => t + sc[k], 0) / n;
+  const sd = Math.sqrt(ranked.reduce((t, k) => t + (sc[k] - mu) ** 2, 0) / n) || 1;
+  const z = (k) => (sc[k] - mu) / sd;
+  const p3 = {}; for (const k of ranked) p3[k] = +E[k].rate.sanren / 100;
+  const pm = ranked.reduce((t, k) => t + p3[k], 0) / n;
+  const ev = {}; for (const x of r.scores) ev[x.car] = +x.total;
+  const nh = +E[a].k.nige || 0, mh = +E[a].k.makuri || 0, J = nh + mh, sh = J ? nh / J : 0;
+  const x = [
+    n >= 8 ? 1 : 0,
+    Math.min(lines.filter((l) => Array.isArray(l) && l.length === 1).length, 3),
+    z(a), z(b), z(c), Math.max(...out.map(z)),
+    p3[c] - pm, Math.max(...out.map((k) => p3[k])) - pm,
+    Math.min(...trio.map((k) => ev[k])) - Math.max(...ranked.filter((k) => !inTrio.has(k)).map((k) => ev[k])),
+    J > 2 && sh >= 0.6 ? 1 : 0, J > 2 && sh <= 0.4 ? 1 : 0, J <= 2 ? 1 : 0,
+    lines.filter((l) => Array.isArray(l) && l !== hl && l.length >= 2).length,
+    trio.reduce((t, k) => t + ranked.indexOf(k) + 1, 0) / n,
+  ];
+  if (x.some((v) => !isFinite(v))) return null;
+  const m = F3_HIT_MODEL;
+  const t = m.b + x.reduce((acc, v, j) => acc + m.w[j] * (v - m.mu[j]) / m.sd[j], 0);
+  return 1 / (1 + Math.exp(-t));
+}
 function oddsGate(x) {
   if (x.result) return "";
   if (x.needOdds) {
@@ -1605,6 +1657,7 @@ function renderShoubu() {
       needOdds: !!pl.needOdds, bandLo: pl.bandLo, bandHi: pl.bandHi, bandNote: pl.bandNote,
       isTop: pl.cars >= 8, result,
       headStyle: headStyleBox(p, pl.trio),
+      estHit: f3HitProb(p, r, p.lines || [], pl.trio),
     });
   }
   const byTime = (a, b) => {
@@ -1623,7 +1676,10 @@ function renderShoubu() {
         ' <span style="font-weight:700;margin-left:6px">' + esc(x.place) + " " + esc(x.raceNo) + "</span></div>" +
         '<span style="font-size:11px;color:' + accent + ';font-weight:700">回収率' + x.roi + "%</span>" +
       "</div>" +
-      '<div style="font-size:12px;color:#8CA3A0;margin-bottom:4px">' + x.betType + " " + x.tickets.length + "点 / 的中率" + x.hitRate + "%</div>" +
+      '<div style="font-size:12px;color:#8CA3A0;margin-bottom:4px">' + x.betType + " " + x.tickets.length + "点 / " +
+        (x.estHit != null
+          ? '的中率 推定<b style="color:#EAF2EF">' + (x.estHit * 100).toFixed(0) + "%</b>(この条件の平均" + x.hitRate + "%)"
+          : "的中率" + x.hitRate + "%") + "</div>" +
       "<div>" + x.tickets.map((t) => {
         const won = !!(x.result && x.result.hit);
         return '<span class="bet3" style="border-color:' + (won ? "#5FC08B" : accent) + ';' + (won ? "background:rgba(95,192,139,.18);font-weight:900" : "") + '">' + t + "</span>";
@@ -2052,7 +2108,10 @@ function render(p, tName) {
       '<div style="font-weight:900;color:' + ac + ';font-size:14px;margin-bottom:6px">' +
         (hot ? "🔥 3連複 本命ライン3人 — 実測回収率 " + f3.roi + "%" : "3連複 本命ライン3人(参考) — 実測回収率 " + f3.roi + "%") + "</div>" +
       '<div style="margin-bottom:6px"><span class="bet3" style="border-color:' + ac + ';font-size:16px;font-weight:900;padding:4px 10px">' + f3.ticket + "</span>" +
-        '<span style="font-size:11px;color:#8CA3A0;margin-left:8px">1点 / 的中率' + f3.hitRate + "%</span></div>" +
+        '<span style="font-size:11px;color:#8CA3A0;margin-left:8px">1点 / ' +
+          ((est) => est != null
+            ? '的中率 推定<b style="color:#EAF2EF">' + (est * 100).toFixed(0) + "%</b>(この条件の平均" + f3.hitRate + "%)"
+            : "的中率" + f3.hitRate + "%")(f3HitProb(p, r, p.lines || [], f3.trio)) + "</span></div>" +
       '<div style="font-size:11px;color:#8CA3A0;line-height:1.7">' + esc(f3.note) + "</div>" +
       headStyleBox(p, f3.trio) +
       '<div style="font-size:11px;color:#EAF2EF;background:#10181A;border-radius:6px;padding:6px 8px;margin-top:6px">💰 損益分岐 <b style="color:' + ac + ';font-size:13px">' + (100 / f3.hitRate).toFixed(1) + "倍</b>" +
