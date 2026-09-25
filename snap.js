@@ -24,6 +24,7 @@
 // 使い方: node snap.js            … 窓に入っているレースを1周だけ見る(ワークフローが1分おきに呼ぶ)
 //         node snap.js --dry      … 取得して表示するだけ(書き込まない)
 //         node snap.js --win=0,600 … 窓を変える(動作確認用。締切0〜600分前)
+//         node snap.js --dry --day=20260925 --win=-9999,9999 … 過去の races.json で読み取りだけ確かめる
 // ============================================================
 const fs = require("fs");
 const path = require("path");
@@ -34,6 +35,7 @@ const argv = process.argv.slice(2);
 const DRY = argv.includes("--dry");
 const winArg = (argv.find((a) => a.startsWith("--win=")) || "").slice(6);
 const [WIN_LO, WIN_HI] = winArg ? winArg.split(",").map(Number) : [2, 15];   // 締切まで何分のレースを見るか
+const DAY_ARG = (argv.find((a) => a.startsWith("--day=")) || "").slice(6);    // 動作確認用: races.json のこの日を今日とみなす
 const EVERY_SEC = 170;          // 同じレースを見る間隔(3分弱。1分おきに呼ばれる前提)
 const CLOSE_BEFORE = 5;         // 締切は発走の5分前(index.html と同じ)
 const BUDGET_MS = 50 * 1000;    // 1回の持ち時間。超えたら残りは次の回へ
@@ -115,7 +117,7 @@ async function main() {
   let rj;
   try { rj = JSON.parse(fs.readFileSync(path.join(__dirname, "races.json"), "utf8")); }
   catch (e) { console.log("races.json が読めません:", e.message); return; }
-  const today = jst().toISOString().slice(0, 10).replace(/-/g, "");
+  const today = DAY_ARG || jst().toISOString().slice(0, 10).replace(/-/g, "");
   const list = (rj.races || []).filter((x) => raceDay(x) === today);
   if (!list.length) { console.log(hms(), "races.json に今日(" + today + ")のレースがありません(まだ更新されていない)"); return; }
 
