@@ -477,7 +477,7 @@ async function main() {
         const done = e.t != null;
         const hit = done && [e.f, e.s, e.t].sort((a, b) => a - b).join("=") === pl.ticket;
         out.push({ date: e.date, place: e.place, raceNo: e.raceNo, cars: pl.cars, ticket: pl.ticket, needOdds: !!pl.needOdds,
-          order: e.f + "-" + e.s + "-" + (done ? e.t : "?"), hit, pay: hit ? (e.p3fpay != null ? e.p3fpay : null) : 0 });
+          order: e.f + "-" + e.s + "-" + (done ? e.t : "?"), done, hit, pay: hit ? (e.p3fpay != null ? e.p3fpay : null) : 0 });
       }
       const rn = (x) => parseInt(x.raceNo, 10) || 0;
       return out.sort((a, b) => b.date.localeCompare(a.date) || a.place.localeCompare(b.place) || rn(a) - rn(b));
