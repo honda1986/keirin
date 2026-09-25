@@ -345,6 +345,16 @@ GitHub Actions
   main に入れないのは、3分おきの commit で GitHub Pages の作り直しと履歴の膨らみが起きるため
 - **1行の形**: `{t:取得時刻, k:"熊本_7R", rid, left:締切まで何分, upd:画面の「HH:MM現在」, n:車立て, o:[倍率…]}`
 
+**PC が主、GitHub が予備（#25・`pc/`）** — 競艇 v24 と同じ形（v24 の PC 引き継ぎ資料）。詳しい手順は `pc/README.md`。
+- Windows のタスクスケジューラ `keirin_snap` が **07:50〜翌01:00 に1分おき**、`pc\task.bat` → `node pc\runner.js snap` を1回ずつ動かす
+  （1回ごとに終わる。落ちても失うのは1分ぶん）。フォルダは `C:\keirin\keirin`（リポジトリ）と `C:\keirin\logs`
+- runner.js: ロック（20分より古いものは捨てる）→ 10分おきに main を取り込む（コードを手で直しかけていたら races.json だけ）→
+  races.json が今日でなければ `fetch.js` を `RACES_OUT=snapwork/races-local.json` で動かして自前で出走表を取る（main は汚さない）→
+  `snap.js` → 10分おきに odds-snap へ送る（**リモートを土台に置き直してから `snap_pack.js` で足し合わせる**。rebase/force は使わない）＋心拍
+- git には「聞かない」環境変数（`GIT_TERMINAL_PROMPT=0` `GCM_INTERACTIVE=never`）。ログインは `pc\setup.bat` の画面のある窓で1回
+- GitHub の `snap.yml` は心拍が25分以上古いと引き継ぐ。**切り替えの操作は不要**（記録は足し合わせるだけで、通知も投票もしないので二重に動いても壊れない）
+- 確かめ方: `pc/selftest.js`（外に触らず、送信・GitHub 側との足し合わせ・ロック・送れないときの持ち越し・手で直しかけの保護を確認）
+
 **取得元の下調べ（2026-09-26）**
 - Kドリームスのレース詳細のオッズ画面（`?pageType=odds&kakeshikiType=3renhuku`）。普通の HTML で、1ページ約1秒・20〜30万文字
 - 3連複は「**人気順**」「**高配当順**」の2つの一覧に出る。**どちらも上位50組まで**なので、9車は片方では足りない。
@@ -609,7 +619,7 @@ python3 -m http.server 8765    # リポジトリのルートで
 | 今日の結果 | `live.yml` | 起動したら10分おきに取り続け、5時間40分ごとに自分を起動し直す。08:07 JST＋予備3回で起動。深夜1〜8時は止まる。手動も可 |
 | 結果収集 | `results.yml` | 1日1回（23:50 JST）。直近3日の漏れ埋め・成績の作り直しまで |
 | オッズ取得 | `odds.yml` | 月1回（1日 11:00 JST）+ 手動 |
-| 締切前オッズの記録 | `snap.yml` | 1分おきに回し、締切15〜2分前のレースの3連複を3分おきに記録。5時間40分ごとに自分を起動し直して**夜も止めずに続く**（夜は待つだけ）。予備の定時実行 07:47/12:17/17:17 JST。記録は `odds-snap` ブランチ |
+| 締切前オッズの記録（予備） | `snap.yml` | **ふだんは PC（`pc/`）が記録**。これは5分おきに PC の心拍（odds-snap の `pc/heartbeat.json`）を見て、25分以上古ければ代わりに記録する。5時間40分ごとに自分を起動し直して夜も止めずに続く。予備の定時実行 07:47/12:17/17:17 JST |
 | シミュレーター | `Simulate.yml` | 手動（learn.js → simulate.js） |
 | 履歴の穴埋め | `gitfill.yml` | 手動 |
 | 評価値 | `diagnose.yml` | 手動（読み取り専用） |
