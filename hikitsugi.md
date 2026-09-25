@@ -35,7 +35,9 @@
 ```
 GitHub Actions
   main.yml     1日4回  fetch.js    → races.json(買い目 plan 入り) + scores.json
-  results.yml  1日1回  results.js  → history.json + stats.json(成績カード)
+  live.yml     日中1時間おき live.js → results-today.json(今日の着順・配当。history には触らない)
+  results.yml  1日1回  results.js → gitfill.js(直近3日の漏れ) → sanpuku.js → results.js --stats-only
+                       → history.json + stats.json(成績・今日の結果・直近7日の🔥一覧)
   odds.yml     月1回   odds.js     → odds-YYYYMM.json
                         ↓
               index.html (GitHub Pages) で表示
@@ -60,6 +62,7 @@ GitHub Actions
 | `results.js` | 当日結果の取得 → `history.json` に追記 |
 | `odds.js` | 三連複オッズの取得 → `odds-YYYYMM.json` |
 | `scorelog.js` | 競走得点の日次ログ → `scores.json`（前得点の代用に使う） |
+| `live.js` | 今日の結果（着順・3連複/3連単/2車単の配当）→ `results-today.json`。アプリが当日の的中・配当を出すのに使う |
 | `gitfill.js` | git履歴の `races.json` から history の穴を埋める |
 | `tokufill.js` | git履歴から `riders` に競走得点を後付けする（一度実行済み） |
 | `learn.js` | 実測から採点補正を学習 → `weights.json` |
@@ -304,6 +307,19 @@ GitHub Actions
 | #15 | 成績カードを `sim.json` の古い構成から、いま買っている3連複「本命ライン3人」の実測（`stats.json` の `f3`）に差し替え |
 | #16 | アプリに本命ライン先頭の脚質を表示。逃げ型のときは3単「先頭-番手-3番手」を参考表示 |
 | #17 | 的中率をレースごとの推定に（`f3HitProb`）。下の「的中率の推定」 |
+| #18 | 画面の作り直し（下のタブ・自動読み込み・枠色の車番・状態表示）と、当日の結果表示（`live.js`）。**9/23 の取り込み漏れ**の対策（下の「結果の流れ」） |
+
+### 結果の流れ（#18）
+
+- **日中**: `live.yml` が1時間おき（10:17〜翌0:17 JST）に `live.js` を回し、`results-today.json` に今日の結果を書く。
+  取得失敗時は書かない／同じ日の結果は減らさない。アプリは5分おきに読み直す
+- **夜**: `results.yml` が `results.js` → **`gitfill.js`（直近3日の漏れ）** → `sanpuku.js` → `results.js --stats-only`
+- アプリは `results-today.json` と `stats.json` の `todayRaces` を、**`races.json` のレース日と一致するときだけ**使う
+- **9/23 の結果が丸ごと欠けていた。** `results.js` は「いまの `races.json` に載っている日」しか見ないので、
+  23:50 予定の結果取り込みが GitHub の遅れで翌朝にずれ込み、朝の取得（03:40, #14）が先に `races.json` を
+  翌日分へ書き換えると前日を取り逃がす。#14 の前倒しで起きやすくなっていた。`gitfill.js` を毎晩直近3日で回して埋める
+  （点検では 9/23 の66R すべてが復旧対象と確認済み）
+- `stats.json` の「今日」は実行時刻ではなくレース日。`todayRaces` に3連複配当 `p3fpay`、`recentHot`（直近7日の🔥1件ずつ）を追加
 
 ### 買い方の総点検（13候補を事前宣言・2025年で作って2026年で測定）
 
@@ -411,6 +427,8 @@ rs=10: 85.8%
   `simulate.js` はこれで車立てを常に6として計算していた（#3で修正）。
 - **競走得点は2026-08-28以降のみ**（`riders[6]`）。
 - **`p3pay`（三連単）は荒れたレースほど欠けている**（§2）。`p3pay != null` で絞らない。
+- **`results.js` は `races.json` に載っている日しか見ない。** 取り込みが遅れると前日を取り逃がす。
+  `results.yml` の `gitfill.js`（直近3日）で埋めているので、この手順を外さないこと（§4-2 #18）。
 - **`races.json` の git 履歴は 2026-07-10 から。** 出走表の生テキスト（脚質・決まり手・S・B）はそれより前に無い。
   セッションのクローンは浅い（途中までの履歴しか無い）ことがあるので、履歴を掘るときは `git fetch --unshallow` が要る。
 
@@ -495,14 +513,16 @@ Chromium + Playwright でローカルサーバを立てて確認できる。
 ```
 python3 -m http.server 8765    # リポジトリのルートで
 ```
-`#loadToday` をクリックして `#topList` / `#shoubuList` が埋まるかを見る。
+開くと自動で今日のレースを読み込む。`#topList` / `#shoubuList` に `.rc`（🔥カード）が並ぶかを見る。
+時刻で表示が変わる（あと○分／結果待ち）ので、Playwright の `page.clock.install({ time })` で時計を固定すると確かめやすい。
 
 ### ワークフロー一覧
 
 | 名前 | ファイル | 起動 |
 |---|---|---|
 | 全レース更新 | `main.yml` | 1日4回（3:40/6:10/12:20/16:50 JST。定時実行が数時間遅れるので前倒ししてある） |
-| 結果収集 | `results.yml` | 1日1回（23:50 JST） |
+| 今日の結果 | `live.yml` | 日中1時間おき（10:17〜翌0:17 JST）+ 手動 |
+| 結果収集 | `results.yml` | 1日1回（23:50 JST）。直近3日の漏れ埋め・成績の作り直しまで |
 | オッズ取得 | `odds.yml` | 月1回（1日 11:00 JST）+ 手動 |
 | シミュレーター | `Simulate.yml` | 手動（learn.js → simulate.js） |
 | 履歴の穴埋め | `gitfill.yml` | 手動 |
