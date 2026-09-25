@@ -23,7 +23,29 @@ GitHub（honda1986/keirin）
 
 ---
 
-## 1. 準備（1回だけ）
+## 0. かんたんセットアップ（これだけで OK）
+
+スタートメニューで「**PowerShell**」を開いて、次の1行を貼って Enter:
+
+```
+irm https://raw.githubusercontent.com/honda1986/keirin/main/pc/install.ps1 | iex
+```
+
+あとは画面の言うとおりに:
+
+1. 「このアプリがデバイスに変更を加えることを許可しますか」→ **はい**（新しい窓で続きます）
+2. Node.js が無ければ自動で入ります。リポジトリも `C:\keirin\keirin` に自動で入ります
+3. GitHub のログインの窓が出たら**ログイン**
+4. 「まだ送れません」と出たら、自動で開くトークンの画面で、**競艇で使っているトークンに keirin を足す**
+   （[Edit] → Repository access に honda1986/keirin → Contents を Read and write → [Update]）→ 窓に戻って Enter
+5. 「できました」が出たら終わり。タスクの登録と試し運転まで済んでいます
+
+何度貼っても壊れません（もうあるものは作り直さない）。更新したいときも同じ1行を貼ればよい。
+うまくいかなかったら、赤い字をそのまま貼って相談。
+
+以下の 1〜1-5 は、この1行が中でやっていることを手でやる場合の手順（ふつうは読まなくてよい）。
+
+## 1. 準備（手でやる場合）
 
 ### 1-1. Node.js を入れる
 
@@ -116,6 +138,7 @@ Git・Node.js・改行の設定・フォルダ・**GitHub へ送れるか（ロ�
 
 | ファイル | 中身 |
 |---|---|
+| `pc/install.ps1` | **1行でセットアップ**（管理者への切り替え・Node.js/Git の導入・clone・ログイン確認・setup.js・タスク登録） |
 | `pc/setup.bat` `pc/setup.js` | 準備と試し運転 |
 | `pc/tasks.bat` `pc/register_tasks.ps1` | タスクの登録 |
 | `pc/task.bat` | タスクから呼ばれる入口（PATH を足して `node pc\runner.js`） |
