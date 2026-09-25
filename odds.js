@@ -21,6 +21,7 @@
 //   node odds.js 2026-07-01 2026-07-31 --apply   … 期間を取り込む
 //   node odds.js 30 --apply               … 直近30日
 //   オプション: --conc=6 --wait=150       … 同時本数と間隔(ミリ秒)
+//              --all                     … history.json に無いレースも取る(2024年以前など。Kドリームスには2020年の分も残っている)
 // ============================================================
 const fs = require("fs");
 const path = require("path");
@@ -33,6 +34,7 @@ if (TRACK_NAMES.length === VENUE_PIDS.length) TRACK_NAMES.forEach((n, i) => { PI
 
 const argv = process.argv.slice(2);
 const APPLY = argv.includes("--apply");
+const ALL = argv.includes("--all");       // history.json に無いレースも取る(過去分の取得)
 const numOpt = (k, d) => { const a = argv.find((x) => x.startsWith("--" + k + "=")); return a ? parseInt(a.split("=")[1], 10) : d; };
 const CONCURRENCY = Math.max(1, Math.min(10, numOpt("conc", 6)));
 const WAIT_MS     = Math.max(0, numOpt("wait", 150));
@@ -194,7 +196,8 @@ function saveMonths() {
 
     const month = loadMonth(d8);
     // 既に取得済みのレースは飛ばす。history.json に無いレース(=分析に使えない)も取りに行かない。
-    const known = Object.keys(HIST).length > 0;
+    // --all のときは history.json に無いレースも取る(2024年以前の分析用。furoito の結果と組み合わせて使う)
+    const known = Object.keys(HIST).length > 0 && !ALL;
     const todo = idx.filter((r) => !month.races[r.id] && (!known || HIST[r.id]));
     tSkip += idx.length - todo.length;
     if (!todo.length) { console.log(dH, idx.length + "R すべて取得済み"); continue; }
