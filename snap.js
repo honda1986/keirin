@@ -14,6 +14,7 @@
 // ・見たレースは買う/買わないに関係なく全部残す(買い目だけだと偏るため)
 // ・記録は snapwork/YYYYMMDD.jsonl に1行ずつ足す。git には入れない。
 //   snap_pack.js が odds-snap ブランチの snap/YYYYMMDD.json.gz にまとめる
+// ・ふだんは PC のタスクスケジューラ(pc/runner.js)が1分おきに呼ぶ。GitHub の snap.yml は PC が止まったときの予備
 // ・取れなかった理由は必ずログに出す。記録が失敗しても落ちない
 //
 // 1行の形:
@@ -114,12 +115,17 @@ function minsToClose(day8, hhmm) {
 }
 
 async function main() {
-  let rj;
-  try { rj = JSON.parse(fs.readFileSync(path.join(__dirname, "races.json"), "utf8")); }
-  catch (e) { console.log("races.json が読めません:", e.message); return; }
   const today = DAY_ARG || jst().toISOString().slice(0, 10).replace(/-/g, "");
-  const list = (rj.races || []).filter((x) => raceDay(x) === today);
-  if (!list.length) { console.log(hms(), "races.json に今日(" + today + ")のレースがありません(まだ更新されていない)"); return; }
+  // 出走表は races.json(GitHub の main.yml が朝に作る)。それが遅れて今日の分でないときは、
+  // PC が自分で取った snapwork/races-local.json を使う(pc/runner.js が fetch.js で作る)
+  let list = [];
+  for (const f of [path.join(__dirname, "races.json"), path.join(DIR, "races-local.json")]) {
+    let rj;
+    try { rj = JSON.parse(fs.readFileSync(f, "utf8")); } catch (e) { continue; }
+    list = (rj.races || []).filter((x) => raceDay(x) === today);
+    if (list.length) break;
+  }
+  if (!list.length) { console.log(hms(), "今日(" + today + ")の出走表がありません(races.json がまだ更新されていない)"); return; }
 
   let st = {};
   try { st = JSON.parse(fs.readFileSync(STATE, "utf8")); } catch (e) {}

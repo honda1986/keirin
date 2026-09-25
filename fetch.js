@@ -239,7 +239,10 @@ function buildEntry(text, item) {
     process.exit(1);
   }
   // アプリは { updatedAt, count, races } の形を期待している(配列そのままだと読めない)
-  const outPath = path.join(__dirname, "races.json");
+  // RACES_OUT を指定したときはそこに書き、得点ログ(scores.json)には触らない。
+  // PC の予備取得(pc/runner.js)が、GitHub の朝の更新が遅れた日に手元だけで使うため。
+  // main のファイルを書き換えると、次に GitHub から取り込むときにぶつかる。
+  const outPath = process.env.RACES_OUT || path.join(__dirname, "races.json");
   fs.writeFileSync(outPath, JSON.stringify({
     updatedAt: new Date().toISOString(),
     count: races.length,
@@ -248,6 +251,7 @@ function buildEntry(text, item) {
   // 競走得点の日次ログを更新する(ネットワークには出ない。いま作った races を読み直すだけ)。
   // Kドリームスには前得点が無いので、毎日の得点を貯めて「前回の開催との差」で代用する。
   // ★ここが失敗してもレース取得自体は成功させる(races.json は既に書いてある)。
+  if (process.env.RACES_OUT) { console.log(" 書き出し先:", outPath, "(得点ログは更新しない)"); return; }
   try {
     const SL = require("./scorelog.js");
     const store = SL.load();
