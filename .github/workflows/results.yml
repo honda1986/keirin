@@ -16,7 +16,10 @@ jobs:
   results:
     runs-on: ubuntu-latest
     steps:
+      # 直近数日の races.json を git 履歴から読むため(gitfill.js)、履歴を少し深く取る
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 300
 
       - uses: actions/setup-node@v4
         with:
@@ -28,12 +31,27 @@ jobs:
       - name: 結果収集
         run: node results.js
 
+      # ★直近3日の取り込み漏れを埋める。results.js は「いまの races.json に載っている日」しか見ないので、
+      #   23:50 予定のこの処理が GitHub の遅れで翌朝にずれ込み、朝の取得(03:40)が先に races.json を
+      #   翌日分へ書き換えると、前日のレースを丸ごと取り逃がす(2026-09-23 分がこれで欠けた)。
+      #   gitfill.js は git 履歴の races.json からその日の出走表を探して結果を足す。既にあるレースは触らない。
+      - name: 直近3日の取り込み漏れを埋める
+        continue-on-error: true
+        run: |
+          FROM=$(TZ=Asia/Tokyo date -d '3 days ago' +%F)
+          TO=$(TZ=Asia/Tokyo date -d 'yesterday' +%F)
+          node gitfill.js --from "$FROM" --to "$TO" --apply
+
       # 3連複の配当(p3fpay)を直近10日分だけ取り込む。
       # 払戻ページは1日1リクエストなので10日でも数秒。
       # ここが失敗しても当日の結果は残したいので continue-on-error にしてある。
       - name: 3連複の配当を取り込む(直近10日)
         continue-on-error: true
         run: node sanpuku.js 10 --apply
+
+      # 3連複の配当を足した後で成績を作り直す(これが無いと、直近1日の配当が次の晩まで空のまま)
+      - name: 成績を作り直す
+        run: node results.js --stats-only
 
       - name: コミット(競合対策リトライ付き)
         run: |

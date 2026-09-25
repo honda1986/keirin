@@ -141,6 +141,10 @@ async function main() {
   const hist = fs.existsSync(histPath) ? JSON.parse(fs.readFileSync(histPath, "utf8")) : { entries: [] };
   const done = new Set(hist.entries.map((e) => e.id));
 
+  // --stats-only: 払戻の取得と history.json の書き込みを飛ばし、stats.json だけ作り直す。
+  // results.yml で sanpuku.js が3連複配当を追記した「後」に、もう一度回すため
+  // (これが無いと、成績に載る直近1日の3連複配当が次の晩まで空のままになる)。
+  const STATS_ONLY = process.argv.includes("--stats-only");
   // races.json内の日付を集めて、日付ごとに払戻一覧を1回取得
   const baseDates = [...new Set(races.map(raceDate).filter(Boolean))];
   // レース日が1件も取れないのは取得元の形式が変わったとき。黙って0件追加を続けないよう、ここで落とす。
@@ -155,7 +159,7 @@ async function main() {
     const dt = new Date(dH + "T00:00:00Z"); dt.setUTCDate(dt.getUTCDate() - 1);
     dateSet.add(dt.toISOString().slice(0, 10));
   }
-  const dates = [...dateSet];
+  const dates = STATS_ONLY ? [] : [...dateSet];
   // 結果キーは「日付8桁_場名_nR」。ページ日付をキーに含めることで、
   // 別日の同場・同レース番号の結果が未出走レースに誤って紐付く事故を防ぐ。
   const results = {};
@@ -212,7 +216,7 @@ async function main() {
   // slice(-8000) は末尾を残すので、消えるのは常に先頭 = 最も古いレース。
   // 再び絞る必要が出たら、件数ではなく日付で切ること(古い順に切ると復旧分が失われる)。
   console.log("history 件数:", hist.entries.length);
-  fs.writeFileSync(histPath, JSON.stringify(hist));
+  if (!STATS_ONLY) fs.writeFileSync(histPath, JSON.stringify(hist));
   console.log("history:", added, "件追加 / 累計", hist.entries.length);
 
   // ---- 集計 → stats.json ----
@@ -430,9 +434,11 @@ async function main() {
       })(),
     };
   };
-  // 当日(JST)と直近日別
+  // 当日と直近日別。
+  // 「当日」は races.json のレース日。以前は実行時刻(JST)の日付を使っていたが、
+  // 23:50 予定の定時実行が GitHub の遅れで日付をまたぐと、当日の結果が空になっていた。
   const jst = new Date(Date.now() + 9 * 3600 * 1000);
-  const todayStr = jst.toISOString().slice(0, 10).replace(/-/g, "");
+  const todayStr = (baseDates.length ? baseDates.slice().sort().pop() : jst.toISOString().slice(0, 10)).replace(/-/g, "");
   const today = summarize(E.filter((e) => e.date === todayStr));
   // 直近7日ぶんの日別成績
   const byDate = {};
@@ -455,7 +461,27 @@ async function main() {
     todayRaces: E.filter((e) => e.date === todayStr).map((e) => ({
       place: e.place, raceNo: e.raceNo, f: e.f, s: e.s, t: e.t,
       p2pay: e.p2pay != null ? e.p2pay : null, p3pay: e.p3pay != null ? e.p3pay : null,
+      p3fpay: e.p3fpay != null ? e.p3fpay : null,   // アプリの🔥カードは3連複の配当を読む
     })),
+    // 直近7日の🔥レース1件ずつの結果(アプリの成績タブで一覧にする)。
+    // 配当が null は「当たったが3連複の配当がまだ取れていない」。
+    recentHot: (function () {
+      const days = Object.keys(byDate).sort().reverse().slice(0, 7);
+      const out = [];
+      for (const d of days) for (const e of byDate[d]) {
+        if (e.f == null || e.s == null) continue;
+        const rk = rankedOf(e);
+        if (rk.length < 4 || !Array.isArray(e.lines)) continue;
+        const pl = f3PlanFrom(rk, e.lines);
+        if (!pl || !pl.hot || !pl.trio) continue;
+        const done = e.t != null;
+        const hit = done && [e.f, e.s, e.t].sort((a, b) => a - b).join("=") === pl.ticket;
+        out.push({ date: e.date, place: e.place, raceNo: e.raceNo, cars: pl.cars, ticket: pl.ticket, needOdds: !!pl.needOdds,
+          order: e.f + "-" + e.s + "-" + (done ? e.t : "?"), hit, pay: hit ? (e.p3fpay != null ? e.p3fpay : null) : 0 });
+      }
+      const rn = (x) => parseInt(x.raceNo, 10) || 0;
+      return out.sort((a, b) => b.date.localeCompare(a.date) || a.place.localeCompare(b.place) || rn(a) - rn(b));
+    })(),
     recentDays,     // 直近7日の日別成績
   };
   fs.writeFileSync(path.join(dir, "stats.json"), JSON.stringify(stats));
