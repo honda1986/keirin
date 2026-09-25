@@ -41,9 +41,10 @@ jobs:
           git config user.email "actions@github.com"
           END=$(( $(date +%s) + 340 * 60 ))
           RELAY=0
+          NIGHT=0
           while :; do
             H=$(TZ=Asia/Tokyo date +%-H)
-            if [ "$H" -ge 1 ] && [ "$H" -lt 8 ]; then echo "レースの時間外(JST ${H}時)なので終わります"; break; fi
+            if [ "$H" -ge 1 ] && [ "$H" -lt 8 ]; then echo "レースの時間外(JST ${H}時)なので終わります"; NIGHT=1; break; fi
             if [ "$(date +%s)" -ge "$END" ]; then echo "5時間40分たったので区切ります"; RELAY=1; break; fi
             git pull -q --rebase --autostash origin main || true      # 新しい races.json を取り込み、push の競合も避ける
             node live.js || echo "今回は取得できませんでした(次の回でまた取ります)"
@@ -58,8 +59,18 @@ jobs:
             sleep 600
           done
           echo "relay=$RELAY" >> "$GITHUB_OUTPUT"
+          echo "night=$NIGHT" >> "$GITHUB_OUTPUT"
       - name: 時間切れなら次の実行を起動する
         if: steps.loop.outputs.relay == '1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run live.yml --ref main -R "$GITHUB_REPOSITORY"
+      # ★夜の結果収集(results.yml)は 23:50 の定時実行だが、GitHub の遅れで毎日 03:40 頃にずれ込み、
+      #   日別成績が翌朝まで変わらなかった(しかも同じ頃に朝の出走表取得が races.json を翌日分へ替える)。
+      #   1時にここで終わるときに起動すれば、その日の races.json が残っているうちに確実に集計できる。
+      #   23:50 の定時実行は予備としてそのまま残す(二重に動いても、既にあるレースは足さないので害はない)。
+      - name: 夜になったら結果収集(日別成績の更新)を起動する
+        if: steps.loop.outputs.night == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run results.yml --ref main -R "$GITHUB_REPOSITORY"
