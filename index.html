@@ -184,6 +184,24 @@
   .mtbl td, .mtbl th { font-size: 12px; }
   .mtbl tr.on td { background: rgba(242,194,48,.08); }
   .mtbl .bar { display: inline-block; height: 6px; border-radius: 3px; vertical-align: middle; margin-left: 4px; }
+  /* 期待値 */
+  .evbox { margin-top: 8px; padding: 8px 10px; border-radius: 10px; font-size: 12px; background: var(--panel2); }
+  .evbox.wait { color: var(--muted); font-size: 11px; }
+  .evbox.wait small { margin-left: 4px; color: var(--dim); }
+  .evbox.buy { background: rgba(95,192,139,.12); border: 1px solid rgba(95,192,139,.45); }
+  .evbox.skip { background: rgba(228,114,107,.10); border: 1px solid rgba(228,114,107,.4); }
+  .evbox .evtop { display: flex; justify-content: space-between; align-items: baseline; }
+  .evbox .evtop b { font-size: 20px; font-variant-numeric: tabular-nums; }
+  .evbox.buy .evtop b, .evbox.buy .evv { color: var(--green); }
+  .evbox.skip .evtop b, .evbox.skip .evv { color: var(--red); }
+  .evbox .evv { font-weight: 900; font-size: 13px; }
+  .evbox .evsub { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
+  .evbox .evsub b { color: var(--text); }
+  .rc.evskipped { opacity: .55; }
+  .st.evskip { background: rgba(228,114,107,.16); color: var(--red); }
+  .evsw { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); margin-top: 8px; flex-wrap: wrap; }
+  .evsw input { width: 16px; height: 16px; accent-color: var(--green); }
+  .evsw small { margin-left: auto; color: var(--dim); }
   .reschip { display: inline-flex; align-items: center; gap: 2px; font-size: 10px; margin-top: 3px; color: var(--muted); }
   header.appbar { padding: 0; }
   .lineviz .cb.dim { opacity: .45; }
@@ -1777,11 +1795,13 @@ function renderShoubu() {
       isTop: pl.cars >= 8,
       hs: headStyleOf(p, pl.trio), headStyle: headStyleBox(p, pl.trio),
       estHit: f3HitProb(p, r, p.lines || [], pl.trio),
+      delta: evDelta(p, r),
     });
   }
   SHOUBU_ROWS = rows;
   paintShoubu();
   renderCal();
+  if (!LIVE_ODDS) loadLiveOdds(true);
 }
 
 let searchFilter = "shoubu";      // 既定は勝負レースのみ表示(一覧が長くなりすぎるため)
@@ -2256,6 +2276,114 @@ function gateBlock(row) {
   return '<div class="gate ok">✓ オッズ確認なしで買える <span style="color:var(--muted);font-size:11px">(損益分岐 ' + row.beOdds + "倍)</span>" +
     (row.bandNote ? '<details class="more"' + stop + "><summary>根拠</summary>" + esc(row.bandNote) + "</details>" : "") + "</div>";
 }
+// ===================================================================
+// 期待値(締切前オッズ × 市場の見落とし)  — hikitsugi §4-3
+//   組の確率 p ∝ (1/オッズ)^1.18 × exp(3人の δ の和)  を全組で割り戻し、期待値 = p × オッズ。
+//   (1/オッズ)^1.18 は「本命側が過小評価される」市場の癖。δ は市場が見落としている選手の特徴:
+//   評価上位は買われすぎ(順位が1つ下がるごと +0.056)・単騎と番手は過大評価・50歳以上/地元/若手は過小評価。
+//   係数は 2025年のデータ(furoito＋確定オッズ、選手18万走)で作り、2026年で測った:
+//     🔥(7車は帯内)を 期待値1以上 に絞ると 約121% / 1未満は 約89%(2026年、確定オッズでの測定)
+//   ★確定オッズで測った数字。締切前のオッズで同じになるかは、締切前オッズの記録(snap.js)で検証中
+//   倍率は PC(または GitHub の予備)が1分おきに送る odds-live ブランチの latest.json を読む
+// ===================================================================
+const EV_MODEL = { K: 1.18, b: { er: 0.05552, single: -0.06649, banme: -0.04201, age50: 0.08862, home: 0.0448, young: 0.07674, samepref: 0.032 } };
+const VENUE_PREF = { "函館": "北海道", "青森": "青森", "いわき平": "福島", "弥彦": "新潟", "前橋": "群馬", "取手": "茨城", "宇都宮": "栃木",
+  "大宮": "埼玉", "西武園": "埼玉", "京王閣": "東京", "立川": "東京", "松戸": "千葉", "千葉": "千葉", "川崎": "神奈川", "平塚": "神奈川",
+  "小田原": "神奈川", "伊東": "静岡", "静岡": "静岡", "名古屋": "愛知", "岐阜": "岐阜", "大垣": "岐阜", "豊橋": "愛知", "富山": "富山",
+  "松阪": "三重", "四日市": "三重", "福井": "福井", "奈良": "奈良", "向日町": "京都", "和歌山": "和歌山", "岸和田": "大阪", "玉野": "岡山",
+  "広島": "広島", "防府": "山口", "高松": "香川", "小松島": "徳島", "高知": "高知", "松山": "愛媛", "小倉": "福岡", "久留米": "福岡",
+  "武雄": "佐賀", "佐世保": "長崎", "別府": "大分", "熊本": "熊本" };
+// 選手ごとの δ(車番 → 値)。fetch.js の riders と同じ作り方(評価順位 = 採点の並び順、ライン内位置 = 並びの何番目)
+function evDelta(p, r) {
+  if (!p || !Array.isArray(p.entries) || !r || !Array.isArray(r.scores)) return null;
+  const B = EV_MODEL.b, rank = {}, pos = {}, len = {}, mates = {};
+  r.scores.forEach((sc, i) => { rank[sc.car] = i + 1; });
+  for (const l of p.lines || []) l.forEach((c, i) => { pos[c] = i; len[c] = l.length; mates[c] = l.filter((x) => x !== c); });
+  const byCar = {}; for (const e of p.entries) byCar[e.car] = e;
+  const vp = VENUE_PREF[p.place] || null;
+  const out = {};
+  for (const e of p.entries) {
+    const lp = pos[e.car], ll = len[e.car] || 1, ki = parseInt(e.ki, 10) || 0;
+    const samePref = lp >= 1 && (mates[e.car] || []).some((m) => byCar[m] && byCar[m].pref && byCar[m].pref === e.pref);
+    out[e.car] = B.er * (rank[e.car] || 5) + (ll === 1 ? B.single : 0) + (lp >= 1 && ll >= 2 ? B.banme : 0) +
+      ((e.age || 0) >= 50 ? B.age50 : 0) + (vp && e.pref === vp ? B.home : 0) + (ki >= 121 ? B.young : 0) + (samePref ? B.samepref : 0);
+  }
+  return out;
+}
+function trioCombos(n) { const o = []; for (let a = 1; a <= n; a++) for (let b = a + 1; b <= n; b++) for (let c = b + 1; c <= n; c++) o.push([a, b, c]); return o; }
+// 1レースの期待値。snap = latest.json の1レース分 { t, left, upd, n, o:[…] }。票が薄い(9999.9 が多い)ときは null
+function evOfRow(row, snap) {
+  if (!row || !row.delta || !snap || !Array.isArray(snap.o)) return null;
+  const cs = trioCombos(snap.n || row.cars);
+  if (cs.length !== snap.o.length) return null;
+  let tot = 0, valid = 0, mine = null, mineOdds = null;
+  const tk = row.ticket;
+  cs.forEach((c, i) => {
+    const o = snap.o[i];
+    if (!(o > 0 && o < 9999)) return;
+    valid++;
+    const w = Math.pow(1 / o, EV_MODEL.K) * Math.exp((row.delta[c[0]] || 0) + (row.delta[c[1]] || 0) + (row.delta[c[2]] || 0));
+    tot += w;
+    if (c.join("=") === tk) { mine = w; mineOdds = o; }
+  });
+  if (!tot || mine == null || valid < cs.length * 0.8) return { thin: true, odds: mineOdds, snap };
+  const prob = mine / tot;
+  return { ev: prob * mineOdds, prob, odds: mineOdds, snap };
+}
+let LIVE_ODDS = null, LIVE_AT = 0, LIVE_ERR = "";
+let EV_FILTER = true;
+try { EV_FILTER = localStorage.getItem("keirinEV") !== "off"; } catch (e) {}
+function setEvFilter(on) { EV_FILTER = on; try { localStorage.setItem("keirinEV", on ? "on" : "off"); } catch (e) {} paintShoubu(); }
+// 最新の倍率を読む。raw.githubusercontent.com はブランチを書き換えても数分古いままなので、API(contents)で読む。
+// 未ログインの API は1時間60回まで。締切20分以内の🔥があって画面が見えているときだけ1分おき、他は5分おき。
+async function loadLiveOdds(force) {
+  const now = Date.now();
+  const hot = SHOUBU_ROWS.some((x) => { const m = minsToClose(x.startTime); return m != null && m >= -1 && m <= 20; });
+  const every = hot && document.visibilityState === "visible" ? 55e3 : 290e3;
+  if (!force && now - LIVE_AT < every) return;
+  LIVE_AT = now;
+  const api = "https://api.github.com/repos/honda1986/keirin/contents/latest.json?ref=odds-live";
+  let j = null;
+  try {
+    const r = await fetch(api, { headers: { Accept: "application/vnd.github.raw" }, cache: "no-cache" });
+    if (r.ok) j = await r.json(); else LIVE_ERR = "API " + r.status;
+  } catch (e) { LIVE_ERR = e.message; }
+  if (!j) {   // 回数の上限などで API が使えないときは raw(数分遅れることがある)
+    try { const r = await fetch("https://raw.githubusercontent.com/honda1986/keirin/odds-live/latest.json?t=" + now, { cache: "no-store" }); if (r.ok) j = await r.json(); } catch (e) {}
+  }
+  if (j && RACE_DAY && j.date === RACE_DAY.replace(/-/g, "")) { LIVE_ODDS = j; LIVE_ERR = ""; }
+  paintShoubu();
+}
+function evInfo(row) {
+  const snap = LIVE_ODDS && LIVE_ODDS.races ? LIVE_ODDS.races[row.key] : null;
+  if (!snap) return null;
+  const e = evOfRow(row, snap);
+  if (!e) return null;
+  const inBand = row.needOdds ? (e.odds != null && e.odds >= row.bandLo && e.odds <= row.bandHi) : true;
+  let verdict = null;   // "buy" | "skipEv" | "skipBand" | null(判定できない)
+  if (e.thin) verdict = null;
+  else if (!inBand) verdict = "skipBand";
+  else verdict = e.ev >= 1 ? "buy" : "skipEv";
+  return { ...e, inBand, verdict };
+}
+function evBlock(row) {
+  const m = minsToClose(row.startTime);
+  const info = evInfo(row);
+  if (!info) {
+    if (m != null && m >= 0 && m <= 20) return '<div class="evbox wait">期待値: 締切前のオッズを待っています' + (LIVE_ERR ? '<small>(' + esc(LIVE_ERR) + ')</small>' : "") + "</div>";
+    if (m != null && m > 20) return '<div class="evbox wait">期待値: 締切15分前から計算します</div>';
+    return "";
+  }
+  const s = info.snap;
+  const when = (s.upd ? s.upd + "現在" : s.t.slice(0, 5) + "取得") + "・締切" + Math.max(0, Math.round(s.left)) + "分前の倍率";
+  if (info.thin) return '<div class="evbox wait">期待値: まだ票が少なく計算できません <small>(' + when + ")</small></div>";
+  const ev = info.ev, cls = info.verdict === "buy" ? "buy" : "skip";
+  const label = info.verdict === "buy" ? "✓ 買い" : info.verdict === "skipBand" ? "✗ 見送り(帯の外)" : "✗ 見送り(期待値1未満)";
+  return '<div class="evbox ' + cls + '"><div class="evtop"><span>期待値 <b>' + ev.toFixed(2) + '</b></span><span class="evv">' + label + "</span></div>" +
+    '<div class="evsub">今の倍率 <b>' + info.odds + "倍</b>" + (row.needOdds ? "（帯 " + row.bandLo + "〜" + row.bandHi + "倍: " + (info.inBand ? "内" : "外") + "）" : "") +
+      " ／ 推定確率 " + (info.prob * 100).toFixed(1) + "%</div>" +
+    '<div class="evsub" style="color:var(--dim)">' + when + "。期待値は検証中の方法（2026年の確定オッズで 1以上 約121% / 1未満 約89%）</div></div>";
+}
 function hsChip(row) {
   if (!row.hs) return "";
   const cls = { "逃げ型": "nige", "両立型": "both", "捲り型": "maku", "自力弱": "weak" }[row.hs.type] || "both";
@@ -2273,15 +2401,18 @@ function resBlock(res) {
 }
 function hotCard(row, isNext) {
   const res = f3ResultOf(row.place, row.raceNo, row.ticket);
-  const st = raceStatus(row, res);
-  const cls = res && !res.pending ? (res.hit ? " hit" : " miss") : isNext ? " next" : "";
+  let st = raceStatus(row, res);
+  const ei = res ? null : evInfo(row);
+  const evSkip = EV_FILTER && ei && (ei.verdict === "skipEv" || ei.verdict === "skipBand");
+  if (evSkip && minsToClose(row.startTime) >= 0) st = { cls: "evskip", txt: "期待値で見送り" };
+  const cls = (res && !res.pending ? (res.hit ? " hit" : " miss") : isNext ? " next" : "") + (evSkip ? " evskipped" : "");
   return '<div class="rc' + cls + '" id="rc-' + esc(row.key) + '" onclick="loadRace(\'' + esc2(row.key).replace(/'/g, "\\'") + '\')">' +
     '<div class="top"><span class="time"><small>締切</small>' + (closeTimeOf(row.startTime) || "--:--") + '</span><span class="where">' + esc(row.place) + " " + esc(row.raceNo) +
       '<small class="start">発走 ' + (row.startTime || "--:--") + "</small></span>" +
       (st.txt ? '<span class="st ' + st.cls + '">' + st.txt + "</span>" : "") + "</div>" +
     '<div class="meta">' + (row.cars >= 8 ? row.cars + "車立て" : row.cars + "車立て・順位合計" + row.rankSum) + " ／ 実測回収率 " + row.roi + "%</div>" +
     '<div class="ticket">' + ticketBalls(row.ticket, "l") + '<span class="kind">3連複<br>1点</span></div>' +
-    hitBlock(row) + lineViz(row.lines, row.trio) + (res && !res.pending ? "" : gateBlock(row)) + hsChip(row) + resBlock(res) +
+    hitBlock(row) + lineViz(row.lines, row.trio) + (res && !res.pending ? "" : evBlock(row) + (ei && !ei.thin ? "" : gateBlock(row))) + hsChip(row) + resBlock(res) +
   "</div>";
 }
 function kpi(v, k, cls) { return '<div class="kpi"><div class="v ' + (cls || "") + '">' + v + '</div><div class="k">' + k + "</div></div>"; }
@@ -2294,6 +2425,8 @@ function renderHero(rows, next) {
   const unknown = done.some((r) => r.hit && r.pay == null);
   box.innerHTML =
     '<div class="ttl"><span>' + dayLabel(RACE_DAY) + " の🔥</span><span>" + (RESULTS_AT ? "結果 " + RESULTS_AT + " 時点" : "") + "</span></div>" +
+    '<label class="evsw" onclick="event.stopPropagation()"><input type="checkbox"' + (EV_FILTER ? " checked" : "") + ' onchange="setEvFilter(this.checked)">期待値で絞る（1未満・帯の外は「見送り」と出す）' +
+      (LIVE_ODDS ? '<small>倍率 ' + new Date(LIVE_ODDS.updatedAt).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) + (LIVE_ODDS.source === "GitHub" ? "・予備" : "") + "</small>" : "") + "</label>" +
     '<div class="kpis">' + kpi(rows.length, "🔥 レース") + kpi(done.length, "確定") + kpi(hit, "的中", hit ? "pos" : "") +
       kpi(done.length ? yen(pl) : "—", "収支(円)" + (unknown ? "※" : ""), done.length ? (pl >= 0 ? "pos" : "neg") : "") + "</div>" +
     (next
@@ -2550,6 +2683,8 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 setInterval(paintShoubu, 30000);          // あと○分・締切間近の表示を更新(計算し直しはしない)
 setInterval(loadResults, 5 * 60 * 1000);  // 結果は5分おきに読み直す
+setInterval(() => loadLiveOdds(false), 30 * 1000);   // 倍率(期待値用)。実際に読む間隔は loadLiveOdds の中で決める
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") loadLiveOdds(true); });
 
 </script>
 </body>
