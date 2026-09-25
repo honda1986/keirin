@@ -114,7 +114,9 @@
   .rc .top { display: flex; align-items: center; gap: 8px; }
   .rc .time { font-size: 21px; font-weight: 900; font-variant-numeric: tabular-nums; color: var(--gold); }
   .rc.hit .time, .rc.miss .time { color: var(--dim); }
-  .rc .where { font-weight: 900; font-size: 15px; }
+  .rc .where { font-weight: 900; font-size: 15px; line-height: 1.15; }
+  .rc .time small { font-size: 10px; color: var(--muted); font-weight: 700; margin-right: 3px; }
+  .rc .where small.start { display: block; font-size: 10px; color: var(--muted); font-weight: 500; }
   .st { margin-left: auto; font-size: 11px; font-weight: 900; padding: 4px 9px; border-radius: 999px; background: var(--panel2); color: var(--muted); white-space: nowrap; }
   .st.soon { background: rgba(240,138,36,.2); color: var(--orange); }
   .st.wait { background: rgba(88,166,232,.16); color: var(--blue); }
@@ -179,7 +181,7 @@
     </div>
     <div id="shoubuEmpty" class="empty">今日のレースを読み込んでいます…</div>
     <details class="more" style="margin:10px 4px 0"><summary>この画面の見方</summary>
-      <p class="note" style="margin:6px 0 0">3連複「本命ライン3人」で実測回収率100%超だったレースだけを、発走時刻の順に並べています。9車立ては単騎1人以下、7車立ては評価順位の合計12以上が対象。<b style="color:#F2C230">7車立ては買う前に必ずオッズ帯を確認</b>してください。カードを押すと、そのレースの詳しい予想(🔎分析)を開きます。</p>
+      <p class="note" style="margin:6px 0 0">3連複「本命ライン3人」で実測回収率100%超だったレースだけを、発走時刻の順に並べています。9車立ては単騎1人以下、7車立ては評価順位の合計12以上が対象。<b style="color:#F2C230">7車立ては買う前に必ずオッズ帯を確認</b>してください。カードを押すと、そのレースの詳しい予想(🔎分析)を開きます。<b>大きい時刻は発売の締切(発走の5分前)</b>で、「締切まで○分」も締切までを数えています。</p>
       <p class="note" style="margin:6px 0 0"><b>的中率の推定</b>=競走得点・3連対率・先頭の脚質・評価点・別線の強さから、そのレースで本命ライン3人が当たる確率を計算したもの(過去の2期間で推定と実際が合うことを確認済み)。棒の縦線はこの条件の平均。当たりやすさの目安で、買う/見送るは今まで通りオッズ帯で判断(推定×オッズで選んでも成績は上がらなかった)。</p>
       <p class="note" style="margin:6px 0 0"><b>並び</b>=予想の並び。金の枠が本命ライン、色の濃い3車が買う3人。<b>結果</b>は日中おおむね1時間おきに更新(GitHubの都合で遅れることがあります)。</p>
     </details>
@@ -2239,13 +2241,25 @@ function f3ResultOf(place, raceNo, ticket) {
   const hit = [res.f, res.s, res.t].sort((a, b) => a - b).join("=") === ticket;
   return { order: res.f + "-" + res.s + "-" + res.t, hit, pay: hit ? (res.p3fpay != null ? res.p3fpay : null) : 0, p3fpay: res.p3fpay };
 }
+// 発売の締切は発走の5分前(snarfnet/keirin-data の出走データでも close_time = start_time − 5分)。
+// races.json の startTime は発走時刻なので、締切はここで引いて出す。
+const CLOSE_BEFORE = 5;
+function closeTimeOf(hhmm) {
+  if (!/^\d{1,2}:\d{2}$/.test(hhmm || "")) return "";
+  const [h, m] = hhmm.split(":").map(Number);
+  let t = h * 60 + m - CLOSE_BEFORE; if (t < 0) t += 1440;
+  return String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0");
+}
+const minsToClose = (hhmm) => { const s = minsToStart(hhmm); return s == null ? null : s - CLOSE_BEFORE; };
 function raceStatus(row, res) {
   if (res && !res.pending) return res.hit ? { cls: "hit", txt: "✅ 的中" } : { cls: "miss", txt: "✗ 不的中" };
-  const m = minsToStart(row.startTime);
-  if (m == null) return { cls: "", txt: "" };
-  if (m > 60) return { cls: "", txt: "あと" + Math.floor(m / 60) + "時間" + (m % 60) + "分" };
-  if (m > 10) return { cls: "", txt: "あと" + m + "分" };
-  if (m >= 0) return { cls: "soon", txt: "締切間近 あと" + m + "分" };
+  const s = minsToStart(row.startTime);
+  if (s == null) return { cls: "", txt: "" };
+  const c = s - CLOSE_BEFORE;
+  if (c > 60) return { cls: "", txt: "締切まで" + Math.floor(c / 60) + "時間" + (c % 60) + "分" };
+  if (c > 10) return { cls: "", txt: "締切まで" + c + "分" };
+  if (c >= 0) return { cls: "soon", txt: "締切間近 あと" + c + "分" };
+  if (s >= 0) return { cls: "wait", txt: "締切済み・発走待ち" };
   return { cls: "wait", txt: res && res.pending ? "3着確認中" : "結果待ち" };
 }
 function lineViz(lines, trio) {
@@ -2292,7 +2306,8 @@ function hotCard(row, isNext) {
   const st = raceStatus(row, res);
   const cls = res && !res.pending ? (res.hit ? " hit" : " miss") : isNext ? " next" : "";
   return '<div class="rc' + cls + '" id="rc-' + esc(row.key) + '" onclick="loadRace(\'' + esc2(row.key).replace(/'/g, "\\'") + '\')">' +
-    '<div class="top"><span class="time">' + (row.startTime || "--:--") + '</span><span class="where">' + esc(row.place) + " " + esc(row.raceNo) + "</span>" +
+    '<div class="top"><span class="time"><small>締切</small>' + (closeTimeOf(row.startTime) || "--:--") + '</span><span class="where">' + esc(row.place) + " " + esc(row.raceNo) +
+      '<small class="start">発走 ' + (row.startTime || "--:--") + "</small></span>" +
       (st.txt ? '<span class="st ' + st.cls + '">' + st.txt + "</span>" : "") + "</div>" +
     '<div class="meta">' + (row.cars >= 8 ? row.cars + "車立て" : row.cars + "車立て・順位合計" + row.rankSum) + " ／ 実測回収率 " + row.roi + "%</div>" +
     '<div class="ticket">' + ticketBalls(row.ticket, "l") + '<span class="kind">3連複<br>1点</span></div>' +
@@ -2312,7 +2327,7 @@ function renderHero(rows, next) {
     '<div class="kpis">' + kpi(rows.length, "🔥 レース") + kpi(done.length, "確定") + kpi(hit, "的中", hit ? "pos" : "") +
       kpi(done.length ? yen(pl) : "—", "収支(円)" + (unknown ? "※" : ""), done.length ? (pl >= 0 ? "pos" : "neg") : "") + "</div>" +
     (next
-      ? '<div class="nextup" onclick="loadRace(\'' + esc2(next.key).replace(/'/g, "\\'") + '\')"><span class="lbl">⏱ 次</span><b>' + next.startTime + " " + esc(next.place) + esc(next.raceNo) + "</b>" +
+      ? '<div class="nextup" onclick="loadRace(\'' + esc2(next.key).replace(/'/g, "\\'") + '\')"><span class="lbl">⏱ 次 締切</span><b>' + closeTimeOf(next.startTime) + " " + esc(next.place) + esc(next.raceNo) + "</b>" +
           '<span class="bl">' + ticketBalls(next.ticket, "s") + '</span><span class="rest">' + raceStatus(next, null).txt + "</span></div>"
       : rows.length && done.length === rows.length ? '<div class="nextup" style="cursor:default">🏁 今日の🔥はすべて確定しました</div>' : "") +
     '<div style="font-size:10px;color:var(--dim);margin-top:6px">収支は🔥を全部100円ずつ買った場合(オッズ帯で見送ったレースも含む)' + (unknown ? "。※配当確認中の的中を含む" : "") + "</div>";
@@ -2322,7 +2337,7 @@ function paintShoubu() {
   if (!listA || !listB) return;
   const rows = SHOUBU_ROWS;
   const byTime = (a, b) => (a.startTime || "99:99").localeCompare(b.startTime || "99:99");
-  const upcoming = rows.filter((x) => { const m = minsToStart(x.startTime); return !f3ResultOf(x.place, x.raceNo, x.ticket) && m != null && m >= 0; }).sort(byTime);
+  const upcoming = rows.filter((x) => { const m = minsToClose(x.startTime); return !f3ResultOf(x.place, x.raceNo, x.ticket) && m != null && m >= 0; }).sort(byTime);
   const next = upcoming[0] || null;
   renderHero(rows, next);
   const bdg = $("tabBdg");
