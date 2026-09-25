@@ -68,6 +68,7 @@ jobs:
           LASTPACK=$START
           LASTPULL=0
           LASTHB=0
+          LASTLF=0
           PC=-1   # 最初の1回は必ず状態をログに出す
           # まとめて push。リモートを土台に置き直してから自分の記録を足す(rebase は使わない。
           # gz は git から見ると毎回ぶつかるので、snap_pack.js が中身を見て足し合わせる)
@@ -103,6 +104,13 @@ jobs:
               LASTHB=$NOW
             fi
             H=$(TZ=Asia/Tokyo date +%-H)
+            # 朝の main.yml が遅れて races.json が今日の分でないときは、自分で出走表を取る(20分おき。main は汚さない)
+            if [ "$PC" = 0 ] && [ "$H" -ge 7 ] && [ $((NOW - LASTLF)) -ge 1200 ] && ! node snap.js --has-races; then
+              echo "$(TZ=Asia/Tokyo date +%H:%M) races.json がまだ今日の分ではないので、出走表を取る(fetch.js)"
+              mkdir -p snapwork
+              RACES_OUT=snapwork/races-local.json timeout 480 node fetch.js | grep -E "書き出し|所要|作れません" || true
+              LASTLF=$NOW
+            fi
             if [ "$PC" = 0 ] && { [ "$H" -ge 8 ] || [ "$H" -lt 1 ]; }; then node snap.js || true; fi
             if [ $((NOW - LASTPACK)) -ge 1800 ]; then pack || true; LASTPACK=$NOW; fi
             sleep 60
