@@ -73,8 +73,15 @@ fs.appendFileSync(path.join(d,day+".jsonl"),JSON.stringify({t:t.slice(11,23),k:"
   git(["push", "-q", ORIGIN, "odds-snap"], seed);
   git(["clone", "-q", ORIGIN, PC]);
 
-  console.log("\n1. 1回動かす");
+  console.log("\n0. 記録がまだ1件も無いとき(夜中など)");
+  fs.writeFileSync(path.join(PC, "snap.js"), 'console.log("偽のsnap: レースなし")');   // 何も記録しない snap.js
   let r = runner();
+  const hb0 = spawnSync("git", ["show", "odds-snap:pc/heartbeat.json"], { cwd: ORIGIN, env, encoding: "utf8" });
+  check("記録が無くても心拍は届く", r.code === 0 && hb0.status === 0 && /"at"/.test(hb0.stdout), "code=" + r.code);
+  git(["checkout", "--", "snap.js"], PC);
+
+  console.log("\n1. 1回動かす");
+  r = runner();
   check("終了コード0", r.code === 0, "code=" + r.code);
   let rows = remoteRows(today);
   check("odds-snap に今日の記録が届いた", rows && rows.length === 1, rows ? rows.length + "行" : "無し");

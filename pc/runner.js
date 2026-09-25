@@ -182,8 +182,11 @@ function pushSnap(st) {
       at: new Date().toISOString(), host: os.hostname(), races_day: raceDayOf(path.join(REPO, "races.json")),
       local_races_day: raceDayOf(path.join(WORK, "races-local.json")), snaps_today: countToday(),
     }, null, 1) + "\n");
-    git(["add", "snap", "pc"], { cwd: SNAPBR });
-    if (git(["diff", "--cached", "--quiet"], { cwd: SNAPBR }).ok) return;
+    // ★"git add snap pc" と書くと、記録がまだ無い日(snap/ が無い)は git add 全体が失敗し、
+    //   心拍も送られずに黙って終わっていた(2026-09-26 03時、PC の初回)。まとめて -A で足す
+    const ad = git(["add", "-A"], { cwd: SNAPBR });
+    if (!ad.ok) { log("送る準備に失敗: " + ad.out.split("\n").pop()); return; }
+    if (git(["diff", "--cached", "--quiet"], { cwd: SNAPBR }).ok) { log("送るものが無い(心拍も同じ?)"); return; }
     const c = git(["-c", "user.name=keirin-pc", "-c", "user.email=keirin-pc@users.noreply.github.com",
       "commit", "-q", "-m", "odds snap (PC) " + jst().toISOString().slice(0, 16).replace("T", " ")], { cwd: SNAPBR });
     if (!c.ok) { log("commit に失敗: " + c.out.split("\n").pop()); return; }
