@@ -1503,6 +1503,44 @@ function f3Plan(p, r) {
 // 確定後は助言として意味が無いので出さない(x.result があるとき)。
 // 7車立ては帯(4〜15倍)を外すと実測87.7%で、確認しないなら買わない方が良い水準。
 // 引数: { tickets:[買い目], needOdds, bandLo, bandHi, bandNote, result }
+// 本命ライン先頭の脚質(出走表の決まり手欄＝直近の逃げ・捲りの回数から判定)。表示だけで、買う/買わないには使わない。
+// 2026-09 の検証: furoito/keirin-data の決まり手から「直前120日」の回数を作り 2025/1〜2026/4 を測り、
+// 出走表そのものの回数(2026/7〜9)でも同じ向きを確かめた。3複「本命ライン3人」の的中は
+//   逃げ型 32% / 両立型 27〜31% / 捲り型 19〜24% / 自力弱 20%前後(全レース)。
+// 市場もかなり織り込んでいて、回収率の差は数ポイントしかない。
+// レース後の短評で見ると、捲り型が崩れるのは番手が千切れるからではなく(離れた率は型によらず6%台)、
+// 先頭自身が後ろに置かれて捲りきれないことが多いため。
+function headStyleOf(p, trio) {
+  if (!p || !Array.isArray(p.entries) || !Array.isArray(trio) || trio.length < 3) return null;
+  // 決まり手欄が無い形式の出走表では全員0回になる。それを「自力弱」と出さないよう、何も出さない
+  const hasK = p.entries.some((e) => e.k && ((+e.k.nige || 0) + (+e.k.makuri || 0) + (+e.k.sashi || 0) + (+e.k.mark || 0)) > 0);
+  if (!hasK) return null;
+  const h = p.entries.find((e) => e.car === trio[0]);
+  if (!h || !h.k) return null;
+  const n = +h.k.nige || 0, m = +h.k.makuri || 0, J = n + m;
+  const type = J <= 2 ? "自力弱" : n / J >= 0.6 ? "逃げ型" : n / J <= 0.4 ? "捲り型" : "両立型";
+  return { type, n, m, head: trio[0], ban: trio[1], third: trio[2] };
+}
+function headStyleBox(p, trio) {
+  const s = headStyleOf(p, trio);
+  if (!s) return "";
+  const TXT = {
+    "逃げ型": ["#5FC08B", "主導権を取って押し切る形が多く、ライン3人で決まりやすい(3複の的中 実測32%)。"],
+    "両立型": ["#8CA3A0", "逃げと捲りの両方で勝つ。ライン3人の決まりやすさは中くらい(実測27〜31%)。"],
+    "捲り型": ["#E4726B", "後方に置かれて捲りきれないことが多く、ライン3人で決まりにくい(実測19〜24%)。"],
+    "自力弱": ["#E4726B", "直近で自力(逃げ・捲り)で勝った回数が2回以下。ライン3人で決まりにくい(実測20%前後)。"],
+  };
+  const [col, msg] = TXT[s.type];
+  return '<div style="font-size:11px;color:#8CA3A0;margin-top:6px;line-height:1.6">' +
+    "先頭 " + s.head + '番: <b style="color:' + col + '">' + s.type + "</b>(直近 逃げ" + s.n + "・捲り" + s.m + ") " + msg +
+    // 3単「先頭-番手-3番手」は、先頭が逃げ型のときだけ 2025年 / 2026年1〜4月 / 2026年7〜9月 の3期間とも
+    // 3複1点より6〜9pt良かった(95.7 / 98.1 / 97.3% 対 88.4 / 89.4 / 91.6%)。どれも100%未満なので参考表示に留める。
+    // 捲り型の「番手-先頭-3番手」は3期間目で崩れた(70.6%)ので出さない。
+    (s.type === "逃げ型"
+      ? '<br>参考: 3単 <b style="color:#EAF2EF">' + s.head + "-" + s.ban + "-" + s.third + "</b> 1点。先頭が逃げ型のときは、調べた3つの期間とも3複1点より6〜9ポイント良かった(実測96〜98%)。ただし100%は超えていない。"
+      : "") +
+    "</div>";
+}
 function oddsGate(x) {
   if (x.result) return "";
   if (x.needOdds) {
@@ -1566,6 +1604,7 @@ function renderShoubu() {
       oddsHint: pl.oddsHint, note: pl.note,
       needOdds: !!pl.needOdds, bandLo: pl.bandLo, bandHi: pl.bandHi, bandNote: pl.bandNote,
       isTop: pl.cars >= 8, result,
+      headStyle: headStyleBox(p, pl.trio),
     });
   }
   const byTime = (a, b) => {
@@ -1590,6 +1629,7 @@ function renderShoubu() {
         return '<span class="bet3" style="border-color:' + (won ? "#5FC08B" : accent) + ';' + (won ? "background:rgba(95,192,139,.18);font-weight:900" : "") + '">' + t + "</span>";
       }).join("") + "</div>" +
       oddsGate(x) +
+      (x.headStyle || "") +
       (x.result
         ? '<div style="margin-top:6px;padding:6px 8px;border-radius:6px;background:' + (x.result.hit ? "rgba(95,192,139,.12)" : "rgba(228,114,107,.10)") + ';font-size:12px">' +
             (x.result.hit ? '<b style="color:#5FC08B">✅ 的中</b>' : '<b style="color:#E4726B">✗ 不的中</b>') +
@@ -2014,6 +2054,7 @@ function render(p, tName) {
       '<div style="margin-bottom:6px"><span class="bet3" style="border-color:' + ac + ';font-size:16px;font-weight:900;padding:4px 10px">' + f3.ticket + "</span>" +
         '<span style="font-size:11px;color:#8CA3A0;margin-left:8px">1点 / 的中率' + f3.hitRate + "%</span></div>" +
       '<div style="font-size:11px;color:#8CA3A0;line-height:1.7">' + esc(f3.note) + "</div>" +
+      headStyleBox(p, f3.trio) +
       '<div style="font-size:11px;color:#EAF2EF;background:#10181A;border-radius:6px;padding:6px 8px;margin-top:6px">💰 損益分岐 <b style="color:' + ac + ';font-size:13px">' + (100 / f3.hitRate).toFixed(1) + "倍</b>" +
         // 🔥のときは下の oddsGate が同じことを書くので、ここには出さない
         (hot ? "" : ' <span style="color:#8CA3A0">この倍率を超えていなければ見送り。</span>') + "</div>" +
