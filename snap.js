@@ -71,21 +71,32 @@ function combos(n) {
   return o;
 }
 
-// 3連複の「人気順」一覧を読む。{ odds: Map("1=2=3" → 倍), upd: "HH:MM" | null, len }
+// 3連複の一覧を読む。{ odds: Map("1=2=3" → 倍), upd: "HH:MM" | null, len }
+// 画面には「人気順」と「高配当順」の一覧があり、どちらも上位50組まで。9車(84組)は片方では足りないが、
+// 2つを合わせると全組そろう(人気の上位50と下位50で、84組なら重ならない分も含めて全部入る)。
+// 一覧は「順位 a=b=c 倍率」の繰り返し。見出しやタブにも「人気順」が出るので、一覧が続く所だけを読む
+function readList(text, re) {
+  const out = [];
+  const m0 = text.match(re);
+  if (!m0) return out;
+  let rest = text.slice(m0.index + m0[0].length - m0[1].length);
+  const item = /^\s*(\d{1,2})\s+(\d)\s*=\s*(\d)\s*=\s*(\d)\s+([\d,]+(?:\.\d+)?)/;
+  for (let m; (m = rest.match(item)); rest = rest.slice(m[0].length)) out.push([[+m[2], +m[3], +m[4]].sort((x, y) => x - y).join("="), parseFloat(m[5].replace(/,/g, ""))]);
+  return out;
+}
 function parseTrio(html) {
   const text = toText(html);
   const upd = (text.match(/(\d{1,2}:\d{2})\s*現在/) || [])[1] || null;
-  // 「人気順」は画面の見出しやタブにも出てくるので、「人気順 1 a=b=c」と一覧が続く所を探す
-  const i = text.search(/人気順\s+1\s+\d\s*=\s*\d\s*=\s*\d/);
-  const j = i >= 0 ? text.indexOf("高配当順", i) : -1;
-  const seg = i >= 0 ? text.slice(i, j > i ? j : undefined) : "";
+  const pop = readList(text, /人気順\s+(1\s+\d\s*=\s*\d\s*=\s*\d)/);
+  const high = readList(text, /高配当順\s+(1\s+\d\s*=\s*\d\s*=\s*\d)/);
   const odds = new Map();
-  for (const m of seg.matchAll(/(\d)\s*=\s*(\d)\s*=\s*(\d)\s+([\d,]+(?:\.\d+)?)/g)) {
-    const k = [+m[1], +m[2], +m[3]].sort((x, y) => x - y).join("=");
-    const v = parseFloat(m[4].replace(/,/g, ""));
-    if (isFinite(v) && v > 0 && !odds.has(k)) odds.set(k, v);
+  let clash = 0;
+  for (const [k, v] of pop.concat(high)) {
+    if (!isFinite(v) || v <= 0) continue;
+    if (odds.has(k)) { if (odds.get(k) !== v) clash++; continue; }
+    odds.set(k, v);
   }
-  return { odds, upd, len: html.length };
+  return { odds, upd, len: html.length, pop: pop.length, high: high.length, clash };
 }
 
 function raceDay(x) {
@@ -147,6 +158,7 @@ async function main() {
     st.last[x.key] = Date.now();
     const bad = o.filter((v) => v != null && v >= 9999).length;
     console.log("  " + x.key + " 締切" + row.left + "分前 " + (p.upd || "?") + "現在 " + got + "/" + cs.length + "組" +
+      (p.clash ? " ★人気順と高配当順で倍率が違う組 " + p.clash : "") +
       (bad ? " (9999.9=" + bad + ")" : "") + (extra ? " ★車立てと合わない組 " + extra : ""));
     await sleep(WAIT_MS);
   }

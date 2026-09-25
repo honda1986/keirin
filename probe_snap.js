@@ -21,7 +21,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const miss = cs.filter((k) => !p.odds.has(k)).length;
     const big = [...p.odds.values()].filter((v) => v >= 9999).length;
     const inv = [...p.odds.values()].filter((v) => v < 9999).reduce((a, v) => a + 1 / v, 0);
-    console.log(seen.get(rid), rid, "更新", p.upd, "組", p.odds.size, "/", cs.length, "(最大車番", n + ")", "欠け", miss, "9999.9", big, "Σ1/オッズ", inv.toFixed(3), "最安", Math.min(...p.odds.values()));
+    console.log(seen.get(rid), rid, "一覧", p.pop + "+" + p.high, "食い違い", p.clash, "更新", p.upd, "組", p.odds.size, "/", cs.length, "(最大車番", n + ")", "欠け", miss, "9999.9", big, "Σ1/オッズ", inv.toFixed(3), "最安", Math.min(...p.odds.values()));
     await sleep(700);
   }
 })().catch((e) => { console.error(e); process.exit(1); });
