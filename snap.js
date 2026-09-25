@@ -37,6 +37,7 @@ const DRY = argv.includes("--dry");
 const winArg = (argv.find((a) => a.startsWith("--win=")) || "").slice(6);
 const [WIN_LO, WIN_HI] = winArg ? winArg.split(",").map(Number) : [2, 15];   // 締切まで何分のレースを見るか
 const DAY_ARG = (argv.find((a) => a.startsWith("--day=")) || "").slice(6);    // 動作確認用: races.json のこの日を今日とみなす
+const HAS_RACES = argv.includes("--has-races");   // 今日の出走表があれば終了コード0、無ければ1(何も取りに行かない)
 const EVERY_SEC = 170;          // 同じレースを見る間隔(3分弱。1分おきに呼ばれる前提)
 const CLOSE_BEFORE = 5;         // 締切は発走の5分前(index.html と同じ)
 const BUDGET_MS = 50 * 1000;    // 1回の持ち時間。超えたら残りは次の回へ
@@ -125,6 +126,7 @@ async function main() {
     list = (rj.races || []).filter((x) => raceDay(x) === today);
     if (list.length) break;
   }
+  if (HAS_RACES) { process.exitCode = list.length ? 0 : 1; return; }   // 出走表があるかだけ答える(snap.yml が使う)
   if (!list.length) { console.log(hms(), "今日(" + today + ")の出走表がありません(races.json がまだ更新されていない)"); return; }
 
   let st = {};
