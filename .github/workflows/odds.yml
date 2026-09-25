@@ -34,6 +34,10 @@ on:
         description: 'リクエスト間隔ミリ秒(既定150)'
         required: false
         default: '150'
+      all:
+        description: 'history.json に無いレースも取る(2024年以前の過去分を取るとき)'
+        type: boolean
+        default: false
 
 concurrency:
   group: odds-write
@@ -61,6 +65,7 @@ jobs:
           DAYS: ${{ github.event.inputs.days }}
           CONC: ${{ github.event.inputs.conc }}
           WAIT: ${{ github.event.inputs.wait }}
+          ALL:  ${{ github.event.inputs.all }}
         run: |
           # 定時実行(schedule)では inputs が全部空になるので、ここで既定値を入れる。
           # 手動実行のときは入力に既定値が付いているので、この既定値は効かない。
@@ -73,6 +78,7 @@ jobs:
           APPLY=""
           if [ "$MODE" = "apply" ]; then APPLY="--apply"; fi
           OPTS="--conc=$CONC --wait=$WAIT"
+          if [ "$ALL" = "true" ]; then OPTS="$OPTS --all"; fi
           if [ -n "$FROM" ] && [ -n "$TO" ]; then
             node odds.js "$FROM" "$TO" $APPLY $OPTS
           else
