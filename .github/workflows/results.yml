@@ -49,15 +49,30 @@ jobs:
         continue-on-error: true
         run: node sanpuku.js 10 --apply
 
+      # 期待値(成績タブの「期待値1以上だけ数える」)に使う倍率を用意する:
+      #   ・直近3日の確定オッズ(odds.yml は月1回なので、それを待たずに翌晩には期待値が出るように)
+      #   ・締切前の記録(odds-snap ブランチ)。あればこちらを優先して使う(実際に買う時点の倍率)
+      - name: 期待値用の倍率を用意する(直近の確定オッズと締切前の記録)
+        continue-on-error: true
+        run: |
+          node odds.js 3 --apply --conc=4 || true
+          mkdir -p /tmp/snap
+          if git ls-remote --exit-code origin refs/heads/odds-snap >/dev/null 2>&1; then
+            # checkout ではなく archive で取り出す(checkout だと main の index に snap/ が入り、結果のコミットに混ざる)
+            git fetch -q --depth=1 origin refs/heads/odds-snap && git archive FETCH_HEAD snap | tar -x -C /tmp/snap && ls /tmp/snap/snap | tail -3 || true
+          fi
+
       # 3連複の配当を足した後で成績を作り直す(これが無いと、直近1日の配当が次の晩まで空のまま)
       - name: 成績を作り直す
+        env:
+          SNAP_DIR: /tmp/snap/snap
         run: node results.js --stats-only
 
       - name: コミット(競合対策リトライ付き)
         run: |
           git config user.name "race-bot"
           git config user.email "actions@github.com"
-          git add history.json stats.json daily.json
+          git add history.json stats.json daily.json odds-*.json
           git diff --cached --quiet && echo "変更なし" && exit 0
           git commit -m "results update"
           for i in 1 2 3 4 5 6; do

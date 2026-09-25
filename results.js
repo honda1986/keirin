@@ -497,7 +497,8 @@ async function main() {
 // ---- 日別の🔥成績 → daily.json(アプリの成績タブのカレンダー用) ----
 // stats.json の recentDays は直近7日だけなので、全期間をここに小さく持つ。
 //   { updatedAt, days: { "YYYYMMDD": { n: 結果が取れたレース数, h: [🔥1件ずつ] } } }
-//   🔥1件 = [場, R, 車立て, 買い目"1=2=3", 着順"1-2-3"("1-2-?"=3着不明), 的中(1/0/-1=3着不明), 3複配当(的中時, 不明はnull), 買い目の確定オッズ(無ければnull)]
+//   🔥1件 = [場, R, 車立て, 買い目"1=2=3", 着順"1-2-3"("1-2-?"=3着不明), 的中(1/0/-1=3着不明), 3複配当(的中時, 不明はnull), 買い目の確定オッズ(無ければnull),
+//            (空き: アプリの今日の分は発走時刻), 期待値(無ければnull), 期待値の倍率の出どころ("s"=締切前の記録 / "f"=確定オッズ)]
 // 7車は「オッズ4〜15倍のときだけ買う」ので、確定オッズがあれば帯の外を見送り扱いにできるよう載せる。
 // 過去分は、いまの買い方(本命ライン3人・🔥条件)を当時の予想に当てはめたさかのぼり計算。
 const ODDS_CACHE = {};
@@ -517,6 +518,49 @@ function oddsOf(dir, id, trio) {
   }
   return null;
 }
+// 期待値(ev.js)。〜2026-09-20 は分析で作った値(ev-past.json。府県は furoito から、倍率は確定オッズ)。
+// それより後は history の riders(府県つき)と倍率から毎晩計算する。倍率は、締切前の記録(odds-snap。
+// SNAP_DIR に置いたもの)があればその「締切にいちばん近い記録」、無ければ確定オッズ。
+const EV = require("./ev.js");
+let EV_PAST = null;
+function evPast(dir) {
+  if (EV_PAST == null) { try { EV_PAST = JSON.parse(fs.readFileSync(path.join(dir, "ev-past.json"), "utf8")); } catch (e) { EV_PAST = {}; } }
+  return EV_PAST;
+}
+const SNAP_CACHE = {};
+function snapOdds(d8, key) {
+  const sd = process.env.SNAP_DIR;
+  if (!sd) return null;
+  if (!(d8 in SNAP_CACHE)) {
+    SNAP_CACHE[d8] = {};
+    try {
+      const rows = JSON.parse(require("zlib").gunzipSync(fs.readFileSync(path.join(sd, d8 + ".json.gz"))).toString("utf8")).rows || [];
+      for (const r of rows) { const o = SNAP_CACHE[d8][r.k]; if (r.left >= 0 && (!o || r.left < o.left)) SNAP_CACHE[d8][r.k] = r; }
+    } catch (e) {}
+  }
+  return SNAP_CACHE[d8][key] || null;
+}
+function allOdds(dir, id) {
+  const ym = id.slice(0, 6);
+  if (!(ym in ODDS_CACHE)) {
+    try { ODDS_CACHE[ym] = JSON.parse(fs.readFileSync(path.join(dir, "odds-" + ym + ".json"), "utf8")).races || {}; }
+    catch (e) { ODDS_CACHE[ym] = {}; }
+  }
+  return ODDS_CACHE[ym][id] || null;
+}
+// → [期待値, 出どころ("s"=締切前の記録 / "f"=確定オッズ)] か [null, null]
+function evForEntry(dir, e, d, ticket) {
+  const id = e.id || (d + "_" + e.place + "_" + e.raceNo);
+  const past = evPast(dir)[id];
+  if (past != null) return [past, "f"];
+  const delta = EV.deltaFromRiders(e.riders, e.lines, e.place);
+  if (!delta) return [null, null];
+  const sn = snapOdds(d, e.place + "_" + e.raceNo);
+  if (sn && sn.n) { const v = EV.evOf(delta, ticket, sn.o, sn.n); if (v != null) return [Math.round(v * 1e4) / 1e4, "s"]; }
+  const fo = allOdds(dir, id);
+  if (fo) { const v = EV.evOf(delta, ticket, fo.o, fo.cars); if (v != null) return [Math.round(v * 1e4) / 1e4, "f"]; }
+  return [null, null];
+}
 function writeDaily(dir, byDate, rankedOf) {
   const days = {};
   for (const d of Object.keys(byDate).sort()) {
@@ -532,8 +576,10 @@ function writeDaily(dir, byDate, rankedOf) {
       const done = e.t != null;
       const hit = done ? ([e.f, e.s, e.t].sort((a, b) => a - b).join("=") === pl.ticket ? 1 : 0) : -1;
       const trio = pl.ticket.split("=").map(Number);
+      const [ev, evSrc] = evForEntry(dir, e, d, pl.ticket);
       h.push([e.place, e.raceNo, pl.cars, pl.ticket, e.f + "-" + e.s + "-" + (done ? e.t : "?"), hit,
-        hit === 1 ? (e.p3fpay != null ? e.p3fpay : null) : 0, oddsOf(dir, e.id || (d + "_" + e.place + "_" + e.raceNo), trio)]);
+        hit === 1 ? (e.p3fpay != null ? e.p3fpay : null) : 0, oddsOf(dir, e.id || (d + "_" + e.place + "_" + e.raceNo), trio),
+        null, ev, evSrc]);
     }
     const rn = (x) => parseInt(x[1], 10) || 0;
     h.sort((a, b) => a[0].localeCompare(b[0]) || rn(a) - rn(b));

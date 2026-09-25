@@ -155,6 +155,12 @@
   .dayh { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; font-weight: 900; margin: 12px 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
   .rh { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 5px 0; border-bottom: 1px dashed #1E2B2F; }
   .rh .nm { width: 78px; font-weight: 700; white-space: nowrap; }
+  /* 1レースずつの行はスマホの幅(360px)に収める */
+  #calDetail .rh { gap: 4px; }
+  #calDetail .rh .nm { width: 54px; font-size: 11px; white-space: normal; line-height: 1.2; word-break: keep-all; }
+  #calDetail .rh .cb.s { width: 19px; height: 19px; font-size: 11px; }
+  #calDetail .rh .eq { margin: 0; font-size: 12px; }
+  #calDetail .rh .od { font-size: 9px; line-height: 1.25; }
   .rh .arrow { color: var(--dim); }
   .rh .pay { margin-left: auto; font-weight: 900; font-variant-numeric: tabular-nums; white-space: nowrap; }
   /* 成績カレンダー */
@@ -2513,9 +2519,9 @@ function resultChip(x) {
 // ===================================================================
 const BAND_LO = 4, BAND_HI = 15;       // engine.js の f3PlanFrom の bandLo/bandHi と同じ
 let DAILY = null, DAILY_AT = "";
-const CAL = { ym: null, sel: null, kind: "all", band: true };
-try { const c = JSON.parse(localStorage.getItem("keirinCal") || "{}"); if (c.kind) CAL.kind = c.kind; if (c.band === false) CAL.band = false; } catch (e) {}
-const saveCal = () => { try { localStorage.setItem("keirinCal", JSON.stringify({ kind: CAL.kind, band: CAL.band })); } catch (e) {} };
+const CAL = { ym: null, sel: null, kind: "all", band: true, ev: true };
+try { const c = JSON.parse(localStorage.getItem("keirinCal") || "{}"); if (c.kind) CAL.kind = c.kind; if (c.band === false) CAL.band = false; if (c.ev === false) CAL.ev = false; } catch (e) {}
+const saveCal = () => { try { localStorage.setItem("keirinCal", JSON.stringify({ kind: CAL.kind, band: CAL.band, ev: CAL.ev })); } catch (e) {} };
 async function loadDaily() {
   try {
     const r = await fetch("./daily.json", { cache: "no-store" });
@@ -2530,7 +2536,9 @@ function liveDay() {
   const h = SHOUBU_ROWS.map((x) => {
     const r = f3ResultOf(x.place, x.raceNo, x.ticket);
     const hit = !r ? null : r.pending ? -1 : r.hit ? 1 : 0;
-    return [x.place, x.raceNo, x.cars, x.ticket, r ? r.order : "", hit, r && r.hit ? r.pay : 0, null, x.startTime || ""];
+    const ei = evInfo(x);
+    return [x.place, x.raceNo, x.cars, x.ticket, r ? r.order : "", hit, r && r.hit ? r.pay : 0, ei && ei.odds != null ? ei.odds : null, x.startTime || "",
+      ei && !ei.thin ? Math.round(ei.ev * 1e4) / 1e4 : null, ei && !ei.thin ? "s" : null];
   });
   return { n: (TODAY_RESULTS || []).length, h, live: true };
 }
@@ -2545,10 +2553,12 @@ function calDays() {
   return days;
 }
 // 1件をどう数えるか: null=絞り込みの対象外 / skip=帯の外で見送り / open=未確定 / buy=数える
+// x[9] = 期待値(無ければ null)。期待値を出せないレース(府県や倍率が無い)は「買った」として数える
 function calPick(x) {
   if (CAL.kind === "9" && x[2] < 8) return null;
   if (CAL.kind === "7" && x[2] !== 7) return null;
   if (CAL.band && x[2] === 7 && x[7] != null && (x[7] < BAND_LO || x[7] > BAND_HI)) return "skip";
+  if (CAL.ev && x[9] != null && x[9] < 1) return "skipEv";
   if (x[5] !== 0 && x[5] !== 1) return "open";
   return "buy";
 }
@@ -2556,7 +2566,7 @@ function calSum(list) {
   const o = { n: 0, hit: 0, ret: 0, pl: 0, skip: 0, open: 0, unk: 0 };
   for (const x of list) {
     const k = calPick(x);
-    if (k === "skip") o.skip++; else if (k === "open") o.open++;
+    if (k === "skip" || k === "skipEv") o.skip++; else if (k === "open") o.open++;
     else if (k === "buy") { o.n++; if (x[5] === 1) { o.hit++; if (x[6] == null) o.unk++; else o.ret += x[6]; } }
   }
   o.pl = o.ret - o.n * 100;
@@ -2605,6 +2615,7 @@ function renderCal() {
     '<div class="seg" id="calKind">' + [["all", "🔥全部"], ["9", "9車立て"], ["7", "7車立て"]].map(([k, t]) =>
       '<button data-k="' + k + '" class="' + (CAL.kind === k ? "on" : "") + '">' + t + "</button>").join("") + "</div>" +
     '<label class="bandsw"><input type="checkbox" id="calBand"' + (CAL.band ? " checked" : "") + ">7車はオッズ" + BAND_LO + "〜" + BAND_HI + "倍のレースだけ数える(実際の買い方)</label>" +
+    '<label class="bandsw"><input type="checkbox" id="calEv"' + (CAL.ev ? " checked" : "") + ">期待値1以上のレースだけ数える(期待値予想)</label>" +
     '<div class="calnav"><button id="calPrev"' + (mi <= 0 ? " disabled" : "") + '>◀</button><b>' + y + "年" + mo + "月</b>" +
       '<button id="calNext"' + (mi >= months.length - 1 ? " disabled" : "") + ">▶</button></div>" +
     '<div class="kpis">' + kpi(m.n, "レース") + kpi(m.n ? m.hit + '<small style="font-size:11px;color:var(--muted)"> (' + Math.round(m.hit / m.n * 100) + "%)</small>" : "—", "的中") +
@@ -2614,6 +2625,7 @@ function renderCal() {
     '<div id="calDetail">' + calDetail(CAL.sel, days[CAL.sel]) + "</div>";
   box.querySelectorAll("#calKind button").forEach((b) => b.addEventListener("click", () => { CAL.kind = b.dataset.k; saveCal(); renderCal(); }));
   $("calBand").addEventListener("change", (e) => { CAL.band = e.target.checked; saveCal(); renderCal(); });
+  $("calEv").addEventListener("change", (e) => { CAL.ev = e.target.checked; saveCal(); renderCal(); });
   $("calPrev").addEventListener("click", () => { if (mi > 0) { CAL.ym = months[mi - 1]; CAL.sel = null; renderCal(); } });
   $("calNext").addEventListener("click", () => { if (mi < months.length - 1) { CAL.ym = months[mi + 1]; CAL.sel = null; renderCal(); } });
   box.querySelectorAll(".cd[data-d]").forEach((c) => c.addEventListener("click", () => {
@@ -2633,21 +2645,26 @@ function calDetail(d8, day) {
   if (!list.length) return head + '<div class="empty" style="padding:10px">この日は該当する🔥がありません</div>';
   const rows = list.map((x) => {
     const k = calPick(x);
-    const od = x[2] === 7 && x[7] != null ? '<span class="od">' + x[7] + "倍</span>" : "";
+    const odT = x[2] === 7 && x[7] != null ? x[7] + "倍" : "";
+    const evT = x[9] != null ? '<b style="color:' + (x[9] >= 1 ? "var(--green)" : "var(--red)") + '">期待' + x[9].toFixed(2) + "</b>" : "";
+    const od = odT || evT ? '<span class="od">' + odT + (odT && evT ? "<br>" : "") + evT + "</span>" : "";
     const order = x[4] ? x[4].split("-").map((c) => (c === "?" ? "?" : ball(+c, "s"))).join("") : "";
     let right;
-    if (k === "skip") right = '<span class="pay" style="color:var(--muted);font-size:11px;font-weight:700">見送り(帯の外)</span>';
+    // 見送りの理由は左の倍率(帯の外)か赤い期待値で分かるので、ここは短く(スマホの幅に収める)
+    if (k === "skip" || k === "skipEv") right = '<span class="pay" style="color:var(--muted);font-size:11px;font-weight:700" title="' + (k === "skip" ? "帯の外" : "期待値1未満") + '">見送り</span>';
     else if (x[5] == null) right = '<span class="pay" style="color:var(--muted);font-size:11px;font-weight:700">' + (x[8] ? "発走 " + x[8] : "結果待ち") + "</span>";
     else if (x[5] === -1) right = '<span class="pay" style="color:var(--muted);font-size:11px;font-weight:700">3着確認中</span>';
     else if (x[5] === 1) right = '<span class="pay pos">' + (x[6] != null ? x[6].toLocaleString() + "円" : "的中") + "</span>";
     else right = '<span class="pay neg">✗</span>';
-    return '<div class="rh' + (k === "skip" ? " skip" : "") + '"><span class="nm">' + esc(x[0]) + " " + esc(x[1]) + "</span>" + ticketBalls(x[3], "s") +
+    return '<div class="rh' + (k === "skip" || k === "skipEv" ? " skip" : "") + '"><span class="nm">' + esc(x[0]) + " " + esc(x[1]) + "</span>" + ticketBalls(x[3], "s") +
       od + (order ? '<span class="arrow">→</span>' + order : "") + right + "</div>";
   }).join("");
   return head + rows +
     '<div style="font-size:10px;color:var(--dim);margin-top:6px">3連複「本命ライン3人」を100円ずつ。' +
     (day.live ? "今日の分は10分おきの速報で、夜に確定集計します。" : "いまの買い方をその日の予想に当てはめたさかのぼり計算を含みます。") +
-    (list.some((x) => x[2] === 7 && x[7] != null) ? "倍率は確定オッズ。" : "") + "</div>";
+    (list.some((x) => x[2] === 7 && x[7] != null) ? "倍率は確定オッズ" + (day.live ? "ではなく今の倍率。" : "。") : "") +
+    (list.some((x) => x[9] != null) ? "期待値は" + (day.live ? "今の倍率" : list.some((x) => x[10] === "s") ? "締切前の倍率(記録があるレース)か確定オッズ" : "確定オッズ") + "で計算" +
+      (d8 < "20260101" ? "(2025年は期待値の係数を作った期間なので、良く見えやすい)" : "") + "。" : "") + "</div>";
 }
 // 月ごとの成績(タップでその月へ)
 function renderMonths(days, months) {
@@ -2662,7 +2679,7 @@ function renderMonths(days, months) {
   box.innerHTML = '<div style="font-size:13px;font-weight:900;margin-bottom:6px">月ごとの成績</div>' +
     '<div class="tbl-scroll"><table class="mtbl"><thead><tr><th class="l">月</th><th>R数</th><th>的中率</th><th>回収率</th><th class="l">収支(円)</th></tr></thead><tbody>' +
     rows.map((r) => tr(+r.ym.slice(0, 4) + "年" + +r.ym.slice(4, 6) + "月", r.g, r.ym)).join("") + tr("<b>全期間</b>", all, null) + "</tbody></table></div>" +
-    '<div style="font-size:10px;color:var(--dim);margin-top:4px">上の「🔥全部/9車/7車」と帯の設定がそのまま反映されます。' + (DAILY_AT ? "集計 " + new Date(DAILY_AT).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "") + "</div>";
+    '<div style="font-size:10px;color:var(--dim);margin-top:4px">上の「🔥全部/9車/7車」と帯・期待値の設定がそのまま反映されます。期待値予想は2025年のデータで係数を作ったので、2025年の数字は良く見えやすい(2026年からが本当の成績)。期待値を出せないレースは買った扱い。' + (DAILY_AT ? "集計 " + new Date(DAILY_AT).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "") + "</div>";
   box.querySelectorAll("tr[data-ym]").forEach((t) => t.addEventListener("click", () => { CAL.ym = t.dataset.ym; CAL.sel = null; renderCal(); $("calBox").scrollIntoView({ behavior: "smooth", block: "start" }); }));
 }
 // タブ
