@@ -85,7 +85,8 @@ function parseHaraiList(html) {
 
 const same = (a, b) => a && b && a.length === b.length && a.every((x, i) => x === b[i]);
 
-(async () => {
+// live.js が parseHaraiList を使い回すため、直接実行したときだけ本体を走らせる
+if (require.main === module) (async () => {
   const APPLY = process.argv.includes("--apply");
   console.log(APPLY ? "※ applyモード: history.json を書き換えます\n" : "※ 点検のみ。history.json は書き換えません(--apply で書き込み)\n");
 
@@ -172,3 +173,5 @@ const same = (a, b) => a && b && a.length === b.length && a.every((x, i) => x ==
   console.log("\n  3着を復元できた:", recovered, "件");
   console.log(APPLY ? "\n→ 書き込み済み。verify.js を回して確認してください" : "\n→ 書き込んでいません。内容に納得したら --apply を付けて実行してください");
 })();
+
+module.exports = { parseHaraiList };
