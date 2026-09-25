@@ -179,6 +179,11 @@ async function main() {
     } catch (e) { console.error("harai-list skip:", url, e.message); }
   }
 
+  // 払戻一覧が1レースも返さないのは、取得元の一時的な不調か形式の変化。2026-09-23 分はこれで黙って0件になった。
+  // 取り逃がしは results.yml の gitfill.js(直近3日)で埋まるが、ログで気付けるように目立たせておく。
+  if (!STATS_ONLY && races.length && !Object.keys(results).length) {
+    console.error("⚠ 払戻一覧から結果が1レースも読めませんでした(" + dates.join(", ") + ")。取得元の不調か形式の変化の可能性。翌晩の gitfill.js で再取得されます。");
+  }
   const entryById = new Map(hist.entries.map((e) => [e.id, e]));
   let added = 0, p2added = 0;
   for (const x of races) {
