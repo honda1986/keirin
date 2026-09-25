@@ -1,0 +1,95 @@
+name: 締切前オッズの記録
+
+# 締切15〜2分前のレースの3連複オッズ(全組)を3分おきに記録する(snap.js)。
+# 記録は main ではなく odds-snap ブランチの snap/YYYYMMDD.json.gz に置く
+# (main に3分おきに入れると GitHub Pages の作り直しと履歴の膨らみが起きるため。30分おきにまとめて push)。
+#
+# ★GitHub の定時実行は当てにならない(live.yml と同じ)。1回起動したらその中で1分おきに回し、
+#   5時間40分で区切って自分で次を起動し直す。夜(1時〜8時)は何もせず待つだけで、起動し直しは続ける
+#   ので、朝の定時実行が遅れても始発に間に合う。定時実行は鎖が切れたときの予備。
+#   動いている最中に予備が起動しても、同じグループで順番待ちになるだけ(二重には動かない)。
+#   止めたいときは Actions → このワークフロー → 右上の「…」→ Disable workflow。
+on:
+  schedule:
+    - cron: '47 22 * * *'   # 07:47 JST (予備)
+    - cron: '17 3 * * *'    # 12:17 JST (予備)
+    - cron: '17 8 * * *'    # 17:17 JST (予備)
+  workflow_dispatch:
+
+concurrency:
+  group: odds-snap
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: write    # 時間切れのとき自分を起動し直すため
+
+jobs:
+  snap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 記録用のブランチ(odds-snap)を用意する
+        run: |
+          git config --global user.name "race-bot"
+          git config --global user.email "actions@github.com"
+          if git ls-remote --exit-code --heads origin odds-snap >/dev/null 2>&1; then
+            git fetch -q origin odds-snap
+            git worktree add -q -B odds-snap snapbr origin/odds-snap
+          else
+            git worktree add -q --detach snapbr
+            cd snapbr
+            git checkout -q --orphan odds-snap
+            git rm -rqf .
+            printf '# 締切前オッズの記録\n\nsnap.js が書く。形式は snap.js の先頭を参照。\n' > README.md
+            git add README.md
+            git commit -qm "odds-snap: 記録を始める"
+            git push -q -u origin odds-snap
+          fi
+
+      - name: 1分おきにオッズを見る
+        id: loop
+        run: |
+          START=$(date +%s)
+          END=$(( START + 340 * 60 ))
+          LASTPACK=$START
+          LASTPULL=0
+          pack() {
+            node snap_pack.js snapbr/snap || return 0
+            ( cd snapbr
+              git add snap
+              if ! git diff --cached --quiet; then
+                git commit -qm "odds snap $(TZ=Asia/Tokyo date '+%F %H:%M')"
+                for i in 1 2 3 4 5; do
+                  if git push -q origin odds-snap; then echo "push成功"; break; fi
+                  echo "push失敗 $i/5"; sleep 5
+                  git pull -q --rebase origin odds-snap || true
+                done
+              fi )
+          }
+          while [ "$(date +%s)" -lt "$END" ]; do
+            NOW=$(date +%s)
+            # 出走表(races.json)は main.yml が1日数回更新するので、10分おきに取り直す
+            if [ $((NOW - LASTPULL)) -ge 600 ]; then
+              if git fetch -q origin main && git checkout -q origin/main -- races.json; then :; else echo "races.json の更新に失敗(前のまま続ける)"; fi
+              LASTPULL=$NOW
+            fi
+            H=$(TZ=Asia/Tokyo date +%-H)
+            if [ "$H" -ge 8 ] || [ "$H" -lt 1 ]; then node snap.js || true; fi
+            if [ $((NOW - LASTPACK)) -ge 1800 ]; then pack || true; LASTPACK=$NOW; fi
+            sleep 60
+          done
+          pack || true
+          echo "ran=$(( ($(date +%s) - START) / 60 ))" >> "$GITHUB_OUTPUT"
+
+      # 失敗してすぐ終わった回は起動し直さない(失敗→起動→失敗…の空回りを防ぐ)
+      - name: 次の実行を起動する
+        if: always() && steps.loop.outputs.ran != '' && steps.loop.outputs.ran >= 300
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run snap.yml --ref main -R "$GITHUB_REPOSITORY"
