@@ -176,7 +176,8 @@ function buildEntry(text, item) {
   }
   const rankOf = {};
   (r.scores || []).forEach((s, i) => { rankOf[s.car] = i + 1; });
-  // riders = [車番, 年齢, 期, ライン内位置, 評価順位, 評価点, 競走得点]
+  // riders = [車番, 年齢, 期, ライン内位置, 評価順位, 評価点, 競走得点, 府県]
+  // 8番目(府県)は 2026-09-26 に追加(期待値の「地元」「同県の番手」に使う。ev.js)。それより前のデータには無い
   // 7番目(競走得点)は 2026-09-21 に追加。それ以前のデータには入っていないので、
   // 読む側は rd[6] が undefined でも動くようにすること。
   // 評価点(6番目)は採点の総合点で、競走得点とは別物。後から
@@ -185,7 +186,8 @@ function buildEntry(text, item) {
   const riders = p.entries.map((en) => {
     const sc = (r.scores || []).find((x) => x.car === en.car);
     return [en.car, en.age || 0, parseInt(en.ki, 10) || 0, posOf[en.car] ?? 3, rankOf[en.car] || 9,
-            Number((sc?.total || 0).toFixed(1)), en.score > 0 ? Number(en.score.toFixed(2)) : null];
+            Number((sc?.total || 0).toFixed(1)), en.score > 0 ? Number(en.score.toFixed(2)) : null,
+            en.pref ? String(en.pref).replace(/[\s　]/g, "") : null];
   });
   return {
     key: (p.place || "?") + "_" + (p.raceNo || "?"),
