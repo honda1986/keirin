@@ -156,7 +156,34 @@
   .rh { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 5px 0; border-bottom: 1px dashed #1E2B2F; }
   .rh .nm { width: 78px; font-weight: 700; white-space: nowrap; }
   .rh .arrow { color: var(--dim); }
-  .rh .pay { margin-left: auto; font-weight: 900; font-variant-numeric: tabular-nums; }
+  .rh .pay { margin-left: auto; font-weight: 900; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  /* 成績カレンダー */
+  .seg { display: flex; background: var(--panel2); border-radius: 10px; padding: 3px; gap: 3px; }
+  .seg button { flex: 1; border: none; background: none; color: var(--muted); font: inherit; font-size: 12px; font-weight: 700; padding: 7px 0; border-radius: 8px; cursor: pointer; }
+  .seg button.on { background: var(--line); color: var(--text); }
+  .bandsw { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); margin: 8px 2px 0; }
+  .bandsw input { width: 16px; height: 16px; accent-color: var(--gold); }
+  .calnav { display: flex; align-items: center; justify-content: space-between; margin: 12px 0 4px; }
+  .calnav b { font-size: 16px; font-weight: 900; }
+  .calnav button { border: 1px solid var(--line); background: var(--panel2); color: var(--text); border-radius: 10px; width: 40px; height: 34px; font-size: 16px; cursor: pointer; }
+  .calnav button:disabled { opacity: .3; cursor: default; }
+  .calgrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; margin-top: 8px; }
+  .calgrid .wd { text-align: center; font-size: 10px; color: var(--dim); font-weight: 700; padding-bottom: 2px; }
+  .calgrid .wd.sun { color: var(--red); } .calgrid .wd.sat { color: var(--blue); }
+  .cd { min-height: 52px; border-radius: 8px; background: var(--panel2); padding: 3px 2px; text-align: center; cursor: pointer; border: 1.5px solid transparent; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 1px; }
+  .cd.none { background: transparent; cursor: default; }
+  .cd.blank { visibility: hidden; }
+  .cd .dn { font-size: 11px; font-weight: 700; color: var(--muted); }
+  .cd .pl { font-size: 11px; font-weight: 900; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  .cd .rn { font-size: 9px; color: var(--muted); }
+  .cd .ht { font-size: 9px; color: var(--gold); font-weight: 900; }
+  .cd.today { border-color: var(--blue); }
+  .cd.sel { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+  .rh.skip { opacity: .45; }
+  .rh .od { font-size: 10px; color: var(--muted); white-space: nowrap; }
+  .mtbl td, .mtbl th { font-size: 12px; }
+  .mtbl tr.on td { background: rgba(242,194,48,.08); }
+  .mtbl .bar { display: inline-block; height: 6px; border-radius: 3px; vertical-align: middle; margin-left: 4px; }
   .reschip { display: inline-flex; align-items: center; gap: 2px; font-size: 10px; margin-top: 3px; color: var(--muted); }
   header.appbar { padding: 0; }
   .lineviz .cb.dim { opacity: .45; }
@@ -263,15 +290,14 @@
     <p class="note" id="sujiNote" style="font-size:10px;color:#5E7573"></p></section>
   <section class="card" id="statsCard" data-tab="stats">
     <h2>📈 予想成績(自動答え合わせ)</h2>
-    <p class="note" style="margin:0 0 8px">毎晩、当日の全レース結果と予想を突き合わせて自動集計します(GitHub Pages版)。</p>
+    <p class="note" style="margin:0 0 8px">今日の分は10分おきの結果で、その日の夜(1時ごろ)に確定集計します。日付をタップするとその日の🔥が1レースずつ出ます。</p>
     <div class="io-row" style="margin-top:0"><button class="io-btn" id="loadStats">成績を読み込む</button></div>
     <div id="statsBody" class="hidden" style="margin-top:10px">
-      <div id="recentHotBox" style="margin-bottom:14px"></div>
-      <div id="todayBox" style="display:none;margin-bottom:12px;padding:10px 12px;background:#1C282C;border-left:3px solid #5FC08B;border-radius:0 8px 8px 0"></div>
+      <div id="calBox" style="margin-bottom:16px"></div>
+      <div id="monthBox" style="margin-bottom:16px"></div>
       <div style="font-size:11px;font-weight:700;color:#8CA3A0;margin-bottom:6px">累計成績</div>
       <div class="chips" id="statsChips" style="margin-bottom:10px"></div>
       <div class="tbl-scroll"><table><thead><tr><th class="l">スジ判定</th><th>件数</th><th>実測スジ決着率</th></tr></thead><tbody id="statsBuckets"></tbody></table></div>
-      <div id="recentBox" style="margin-top:12px"></div>
       <p class="note" id="statsNote" style="font-size:10px;color:#5E7573;margin-top:8px"></p>
     </div>
     <p class="err hidden" id="statsErr"></p>
@@ -1755,6 +1781,7 @@ function renderShoubu() {
   }
   SHOUBU_ROWS = rows;
   paintShoubu();
+  renderCal();
 }
 
 let searchFilter = "shoubu";      // 既定は勝負レースのみ表示(一覧が長くなりすぎるため)
@@ -1892,44 +1919,8 @@ $("loadStats").addEventListener("click", async () => {
     if (!res.ok) throw new Error("stats.json がまだありません(結果収集の初回実行後に生成されます)");
     const s = await res.json();
     const roiCol = (v) => v >= 100 ? "#5FC08B" : v >= 75 ? "#F2C230" : "#E4726B";
-    const fmtDate = (d) => d && d.length === 8 ? (+d.slice(4, 6)) + "/" + (+d.slice(6, 8)) : d || "";
     // 成績カードは 3連複「本命ライン3人」(いまアプリが出している買い目)の実測。
-    // 以前ここに出していた sim.json 由来の構成は採用をやめたので参照しない。
-    const yen = (v) => (v >= 0 ? "+" : "") + v.toLocaleString() + "円";
-    const f3Box = (g, label, accent, note) => !g ? "" :
-      '<div style="margin-top:8px;padding:8px;background:' + accent.bg + ';border-radius:6px">' +
-        '<div style="font-size:12px;font-weight:900;color:' + accent.fg + '">' + label + ": " + g.races + "R / 的中" + g.hit +
-        '% / 回収率 <span style="color:' + roiCol(g.roi) + '">' + g.roi + '%</span>' +
-        ' / 収支 <span style="color:' + (g.profit >= 0 ? "#5FC08B" : "#E4726B") + '">' + yen(g.profit) + "</span></div>" +
-        (note ? '<div style="font-size:10px;color:#8CA3A0;margin-top:3px">' + note + "</div>" : "") +
-        (g.hits && g.hits.length ? '<div style="font-size:10px;color:#8CA3A0;margin-top:3px">的中: ' + g.hits.map((h) => esc(h.place + h.raceNo) + " " + h.pay.toLocaleString() + "円").join(" / ") + "</div>" : "") +
-      "</div>";
-    const GOLD = { bg: "rgba(242,194,48,.08)", fg: "#F2C230" }, GREEN = { bg: "rgba(95,192,139,.10)", fg: "#5FC08B" };
-    const BAND_NOTE = "※過去の確定オッズを全期間ぶん持っていないため、オッズ4〜15倍の確認をせず全部買った場合の数字。実際は帯内だけ買うので、この数字より良くなる想定。";
-
-    // --- 当日成績 ---
-    const tb = $("todayBox");
-    if (s.today && s.today.races) {
-      const t = s.today;
-      const hitsHtml = t.hits && t.hits.length
-        ? '<div style="font-size:11px;color:#8CA3A0;margin-top:6px">的中: ' + t.hits.map((h) => esc(h.place + h.raceNo) + " <b style=\'color:#5FC08B\'>" + h.pay.toLocaleString() + "円</b>").join(" / ") + "</div>"
-        : '<div style="font-size:11px;color:#8CA3A0;margin-top:6px">本日はまだ的中なし</div>';
-      tb.style.display = "";
-      tb.innerHTML =
-        '<div style="font-weight:900;color:#5FC08B;font-size:13px;margin-bottom:6px">本日の成績(' + fmtDate(s.todayDate) + ") — " + t.races + "レース</div>" +
-        '<div class="chips">' +
-        '<span class="chip">◎1着 ' + t.honmeiWin + '%</span>' +
-        '<span class="chip">スジ決着 ' + t.sujiRate + "%</span></div>" +
-        f3Box(t.f3 && t.f3.hot9, "🔥 9車立て(オッズ確認なしで買える)", GREEN, "") +
-        f3Box(t.f3 && t.f3.hot7, "🔥 7車立て(評価順位の合計12以上)", GOLD, BAND_NOTE) +
-        ((t.f3 && (t.f3.hot9 || t.f3.hot7)) ? "" : '<div style="font-size:11px;color:#8CA3A0;margin-top:8px">本日は🔥に該当するレースがありませんでした。</div>') +
-        '<div style="font-size:10px;color:#5E7573;margin-top:6px">3連複「本命ライン3人」を1レース100円ずつ買った場合の集計です。</div>';
-    } else {
-      tb.style.display = "";
-      tb.innerHTML = '<div style="font-size:12px;color:#8CA3A0">本日の確定結果はまだありません(結果収集は23:50に自動実行されます)。</div>';
-    }
-
-    renderRecentHot(s.recentHot);
+    loadDaily();
     // --- 累計 ---
     $("statsChips").innerHTML =
       '<span class="chip">集計 <b>' + s.total + '</b>レース</span>' +
@@ -1944,27 +1935,6 @@ $("loadStats").addEventListener("click", async () => {
       })();
     $("statsBuckets").innerHTML = Object.entries(s.buckets).map(([k, v]) =>
       '<tr><td class="l">' + k + '</td><td>' + v.n + '</td><td style="font-weight:700">' + (v.n ? v.sujiRate + '%' : '—') + '</td></tr>').join("");
-
-    // --- 直近7日の日別 ---
-    const rb = $("recentBox");
-    if (s.recentDays && s.recentDays.length) {
-      rb.innerHTML = '<div style="font-size:11px;font-weight:700;color:#8CA3A0;margin-bottom:6px">日別成績(直近' + s.recentDays.length + '日)</div>' +
-        '<div class="tbl-scroll"><table style="font-size:11px"><thead><tr>' +
-          '<th class="l">日付</th>' +
-          '<th style="color:#5FC08B">9車R数</th><th style="color:#5FC08B">9車回収率</th><th style="color:#5FC08B">9車収支</th>' +
-          '<th style="color:#F2C230">7車R数</th><th style="color:#F2C230">7車回収率</th><th style="color:#F2C230">7車収支</th>' +
-        '</tr></thead><tbody>' +
-        s.recentDays.map((d) => {
-          const cell = (g) => g
-            ? '<td>' + g.races + '</td>' +
-              '<td style="font-weight:700;color:' + roiCol(g.roi) + '">' + g.roi + '%</td>' +
-              '<td style="white-space:nowrap;color:' + (g.profit >= 0 ? "#5FC08B" : "#E4726B") + '">' + (g.profit >= 0 ? "+" : "") + (g.profit / 1000).toFixed(1) + "k</td>"
-            : '<td style="color:#5E7573">—</td><td style="color:#5E7573">—</td><td style="color:#5E7573">—</td>';
-          return '<tr><td class="l" style="white-space:nowrap">' + fmtDate(d.date) + "</td>" + cell(d.f3 && d.f3.hot9) + cell(d.f3 && d.f3.hot7) + "</tr>";
-        }).join("") +
-        "</tbody></table></div>" +
-        '<div style="font-size:10px;color:#5E7573;margin-top:4px">どちらも🔥(3連複・本命ライン3人)。9車=単騎1人以下でオッズ確認なしで買える条件 / 7車=評価順位の合計12以上。' + BAND_NOTE + "</div>";
-    } else { rb.innerHTML = ""; }
 
     $("statsNote").textContent = "更新 " + new Date(s.updatedAt).toLocaleString("ja-JP") + " / 全体スジ決着率 " + s.sujiOverall + "%。判定バケット別の実測スジ率が◎>○>△>×の順に並んでいれば、期待度モデルは機能しています。回収率は、いまアプリが出している3連複「本命ライン3人」を1レース100円ずつ買った場合の実測です。";
     $("statsBody").classList.remove("hidden");
@@ -2379,6 +2349,7 @@ async function loadResults() {
   TODAY_RESULTS = arr;
   if (raceList.length) renderSearch(); else paintShoubu();
   setAppUpd();
+  renderCal();
 }
 let RACES_META = null;
 function setAppUpd(data) {
@@ -2401,24 +2372,165 @@ function resultChip(x) {
   } else if (res.p3fpay != null) tail = ' <span>3複' + res.p3fpay.toLocaleString() + "円</span>";
   return '<div class="reschip">' + order + tail + "</div>";
 }
-// 成績タブ: 直近7日の🔥を1レースずつ
-function renderRecentHot(list) {
-  const box = $("recentHotBox"); if (!box) return;
-  if (!list || !list.length) { box.innerHTML = ""; return; }
-  const byD = {}; for (const x of list) (byD[x.date] = byD[x.date] || []).push(x);
-  const fmt = (d8) => dayLabel(d8.slice(0, 4) + "-" + d8.slice(4, 6) + "-" + d8.slice(6, 8));
-  box.innerHTML = '<div style="font-size:13px;font-weight:900;margin-bottom:2px">🔥 直近7日の結果(1レースずつ)</div>' +
-    '<div style="font-size:10px;color:var(--dim)">3連複「本命ライン3人」を100円ずつ買った場合</div>' +
-    Object.keys(byD).sort().reverse().map((d) => {
-      const g = byD[d]; const hit = g.filter((x) => x.hit).length;
-      const known = g.filter((x) => x.done !== false);   // 3着が記録されていないレースは収支から外す
-      const pl = known.reduce((a, x) => a + (x.hit ? (x.pay || 0) : 0), 0) - known.length * 100;
-      return '<div class="dayh"><span>' + fmt(d) + " " + g.length + "R 的中" + hit + '</span><span class="' + (pl >= 0 ? "pos" : "neg") + '">' + yen(pl) + "円</span></div>" +
-        g.map((x) => '<div class="rh"><span class="nm">' + esc(x.place) + " " + esc(x.raceNo) + "</span>" + ticketBalls(x.ticket, "s") +
-          '<span class="arrow">→</span>' + x.order.split("-").map((c) => (c === "?" ? "?" : ball(+c, "s"))).join("") +
-          (x.done === false ? '<span class="pay" style="color:var(--muted);font-weight:500;font-size:11px">3着不明</span></div>'
-            : '<span class="pay ' + (x.hit ? "pos" : "neg") + '">' + (x.hit ? (x.pay != null ? x.pay.toLocaleString() + "円" : "的中") : "✗") + "</span></div>")).join("");
-    }).join("");
+// ===================================================================
+// 成績タブ: 日別カレンダー(daily.json + 今日の10分おきの結果)
+//   daily.json の1件 = [場, R, 車立て, 買い目, 着順, 的中(1/0/-1=3着不明), 3複配当, 買い目の確定オッズ]
+//   7車は「三連複オッズ4〜15倍のときだけ買う」。確定オッズがあれば帯の外は見送りとして数えない
+//   (締切前に見るオッズと確定オッズは少しずれるので、目安)。オッズが無いレースは買った扱い。
+// ===================================================================
+const BAND_LO = 4, BAND_HI = 15;       // engine.js の f3PlanFrom の bandLo/bandHi と同じ
+let DAILY = null, DAILY_AT = "";
+const CAL = { ym: null, sel: null, kind: "all", band: true };
+try { const c = JSON.parse(localStorage.getItem("keirinCal") || "{}"); if (c.kind) CAL.kind = c.kind; if (c.band === false) CAL.band = false; } catch (e) {}
+const saveCal = () => { try { localStorage.setItem("keirinCal", JSON.stringify({ kind: CAL.kind, band: CAL.band })); } catch (e) {} };
+async function loadDaily() {
+  try {
+    const r = await fetch("./daily.json", { cache: "no-store" });
+    if (r.ok) { const j = await r.json(); DAILY = j.days || {}; DAILY_AT = j.updatedAt || ""; }
+  } catch (e) {}
+  if (!DAILY) DAILY = {};
+  renderCal();
+}
+// 今日の分は10分おきの結果から作る(夜の集計が済むまで daily.json には入らないため)
+function liveDay() {
+  if (!RACE_DAY || !SHOUBU_ROWS.length) return null;
+  const h = SHOUBU_ROWS.map((x) => {
+    const r = f3ResultOf(x.place, x.raceNo, x.ticket);
+    const hit = !r ? null : r.pending ? -1 : r.hit ? 1 : 0;
+    return [x.place, x.raceNo, x.cars, x.ticket, r ? r.order : "", hit, r && r.hit ? r.pay : 0, null, x.startTime || ""];
+  });
+  return { n: (TODAY_RESULTS || []).length, h, live: true };
+}
+function calDays() {
+  const days = Object.assign({}, DAILY || {});
+  const lv = liveDay();
+  if (lv) {
+    const d8 = RACE_DAY.replace(/-/g, "");
+    const settled = (d) => d ? d.h.filter((x) => x[5] === 0 || x[5] === 1).length : 0;
+    if (!days[d8] || settled(lv) > settled(days[d8])) days[d8] = lv;
+  }
+  return days;
+}
+// 1件をどう数えるか: null=絞り込みの対象外 / skip=帯の外で見送り / open=未確定 / buy=数える
+function calPick(x) {
+  if (CAL.kind === "9" && x[2] < 8) return null;
+  if (CAL.kind === "7" && x[2] !== 7) return null;
+  if (CAL.band && x[2] === 7 && x[7] != null && (x[7] < BAND_LO || x[7] > BAND_HI)) return "skip";
+  if (x[5] !== 0 && x[5] !== 1) return "open";
+  return "buy";
+}
+function calSum(list) {
+  const o = { n: 0, hit: 0, ret: 0, pl: 0, skip: 0, open: 0, unk: 0 };
+  for (const x of list) {
+    const k = calPick(x);
+    if (k === "skip") o.skip++; else if (k === "open") o.open++;
+    else if (k === "buy") { o.n++; if (x[5] === 1) { o.hit++; if (x[6] == null) o.unk++; else o.ret += x[6]; } }
+  }
+  o.pl = o.ret - o.n * 100;
+  o.roi = o.n ? Math.round(o.ret / (o.n * 100) * 1000) / 10 : null;
+  return o;
+}
+const kyen = (v) => (v >= 0 ? "+" : "−") + (Math.abs(v) >= 1000 ? (Math.abs(v) / 1000).toFixed(1) + "k" : Math.abs(v));
+const roiColor = (v) => v == null ? "var(--dim)" : v >= 100 ? "var(--green)" : v >= 75 ? "var(--gold)" : "var(--red)";
+const d8Label = (d8) => dayLabel(d8.slice(0, 4) + "-" + d8.slice(4, 6) + "-" + d8.slice(6, 8));
+function renderCal() {
+  const box = $("calBox"); if (!box || DAILY == null) return;
+  const days = calDays();
+  const keys = Object.keys(days).sort();
+  if (!keys.length) { box.innerHTML = '<div class="empty">まだ成績がありません</div>'; $("monthBox").innerHTML = ""; return; }
+  const months = [...new Set(keys.map((d) => d.slice(0, 6)))];
+  if (!CAL.ym || !months.includes(CAL.ym)) CAL.ym = months[months.length - 1];
+  const inMonth = keys.filter((d) => d.slice(0, 6) === CAL.ym);
+  if (!CAL.sel || !days[CAL.sel] || CAL.sel.slice(0, 6) !== CAL.ym) {
+    const withBuy = inMonth.filter((d) => days[d].h.some((x) => calPick(x)));
+    CAL.sel = withBuy[withBuy.length - 1] || inMonth[inMonth.length - 1];
+  }
+  const sums = {}; for (const d of inMonth) sums[d] = calSum(days[d].h);
+  const m = calSum(inMonth.flatMap((d) => days[d].h));
+  const y = +CAL.ym.slice(0, 4), mo = +CAL.ym.slice(4, 6);
+  const first = new Date(Date.UTC(y, mo - 1, 1)).getUTCDay(), last = new Date(Date.UTC(y, mo, 0)).getUTCDate();
+  const today8 = RACE_DAY ? RACE_DAY.replace(/-/g, "") : "";
+  const maxAbs = Math.max(500, ...inMonth.map((d) => Math.abs(sums[d].pl)));
+  let cells = "";
+  for (let i = 0; i < first; i++) cells += '<div class="cd blank"></div>';
+  for (let dd = 1; dd <= last; dd++) {
+    const d8 = CAL.ym + String(dd).padStart(2, "0");
+    const g = days[d8] ? sums[d8] : null;
+    const cls = "cd" + (!days[d8] ? " none" : "") + (d8 === today8 ? " today" : "") + (d8 === CAL.sel ? " sel" : "");
+    let inner = '<span class="dn">' + dd + "</span>", bg = "";
+    if (g && g.n) {
+      const a = (0.12 + 0.5 * Math.min(1, Math.abs(g.pl) / maxAbs)).toFixed(2);
+      bg = g.pl >= 0 ? "background:rgba(95,192,139," + a + ")" : "background:rgba(228,114,107," + a + ")";
+      inner += '<span class="pl" style="color:' + (g.pl >= 0 ? "#DFF5E8" : "#FBE1DE") + '">' + kyen(g.pl) + "</span>" +
+        (g.hit ? '<span class="ht">的中' + g.hit + "</span>" : '<span class="rn">' + g.n + "R</span>");
+    } else if (g && g.open) inner += '<span class="rn">' + g.open + "R<br>待ち</span>";
+    else if (days[d8]) inner += '<span class="rn">—</span>';
+    cells += '<div class="' + cls + '"' + (bg ? ' style="' + bg + '"' : "") + (days[d8] ? ' data-d="' + d8 + '"' : "") + ">" + inner + "</div>";
+  }
+  const mi = months.indexOf(CAL.ym);
+  box.innerHTML =
+    '<div class="seg" id="calKind">' + [["all", "🔥全部"], ["9", "9車立て"], ["7", "7車立て"]].map(([k, t]) =>
+      '<button data-k="' + k + '" class="' + (CAL.kind === k ? "on" : "") + '">' + t + "</button>").join("") + "</div>" +
+    '<label class="bandsw"><input type="checkbox" id="calBand"' + (CAL.band ? " checked" : "") + ">7車はオッズ" + BAND_LO + "〜" + BAND_HI + "倍のレースだけ数える(実際の買い方)</label>" +
+    '<div class="calnav"><button id="calPrev"' + (mi <= 0 ? " disabled" : "") + '>◀</button><b>' + y + "年" + mo + "月</b>" +
+      '<button id="calNext"' + (mi >= months.length - 1 ? " disabled" : "") + ">▶</button></div>" +
+    '<div class="kpis">' + kpi(m.n, "レース") + kpi(m.n ? m.hit + '<small style="font-size:11px;color:var(--muted)"> (' + Math.round(m.hit / m.n * 100) + "%)</small>" : "—", "的中") +
+      kpi(m.roi != null ? m.roi + "%" : "—", "回収率", m.roi == null ? "" : m.roi >= 100 ? "pos" : "neg") +
+      kpi(m.n ? yen(m.pl) : "—", "収支(円)" + (m.unk ? "※" : ""), m.n ? (m.pl >= 0 ? "pos" : "neg") : "") + "</div>" +
+    '<div class="calgrid">' + "日月火水木金土".split("").map((w, i) => '<div class="wd' + (i === 0 ? " sun" : i === 6 ? " sat" : "") + '">' + w + "</div>").join("") + cells + "</div>" +
+    '<div id="calDetail">' + calDetail(CAL.sel, days[CAL.sel]) + "</div>";
+  box.querySelectorAll("#calKind button").forEach((b) => b.addEventListener("click", () => { CAL.kind = b.dataset.k; saveCal(); renderCal(); }));
+  $("calBand").addEventListener("change", (e) => { CAL.band = e.target.checked; saveCal(); renderCal(); });
+  $("calPrev").addEventListener("click", () => { if (mi > 0) { CAL.ym = months[mi - 1]; CAL.sel = null; renderCal(); } });
+  $("calNext").addEventListener("click", () => { if (mi < months.length - 1) { CAL.ym = months[mi + 1]; CAL.sel = null; renderCal(); } });
+  box.querySelectorAll(".cd[data-d]").forEach((c) => c.addEventListener("click", () => {
+    CAL.sel = c.dataset.d;
+    box.querySelectorAll(".cd.sel").forEach((z) => z.classList.remove("sel")); c.classList.add("sel");
+    $("calDetail").innerHTML = calDetail(CAL.sel, days[CAL.sel]);
+  }));
+  renderMonths(days, months);
+}
+function calDetail(d8, day) {
+  if (!d8 || !day) return "";
+  const list = day.h.filter((x) => calPick(x));
+  const g = calSum(day.h);
+  const head = '<div class="dayh"><span>' + d8Label(d8) + (day.live ? ' <span style="color:var(--blue);font-size:10px">速報</span>' : "") +
+    "　🔥" + list.length + "R" + (g.n ? " 的中" + g.hit : "") + "</span>" +
+    (g.n ? '<span class="' + (g.pl >= 0 ? "pos" : "neg") + '">' + yen(g.pl) + "円" + (g.roi != null ? ' <small style="color:var(--muted);font-weight:500">回収' + g.roi + "%</small>" : "") + "</span>" : "<span></span>") + "</div>";
+  if (!list.length) return head + '<div class="empty" style="padding:10px">この日は該当する🔥がありません</div>';
+  const rows = list.map((x) => {
+    const k = calPick(x);
+    const od = x[2] === 7 && x[7] != null ? '<span class="od">' + x[7] + "倍</span>" : "";
+    const order = x[4] ? x[4].split("-").map((c) => (c === "?" ? "?" : ball(+c, "s"))).join("") : "";
+    let right;
+    if (k === "skip") right = '<span class="pay" style="color:var(--muted);font-size:11px;font-weight:700">見送り(帯の外)</span>';
+    else if (x[5] == null) right = '<span class="pay" style="color:var(--muted);font-size:11px;font-weight:700">' + (x[8] ? "発走 " + x[8] : "結果待ち") + "</span>";
+    else if (x[5] === -1) right = '<span class="pay" style="color:var(--muted);font-size:11px;font-weight:700">3着確認中</span>';
+    else if (x[5] === 1) right = '<span class="pay pos">' + (x[6] != null ? x[6].toLocaleString() + "円" : "的中") + "</span>";
+    else right = '<span class="pay neg">✗</span>';
+    return '<div class="rh' + (k === "skip" ? " skip" : "") + '"><span class="nm">' + esc(x[0]) + " " + esc(x[1]) + "</span>" + ticketBalls(x[3], "s") +
+      od + (order ? '<span class="arrow">→</span>' + order : "") + right + "</div>";
+  }).join("");
+  return head + rows +
+    '<div style="font-size:10px;color:var(--dim);margin-top:6px">3連複「本命ライン3人」を100円ずつ。' +
+    (day.live ? "今日の分は10分おきの速報で、夜に確定集計します。" : "いまの買い方をその日の予想に当てはめたさかのぼり計算を含みます。") +
+    (list.some((x) => x[2] === 7 && x[7] != null) ? "倍率は確定オッズ。" : "") + "</div>";
+}
+// 月ごとの成績(タップでその月へ)
+function renderMonths(days, months) {
+  const box = $("monthBox"); if (!box) return;
+  const rows = months.slice().reverse().map((ym) => ({ ym, g: calSum(Object.keys(days).filter((d) => d.slice(0, 6) === ym).flatMap((d) => days[d].h)) }));
+  const all = calSum(Object.keys(days).flatMap((d) => days[d].h));
+  const maxAbs = Math.max(1, ...rows.map((r) => Math.abs(r.g.pl)));
+  const tr = (label, g, ym) => '<tr' + (ym ? ' data-ym="' + ym + '" style="cursor:pointer"' : "") + (ym === CAL.ym ? ' class="on"' : "") + '><td class="l" style="white-space:nowrap">' + label + "</td><td>" + g.n + "</td><td>" +
+    (g.n ? Math.round(g.hit / g.n * 1000) / 10 + "%" : "—") + '</td><td style="font-weight:900;color:' + roiColor(g.roi) + '">' + (g.roi != null ? g.roi + "%" : "—") + "</td>" +
+    '<td style="white-space:nowrap;text-align:left;color:' + (g.pl >= 0 ? "var(--green)" : "var(--red)") + '">' + kyen(g.pl) +
+    (ym ? '<span class="bar" style="width:' + Math.round(Math.abs(g.pl) / maxAbs * 40) + "px;background:" + (g.pl >= 0 ? "var(--green)" : "var(--red)") + '"></span>' : "") + "</td></tr>";
+  box.innerHTML = '<div style="font-size:13px;font-weight:900;margin-bottom:6px">月ごとの成績</div>' +
+    '<div class="tbl-scroll"><table class="mtbl"><thead><tr><th class="l">月</th><th>R数</th><th>的中率</th><th>回収率</th><th class="l">収支(円)</th></tr></thead><tbody>' +
+    rows.map((r) => tr(+r.ym.slice(0, 4) + "年" + +r.ym.slice(4, 6) + "月", r.g, r.ym)).join("") + tr("<b>全期間</b>", all, null) + "</tbody></table></div>" +
+    '<div style="font-size:10px;color:var(--dim);margin-top:4px">上の「🔥全部/9車/7車」と帯の設定がそのまま反映されます。' + (DAILY_AT ? "集計 " + new Date(DAILY_AT).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "") + "</div>";
+  box.querySelectorAll("tr[data-ym]").forEach((t) => t.addEventListener("click", () => { CAL.ym = t.dataset.ym; CAL.sel = null; renderCal(); $("calBox").scrollIntoView({ behavior: "smooth", block: "start" }); }));
 }
 // タブ
 function showTab(t) {

@@ -490,7 +490,57 @@ async function main() {
     recentDays,     // 直近7日の日別成績
   };
   fs.writeFileSync(path.join(dir, "stats.json"), JSON.stringify(stats));
+  writeDaily(dir, byDate, rankedOf);
   console.log("stats: 累計" + E.length + "R / 当日" + (today ? today.races + "R 回収率" + today.roi + "%" : "データなし"));
+}
+
+// ---- 日別の🔥成績 → daily.json(アプリの成績タブのカレンダー用) ----
+// stats.json の recentDays は直近7日だけなので、全期間をここに小さく持つ。
+//   { updatedAt, days: { "YYYYMMDD": { n: 結果が取れたレース数, h: [🔥1件ずつ] } } }
+//   🔥1件 = [場, R, 車立て, 買い目"1=2=3", 着順"1-2-3"("1-2-?"=3着不明), 的中(1/0/-1=3着不明), 3複配当(的中時, 不明はnull), 買い目の確定オッズ(無ければnull)]
+// 7車は「オッズ4〜15倍のときだけ買う」ので、確定オッズがあれば帯の外を見送り扱いにできるよう載せる。
+// 過去分は、いまの買い方(本命ライン3人・🔥条件)を当時の予想に当てはめたさかのぼり計算。
+const ODDS_CACHE = {};
+function oddsOf(dir, id, trio) {
+  const ym = id.slice(0, 6);
+  if (!(ym in ODDS_CACHE)) {
+    try { ODDS_CACHE[ym] = JSON.parse(fs.readFileSync(path.join(dir, "odds-" + ym + ".json"), "utf8")).races || {}; }
+    catch (e) { ODDS_CACHE[ym] = {}; }
+  }
+  const r = ODDS_CACHE[ym][id];
+  if (!r || !Array.isArray(r.o)) return null;
+  const [a, b, c] = trio;
+  let i = 0;
+  for (let x = 1; x <= r.cars - 2; x++) for (let y = x + 1; y <= r.cars - 1; y++) for (let z = y + 1; z <= r.cars; z++) {
+    if (x === a && y === b && z === c) { const v = r.o[i]; return v > 0 ? v : null; }
+    i++;
+  }
+  return null;
+}
+function writeDaily(dir, byDate, rankedOf) {
+  const days = {};
+  for (const d of Object.keys(byDate).sort()) {
+    const h = [];
+    let n = 0;
+    for (const e of byDate[d]) {
+      if (e.f == null || e.s == null) continue;
+      n++;
+      const rk = rankedOf(e);
+      if (rk.length < 4 || !Array.isArray(e.lines)) continue;
+      const pl = f3PlanFrom(rk, e.lines);
+      if (!pl || !pl.hot || !pl.trio) continue;
+      const done = e.t != null;
+      const hit = done ? ([e.f, e.s, e.t].sort((a, b) => a - b).join("=") === pl.ticket ? 1 : 0) : -1;
+      const trio = pl.ticket.split("=").map(Number);
+      h.push([e.place, e.raceNo, pl.cars, pl.ticket, e.f + "-" + e.s + "-" + (done ? e.t : "?"), hit,
+        hit === 1 ? (e.p3fpay != null ? e.p3fpay : null) : 0, oddsOf(dir, e.id || (d + "_" + e.place + "_" + e.raceNo), trio)]);
+    }
+    const rn = (x) => parseInt(x[1], 10) || 0;
+    h.sort((a, b) => a[0].localeCompare(b[0]) || rn(a) - rn(b));
+    days[d] = { n, h };
+  }
+  fs.writeFileSync(path.join(dir, "daily.json"), JSON.stringify({ updatedAt: new Date().toISOString(), days }));
+  console.log("daily.json:", Object.keys(days).length, "日");
 }
 
 // 直接実行したときだけ走らせる(gitfill.js から require して部品を使い回すため)
