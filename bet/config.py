@@ -18,7 +18,9 @@ DEFAULTS = {
     "bet_yen": 100,
     "max_yen_per_day": 1000,
     "max_races_per_day": 10,
-    "use_ev": True,
+    "use_ev_9car": True,
+    "use_ev_7car": True,
+    "use_ev": True,            # 古い設定（7車・9車まとめて）。新しい2つが無ければその既定値に使う
     "buy_7car": True,
     "decide_left_minutes": 6.0,
     "max_snap_age_minutes": 4.0,
@@ -52,7 +54,8 @@ class Config:
     bet_yen: int = 100
     max_yen_per_day: "int | None" = 1000
     max_races_per_day: "int | None" = 10
-    use_ev: bool = True
+    use_ev_9car: bool = True
+    use_ev_7car: bool = True
     buy_7car: bool = True
     decide_left_minutes: float = 6.0
     max_snap_age_minutes: float = 4.0
@@ -140,7 +143,8 @@ def from_dict(d, base_dir="."):
         bet_yen=_as_int(d, "bet_yen", lo=100, hi=10000),
         max_yen_per_day=_as_limit(d, "max_yen_per_day"),
         max_races_per_day=_as_limit(d, "max_races_per_day"),
-        use_ev=_as_bool(d, "use_ev"),
+        use_ev_9car=_as_bool(d, "use_ev_9car") if "use_ev_9car" in d else _as_bool(d, "use_ev"),
+        use_ev_7car=_as_bool(d, "use_ev_7car") if "use_ev_7car" in d else _as_bool(d, "use_ev"),
         buy_7car=_as_bool(d, "buy_7car"),
         decide_left_minutes=_as_num(d, "decide_left_minutes", lo=2, hi=15),
         max_snap_age_minutes=_as_num(d, "max_snap_age_minutes", lo=1, hi=10),
