@@ -13,6 +13,7 @@ import shutil
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from datetime import timedelta
 
@@ -134,8 +135,11 @@ class TestFakeSite(unittest.TestCase):
         self.assertIn("確認画面まで", note)
         self.assertEqual(seen, [op.ON_SALE])
         self.assertEqual(BOUGHT, [])
+        t0 = time.time()
         self.assertTrue(self.session.clear_slip())
         self.assertEqual(self.slip(), [])
+        self.assertLess(time.time() - t0, 15)                 # 小窓で止まって待ち続けない
+        self.assertTrue(self.session._visible(self.session.vote, "race_area"))   # まとめ投票に戻っている
 
     def test_liveで1点だけ買える_OPコイン(self):
         self.login()

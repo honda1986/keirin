@@ -176,6 +176,12 @@ def check_done(rows, page_text, place, rno, ticket):
     return "完了画面の表にこのレースが無い"
 
 
+def is_delete_only(message):
+    """買い目を消すだけの確認か（OK を押しても買う方向には進まない）"""
+    t = _norm(message)
+    return "削除" in t and not re.search(r"購入|申込|投票する|投票します|支払", t)
+
+
 def looks_refused(text):
     """はっきり断られた画面か（締切・残高不足など）"""
     t = _norm(text)
@@ -314,8 +320,11 @@ class Session:
             self.log.event("見た", msg)
 
     def _on_dialog(self, d):
-        """サイトの小窓。文面を残す。全買い目削除の確認だけ OK、ほかはキャンセル（買う方向には押さない）"""
-        ok = self.accept_next
+        """サイトの小窓。文面を残す。買い目を消すだけの確認は OK、ほかはキャンセル（買う方向には押さない）
+
+        例（実物 2026-09-26）:「レースまとめ投票へ遷移すると、現在の買い目は削除されます。よろしいですか？」→ OK
+        """
+        ok = self.accept_next or is_delete_only(d.message)
         self.accept_next = False
         self.dialogs.append(d.message)
         self._say(f"サイトの小窓「{d.message[:80]}」→ {'OK' if ok else 'キャンセル'}")
@@ -468,16 +477,20 @@ class Session:
             if vp.locator(SEL["buy"]).count() and back.count():     # 確認画面にいる → 戻る
                 back.first.click()
                 _settle(vp)
+                vp.wait_for_timeout(1000)
+            # ★戻ると「場を選ぶ画面」に出る（実物 2026-09-26）。買い目一覧と「全買い目削除」はそこにもあるので、
+            #   まとめ投票へ移る前に消す（残したまま移ると「買い目は削除されます」の小窓が出る）
+            for _ in range(2):
+                if vp.locator(SEL["slip_rows"]).count() == 0:
+                    break
+                self.accept_next = True                              # 「削除しますか？」が出たら OK（削除なので安全）
+                try:
+                    vp.locator(SEL["slip_all_delete"]).first.click()
+                    _settle(vp)
+                    vp.wait_for_timeout(700)
+                finally:
+                    self.accept_next = False                         # ★小窓が出なくても、次の小窓（申込など）に持ち越さない
             self._to_matome(vp)
-            if vp.locator(SEL["slip_rows"]).count() == 0:
-                return True
-            self.accept_next = True                                  # 「削除しますか？」が出たら OK（削除なので安全）
-            try:
-                vp.locator(SEL["slip_all_delete"]).first.click()
-                _settle(vp)
-                vp.wait_for_timeout(500)
-            finally:
-                self.accept_next = False                             # ★小窓が出なくても、次の小窓（申込など）に持ち越さない
             return vp.locator(SEL["slip_rows"]).count() == 0
         except Exception:
             return False
