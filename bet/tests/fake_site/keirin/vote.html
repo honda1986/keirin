@@ -1,0 +1,59 @@
+<!doctype html><html><head><meta charset="utf-8"><title>投票（テスト用の偽物）</title></head><body>
+<div id="venues"></div><div id="races"></div><div id="head"></div>
+<div id="input" style="display:none">
+  <div id="mode1"><a href="#" onclick="st.m1=1;return false">通常</a> <a href="#">フォーメーション</a></div>
+  <a href="#" onclick="st.kind='2車単';return false">2車単</a> <a href="#" onclick="st.kind='3連複';return false">3連複</a>
+  <div id="mode3"><a href="#" onclick="st.m3=1;return false">通常</a> <a href="#">ボックス</a></div>
+  <div id="rows"></div>
+  金額 <input id="textfield11" size="3">00円
+  <a href="#" onclick="setBet();return false">セット</a>
+  <a href="#" onclick="toConfirm();return false">投票手続へ</a>
+  <a href="#" onclick="slip=[];save();draw();return false">全て取消</a>
+  <div id="slipv"></div>
+</div>
+<div id="confirm" style="display:none"><div id="conf"></div>
+  <a href="#" onclick="buy();return false">購入する</a> <a href="#" onclick="show('input');return false">戻る</a></div>
+<div id="done" style="display:none"><div id="donemsg"></div><a href="#" onclick="show('input');return false">続けて購入する</a></div>
+<script>
+const Q = new URLSearchParams(location.search);
+const VENUES = { "広島": 9, "岐阜": 9, "青森": 7 };
+const st = { venue: null, race: null, kind: null, m1: 0, m3: 0, pick: {} };
+let slip = JSON.parse(localStorage.getItem("slip") || "[]");
+const save = () => localStorage.setItem("slip", JSON.stringify(slip));
+const closeAt = () => { const d = new Date(Date.now() + 9 * 3600e3 + (+(localStorage.getItem("closeMin") || 10)) * 60e3); return d.toISOString().slice(11, 16); };
+function show(id) { for (const x of ["input", "confirm", "done"]) document.getElementById(x).style.display = x === id ? "block" : "none"; draw(); }
+function a(t, f) { const e = document.createElement("a"); e.href = "#"; e.textContent = t; e.onclick = () => { f(); return false; }; return e; }
+function draw() {
+  const v = document.getElementById("venues"); v.innerHTML = "";
+  for (const n of Object.keys(VENUES)) { v.append(a(n, () => { st.venue = n; st.race = null; draw(); })); v.append(" "); }
+  const r = document.getElementById("races"); r.innerHTML = "";
+  if (st.venue) for (let i = 1; i <= 12; i++) { r.append(a(i + "R", () => { st.race = i; st.pick = {}; show("input"); })); r.append(" "); }
+  document.getElementById("head").textContent = st.race ? st.venue + " " + st.race + "R 締切 " + closeAt() : "";
+  const rows = document.getElementById("rows"); rows.innerHTML = "";
+  const n = VENUES[st.venue] || 0;
+  for (let k = 1; k <= 3; k++) {
+    const d = document.createElement("div"); d.textContent = k + "着 ";
+    for (let c = 1; c <= n; c++) { const s = document.createElement("span"); s.id = "row" + k + "_" + c; s.append(a(String(c), () => { st.pick[k] = c; })); d.append(s, " "); }
+    rows.append(d);
+  }
+  document.getElementById("slipv").textContent = slip.length ? "ベットリスト " + slip.length + "件" : "";
+}
+function setBet() {
+  const u = parseInt(document.getElementById("textfield11").value, 10);
+  if (!(st.m1 && st.m3 && st.kind === "3連複" && st.pick[1] && st.pick[2] && st.pick[3] && u > 0)) { alert("入力が足りません"); return; }
+  slip.push({ venue: st.venue, race: st.race, t: [st.pick[1], st.pick[2], st.pick[3]].sort().join("-"), yen: u * 100 }); save(); draw();
+}
+function toConfirm() {
+  const c = document.getElementById("conf");
+  c.innerHTML = slip.map((s) => "<div>" + s.venue + " " + s.race + "R 3連複 " + s.t + " " + s.yen + "円</div>").join("") +
+    "<div>合計 " + slip.length + "点 " + slip.reduce((x, s) => x + s.yen, 0).toLocaleString() + "円</div>";
+  show("confirm");
+}
+async function buy() {
+  const r = await fetch("/api/buy", { method: "POST", body: JSON.stringify(slip) });
+  slip = []; save();
+  document.getElementById("donemsg").textContent = r.ok ? "購入が完了しました 受付番号 " + (await r.text()) : "エラーが発生しました";
+  show("done");
+}
+draw();
+</script></body></html>
