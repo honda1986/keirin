@@ -1,0 +1,15 @@
+<!doctype html><html><head><meta charset="utf-8"><title>偽のオッズパーク（テスト用）</title></head><body>
+<!-- テスト用の偽物。実物の作りは知らない。採取されたセレクタ（SSO_ACCOUNTID / #password / #btn_login / 投票する）だけ真似ている -->
+<div id="login" style="display:none">
+  <input name="SSO_ACCOUNTID"><input id="password" type="password"><button id="btn_login" onclick="document.cookie='sess=1;path=/';location.reload()">ログイン</button>
+</div>
+<div id="home" style="display:none">
+  <a href="#" onclick="document.cookie='sess=;path=/;max-age=0';location.reload()">ログアウト</a>
+  <div class="box"><h2>競馬</h2><a href="/keiba/vote.html" target="_blank">投票する</a></div>
+  <div class="box"><h2>オートレース</h2><a href="/auto/vote.html" target="_blank">投票する</a></div>
+  <div class="box"><h2>競輪</h2><a href="/keirin/vote.html" target="_blank">投票する</a></div>
+</div>
+<script>
+const on = /(^|; )sess=1/.test(document.cookie);
+document.getElementById(on ? "home" : "login").style.display = "block";
+</script></body></html>

@@ -1,0 +1,59 @@
+{
+  "_1_必ず読むこと": [
+    "i_have_read_the_terms を true にするまで、実際の購入はしません。",
+    "オッズパークの利用規約に自動操作の扱いが書かれています。",
+    "自分で読んで、問題ないと判断したときだけ true にしてください（run.bat の 7 からも変えられます）。",
+    "判断できないなら false のままにしてください。dry モードで全部動きます。",
+    "★ログインID・パスワード・暗証番号は、ここにも他のどこにも書きません。"
+  ],
+  "i_have_read_the_terms": false,
+  "_2_上限": [
+    "null にすると無制限。使いすぎ防止ではなくバグ避けの保険です。",
+    "🔥を期待値で絞ると1日数レース。max_races_per_day に当たったら何かおかしいと思ってください。"
+  ],
+  "bet_yen": 100,
+  "max_yen_per_day": 1000,
+  "max_races_per_day": 10,
+  "_3_どれを買うか": [
+    "アプリの「期待値で絞る」と同じ。use_ev=true なら期待値1以上の🔥だけ買う。",
+    "buy_7car=true なら7車立ても買う（締切前の倍率が帯 4〜15倍の中のときだけ。アプリと同じ）。",
+    "判定は keirin の betplan.js が出す（アプリと同じ ev.js）。ここでは計算し直さない。"
+  ],
+  "use_ev": true,
+  "buy_7car": true,
+  "_4_いつ決めるか": [
+    "締切まで decide_left_minutes 分以内に取った倍率が届いたら、その倍率で1回だけ決める（ふつう締切3〜6分前）。",
+    "倍率が max_snap_age_minutes 分より古ければ使わない。",
+    "締切まで close_min_minutes 分を切ったら、決めていなくても買わない。"
+  ],
+  "decide_left_minutes": 6,
+  "max_snap_age_minutes": 4,
+  "close_min_minutes": 1.5,
+  "_5_締切": [
+    "締切は発走の5分前として動き、オッズパークの画面に出ている締切が早ければそちらに合わせる。",
+    "require_site_close=true なら、画面から締切が読めないレースは live で買わない（dry では読めたかをログに出す）。"
+  ],
+  "require_site_close": true,
+  "poll_seconds": 20,
+  "keepalive_minutes": 10,
+  "_6_keirin": "betplan.js のある keirin のフォルダ（この bet フォルダの1つ上）と、Node のコマンド",
+  "keirin_dir": "..",
+  "node": "node",
+  "_7_ブラウザ": [
+    "profile_dir は .gitignore に入れてある。絶対に共有しないこと。",
+    "競艇の auto_bet とは別のフォルダなので、両方同時に動かせる。"
+  ],
+  "profile_dir": "chrome_profile",
+  "use_installed_chrome": true,
+  "headless": false,
+  "_8_オッズパーク": [
+    "vote_link_index: トップの「投票する」のうち競輪のものが見分けられないときに押す順番（0から。採取では 2）"
+  ],
+  "oddspark_url": "https://www.oddspark.com/",
+  "vote_link_index": 2,
+  "_9_置き場所": "いずれも config.json のあるフォルダからの相対。触らなくてよい",
+  "bet_done_path": "bet_done.json",
+  "log_path": "logs/keirin_bet.log",
+  "shot_dir": "shots",
+  "stop_file": "STOP"
+}

@@ -1,0 +1,12 @@
+# 人それぞれの設定。git で配らない（PC の runner.js の取り込みと喧嘩する）。無ければ config.example.json から作られる
+config.json
+# ログイン状態が入っている。絶対に共有しない
+chrome_profile/
+# 購入の記録・ログ・確認画面のスクショ（残高などが写る）は手元だけのもの
+bet_done.json
+.bet_done-*.tmp
+logs/
+shots/
+STOP
+__pycache__/
+*.pyc

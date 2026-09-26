@@ -538,6 +538,24 @@ J≤2 自力弱 / 逃げ÷J≥0.6 逃げ型 / ≤0.4 捲り型 / 他 両立型�
 
 分析のスクリプトは furoito の CSV を読むので、このリポジトリには入れていない（§2 のライセンスの件）。
 
+## 4-4. オッズパークの自動購入（`bet/`・`betplan.js`。2026-09-26）
+
+はむさんの依頼で実装。仕様は `AUTOBET_SPEC.md`、使い方は **`bet/README.md`**。競艇 v24 の `auto_bet/` と同じ作り（Python + Playwright・Windows）。
+
+- **何を買うか = アプリと同じ**: 🔥の3連複1点（`plan.ticket`）を、期待値1以上（`use_ev`）・7車は帯4〜15倍の中だけ
+- **判定は `betplan.js`（Node）**: races.json と締切前の倍率（手元の `snapwork/YYYYMMDD.jsonl` → 無ければ odds-live を git fetch）から、
+  `ev.js` で各🔥の verdict（buy / skipEv / skipBand / thin / noOdds / noDelta）を JSON で出す。Python は計算し直さない（式のコピーを増やさない）
+  - ★`git fetch --no-write-fetch-head` で `refs/betplan/*` に取る。`pc/runner.js` の「fetch main → merge FETCH_HEAD」とぶつからないように
+- **いつ決めるか**（`bet/selector.py`）: 締切6分以内に取った倍率が届いたら1回だけ決める。見送りも `bet_done.json` に0円で書き、決め直さない
+- **安全装置**: dry 既定なし（`--mode` 必須）、規約フラグ、1日の上限（円・レース）、STOP ファイル、**押す直前に bet_done.json へ記録**、
+  確認画面の文字の照合（場・R・3連複・組・合計100円・1点）、押した後が分からなければ記録して止める、サイトの締切が早ければそちらに合わせる
+- **ログイン情報は扱わない**: Chrome で人が手で入れる。config.json に password 等の項目があれば起動しない
+- **オッズパークの画面は未確認**: この環境からは oddspark.com に届かない（プロキシで拒否）。利用者の codegen（1レースぶん）から作り、
+  偽の画面（`bet/tests/fake_site/`）で通しただけ。締切・合計・ログイン済み・9車の欄・ベットリストの消し方は画面の文字から推測している。
+  **dry のスクショ（`bet/shots/`）を見て直すこと**
+- テスト: `cd bet && python run_tests.py`（部品・本体の流れ・betplan.js・偽の画面での通し。偽の画面は playwright が要る。
+  playwright install していない環境は `KEIRIN_BET_CHROMIUM=/opt/pw-browsers/chromium`）
+
 ## 5. 次にやること
 
 ### 保留中（データが貯まってから判断する）
