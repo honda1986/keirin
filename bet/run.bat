@@ -14,6 +14,7 @@ echo     3) live    実際に購入する
 echo     4) ためす   疑似の買い目で dry を試す（買い目が無い時間用）
 echo.
 echo     5) 今日の勝負レースと判定を一覧で見る
+echo     6) 画面操作を記録する（手で投票した手順を残す。作り直し用）
 echo     7) 金額や上限の設定を変える
 echo     8) ログの最後の30行を見る
 echo     9) テスト（サイトを触らずに確かめる）
@@ -28,6 +29,7 @@ if "%N%"=="2" goto DRY
 if "%N%"=="3" goto LIVE
 if "%N%"=="4" goto FAKE
 if "%N%"=="5" goto PLAN
+if "%N%"=="6" goto RECORD
 if "%N%"=="7" goto SETTINGS
 if "%N%"=="8" goto LOG
 if "%N%"=="9" goto TEST
@@ -80,6 +82,25 @@ goto MENU
 echo.
 node ..\betplan.js --pretty
 echo.
+pause
+goto MENU
+
+:RECORD
+echo.
+echo    Chrome が開くので、手でログインして、ためしたい投票画面で1レースぶん操作してください。
+echo    押したところと画面が records フォルダに残ります（ID・パスワード・暗証番号は残しません）。
+echo    自動購入（2 や 3）を動かしている間は使えません。先に止めてください。
+echo.
+set U=
+set /p U="最初に開くURL（何も入れなければオッズパークのトップ）: "
+if "%U%"=="" (
+  python record.py
+) else (
+  python record.py --url "%U%"
+)
+echo.
+echo    records フォルダを開きます。
+start "" "%~dp0records"
 pause
 goto MENU
 

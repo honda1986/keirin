@@ -22,6 +22,7 @@ import betlog                        # noqa: E402
 import config as config_mod          # noqa: E402
 import keirin_bet                    # noqa: E402
 import oddspark_page as op           # noqa: E402
+import record                        # noqa: E402
 import selector                      # noqa: E402
 from bet_store import BetStore       # noqa: E402
 from jst import date_str, now        # noqa: E402
@@ -167,6 +168,49 @@ class TestFakeSite(unittest.TestCase):
         self.assertIn("購入済み", store.bets[key]["note"])
         self.assertEqual(r.cycle(), "ok")
         self.assertEqual(len(BOUGHT), 1)                 # 二度買わない
+
+
+    def test_記録モードは操作を残し_秘密は残さない(self):
+        rec = record.Recorder(os.path.join(self.dir, "rec"))
+        self.ctx.expose_binding("__kbRecord", rec.on_record)
+        self.ctx.add_init_script(record.PROBE_JS)
+        self.ctx.on("page", lambda p: (rec.note("新しい窓"), rec.watch(p)))
+        rec.watch(self.page)
+        op.open_top(self.page, self.url)
+        self.page.fill('input[name="SSO_ACCOUNTID"]', "himitsu-id-9")
+        self.page.fill("#password", "himitsu-pass")
+        self.page.press("#password", "Tab")
+        self.page.wait_for_timeout(300)
+        rec.snap(self.page)                                    # ログイン画面は撮らない
+        self.page.click("#btn_login")
+        self.page.wait_for_timeout(500)
+        with self.page.expect_popup() as info:
+            self.page.get_by_role("link", name="投票する").nth(2).click()
+        vp = info.value
+        vp.wait_for_load_state()
+        vp.get_by_role("link", name="広島", exact=True).click()
+        vp.get_by_role("link", name="3R", exact=True).click()
+        vp.fill("#textfield11", "1")
+        vp.press("#textfield11", "Tab")
+        vp.wait_for_timeout(500)
+        for p in (self.page, vp):
+            rec.snap(p)
+        rec.close()
+        txt = open(os.path.join(self.dir, "rec", "steps.txt"), encoding="utf-8").read()
+        if os.environ.get("SHOW_REC"):
+            print("\n" + txt)
+        self.assertIn("押した  <a> 「投票する」", txt)
+        self.assertIn("href=/keirin/vote.html", txt)
+        self.assertIn("「広島」", txt)
+        self.assertIn("#textfield11 値=1", txt)
+        self.assertIn("（伏せた・12文字）", txt)
+        self.assertIn("撮りません", txt)
+        everything = ""
+        for fn in os.listdir(os.path.join(self.dir, "rec")):
+            if fn.endswith((".txt", ".jsonl", ".html")):
+                everything += open(os.path.join(self.dir, "rec", fn), encoding="utf-8").read()
+        self.assertNotIn("himitsu", everything)
+        self.assertTrue(any(fn.endswith(".png") for fn in os.listdir(os.path.join(self.dir, "rec"))))
 
 
 if __name__ == "__main__":
