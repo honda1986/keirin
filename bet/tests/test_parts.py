@@ -105,12 +105,28 @@ class TestSelector(unittest.TestCase):
         self.assertTrue(any("10レース" in w for w in r.warnings))
 
     def test_期待値を使わない設定の9車は倍率なしでも買う(self):
-        r = self.sel(plan(race(verdict="noOdds", snap=False)), c=cfg(use_ev=False))
+        r = self.sel(plan(race(verdict="noOdds", snap=False)), c=cfg(use_ev_9car=False))
         self.assertEqual(len(r.bets), 1)
-        r = self.sel(plan(race(verdict="skipEv", need=True, cars=7)), c=cfg(use_ev=False))
+        r = self.sel(plan(race(verdict="skipEv", need=True, cars=7)), c=cfg(use_ev_7car=False))
         self.assertEqual(len(r.bets), 1)          # 7車は帯の中なら期待値に関わらず
-        r = self.sel(plan(race(verdict="skipBand", need=True, cars=7)), c=cfg(use_ev=False))
+        r = self.sel(plan(race(verdict="skipBand", need=True, cars=7)), c=cfg(use_ev_7car=False))
         self.assertEqual(r.bets, [])
+
+    def test_期待値は7車と9車で別々(self):
+        p = plan(race(verdict="skipEv", ev=0.8), race(place="別府", rno=4, verdict="skipEv", ev=0.8, need=True, cars=7, close="15:04"))
+        r = self.sel(p, c=cfg(use_ev_9car=False, use_ev_7car=True))
+        self.assertEqual([b.place for b in r.bets], ["岐阜"])
+        self.assertEqual([b.place for b, _ in r.skips], ["別府"])
+        r = self.sel(p, c=cfg(use_ev_9car=True, use_ev_7car=False))
+        self.assertEqual([b.place for b in r.bets], ["別府"])
+        self.assertEqual([b.place for b, _ in r.skips], ["岐阜"])
+
+    def test_古い設定use_evを引き継ぐ(self):
+        c = cfg(use_ev=False)
+        self.assertEqual((c.use_ev_9car, c.use_ev_7car), (False, False))
+        c = cfg(use_ev=False, use_ev_7car=True)
+        self.assertEqual((c.use_ev_9car, c.use_ev_7car), (False, True))
+        self.assertEqual(cfg().unknown_keys, [])
 
     def test_締切の近い順(self):
         r = self.sel(plan(race(close="15:05"), race(place="広島", rno=1, close="15:04")))
@@ -208,7 +224,7 @@ class TestStoreAndConfig(unittest.TestCase):
         self.assertEqual((c.bet_yen, c.max_yen_per_day, c.max_races_per_day), (100, 1000, 10))
 
     def test_おかしな値は止める(self):
-        for bad in ({"bet_yen": 150}, {"max_yen_per_day": 50}, {"close_min_minutes": 7}, {"use_ev": "yes"}, {"payment_method": "card"}):
+        for bad in ({"bet_yen": 150}, {"max_yen_per_day": 50}, {"close_min_minutes": 7}, {"use_ev_9car": "yes"}, {"payment_method": "card"}):
             with self.assertRaises(config_mod.ConfigError, msg=str(bad)):
                 cfg(**bad)
 

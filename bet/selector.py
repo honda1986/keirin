@@ -119,7 +119,8 @@ def select(plan, done_keys, spent_yen, races_bought, cfg, at):
         usable = snap is not None and age is not None and left is not None and age <= cfg.max_snap_age_minutes
         last_chance = minutes <= cfg.close_min_minutes + LAST_CHANCE
         note = ""
-        if not cfg.use_ev and not r.get("needOdds"):
+        use_ev = cfg.use_ev_7car if r.get("needOdds") else cfg.use_ev_9car     # 7車立て・9車立て（8車以上）で別々に決める
+        if not use_ev and not r.get("needOdds"):
             # 期待値を使わない設定の9車立ては、倍率が無くても買う（アプリの「期待値で絞る」をオフにしたのと同じ）
             if minutes > cfg.decide_left_minutes:
                 continue
@@ -134,7 +135,7 @@ def select(plan, done_keys, spent_yen, races_bought, cfg, at):
             continue
 
         v = r.get("verdict")
-        if cfg.use_ev:
+        if use_ev:
             buy = v == "buy"
         else:       # 7車立て: 帯だけ見る
             buy = v in ("buy", "skipEv")
