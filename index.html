@@ -1801,7 +1801,7 @@ function renderShoubu() {
       isTop: pl.cars >= 8,
       hs: headStyleOf(p, pl.trio), headStyle: headStyleBox(p, pl.trio),
       estHit: f3HitProb(p, r, p.lines || [], pl.trio),
-      delta: evDelta(p, r),
+      delta: evDelta(p, r, SCORES),
     });
   }
   SHOUBU_ROWS = rows;
@@ -2292,27 +2292,46 @@ function gateBlock(row) {
 //   ★確定オッズで測った数字。締切前のオッズで同じになるかは、締切前オッズの記録(snap.js)で検証中
 //   倍率は PC(または GitHub の予備)が1分おきに送る odds-live ブランチの latest.json を読む
 // ===================================================================
-const EV_MODEL = { K: 1.18, b: { er: 0.05552, single: -0.06649, banme: -0.04201, age50: 0.08862, home: 0.0448, young: 0.07674, samepref: 0.032 } };
+// v2(2026-09-26): 得点の変化・3連対率を足した(ev.js と同じ。node evcheck.js で突き合わせる)
+const EV_MODEL = { K: 1.18, R120_MEAN: 0.42665, b: { er: 0.05012, single: -0.06441, banme: -0.03693, age50: 0.08587, home: 0.04772,
+  young: 0.08961, samepref: 0.03198, dsc: -0.01254, has_dsc: 0.02362, r120: -0.01764, has_r: -0.30319 } };
 const VENUE_PREF = { "函館": "北海道", "青森": "青森", "いわき平": "福島", "弥彦": "新潟", "前橋": "群馬", "取手": "茨城", "宇都宮": "栃木",
   "大宮": "埼玉", "西武園": "埼玉", "京王閣": "東京", "立川": "東京", "松戸": "千葉", "千葉": "千葉", "川崎": "神奈川", "平塚": "神奈川",
   "小田原": "神奈川", "伊東": "静岡", "静岡": "静岡", "名古屋": "愛知", "岐阜": "岐阜", "大垣": "岐阜", "豊橋": "愛知", "富山": "富山",
   "松阪": "三重", "四日市": "三重", "福井": "福井", "奈良": "奈良", "向日町": "京都", "和歌山": "和歌山", "岸和田": "大阪", "玉野": "岡山",
   "広島": "広島", "防府": "山口", "高松": "香川", "小松島": "徳島", "高知": "高知", "松山": "愛媛", "小倉": "福岡", "久留米": "福岡",
   "武雄": "佐賀", "佐世保": "長崎", "別府": "大分", "熊本": "熊本" };
+// 得点の変化(ev.js の scoreChange と同じ)。log = scores.json の1人分。90〜365日前の最後の記録と比べる
+function scoreChange(log, d8, score) {
+  if (!Array.isArray(log) || !(score > 0) || !/^\d{8}$/.test(d8 || "")) return null;
+  const t = Date.UTC(+d8.slice(0, 4), +d8.slice(4, 6) - 1, +d8.slice(6, 8));
+  const ymd = (ms) => new Date(ms).toISOString().slice(0, 10).replace(/-/g, "");
+  const hi = ymd(t - 90 * 86400e3), lo = ymd(t - 365 * 86400e3);
+  let old = null;
+  for (const r of log) if (r[0] <= hi && r[0] >= lo && r[1] > 0) old = r[1];
+  return old == null ? null : Math.max(-6, Math.min(6, score - old));
+}
 // 選手ごとの δ(車番 → 値)。fetch.js の riders と同じ作り方(評価順位 = 採点の並び順、ライン内位置 = 並びの何番目)
-function evDelta(p, r) {
+// scores = scores.json(無ければ得点の変化は「記録なし」扱い)
+function evDelta(p, r, scores) {
   if (!p || !Array.isArray(p.entries) || !r || !Array.isArray(r.scores)) return null;
   const B = EV_MODEL.b, rank = {}, pos = {}, len = {}, mates = {};
   r.scores.forEach((sc, i) => { rank[sc.car] = i + 1; });
   for (const l of p.lines || []) l.forEach((c, i) => { pos[c] = i; len[c] = l.length; mates[c] = l.filter((x) => x !== c); });
   const byCar = {}; for (const e of p.entries) byCar[e.car] = e;
   const vp = VENUE_PREF[p.place] || null;
+  const dm = String(p.date || "").match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  const d8 = dm ? dm[1] + dm[2].padStart(2, "0") + dm[3].padStart(2, "0") : null;
   const out = {};
   for (const e of p.entries) {
     const lp = pos[e.car], ll = len[e.car] || 1, ki = parseInt(e.ki, 10) || 0;
     const samePref = lp >= 1 && (mates[e.car] || []).some((m) => byCar[m] && byCar[m].pref && byCar[m].pref === e.pref);
+    const sei = e.seiseki || {}, nr = (sei.win1 || 0) + (sei.win2 || 0) + (sei.win3 || 0) + (sei.out || 0);
+    const san = e.rate && e.rate.sanren != null ? e.rate.sanren : null, hasR = nr > 0 && san != null;
+    const dsc = scores && scores.riders && e.name && ki ? scoreChange(scores.riders[e.name + "|" + ki], d8, e.score) : null;
     out[e.car] = B.er * (rank[e.car] || 5) + (ll === 1 ? B.single : 0) + (lp >= 1 && ll >= 2 ? B.banme : 0) +
-      ((e.age || 0) >= 50 ? B.age50 : 0) + (vp && e.pref === vp ? B.home : 0) + (ki >= 121 ? B.young : 0) + (samePref ? B.samepref : 0);
+      ((e.age || 0) >= 50 ? B.age50 : 0) + (vp && e.pref === vp ? B.home : 0) + (ki >= 121 ? B.young : 0) + (samePref ? B.samepref : 0) +
+      (dsc != null ? B.dsc * dsc + B.has_dsc : 0) + B.r120 * (hasR ? san / 100 : EV_MODEL.R120_MEAN) + (hasR ? B.has_r : 0);
   }
   return out;
 }

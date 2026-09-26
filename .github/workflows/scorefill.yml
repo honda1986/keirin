@@ -1,0 +1,55 @@
+name: 過去の得点を埋める
+
+# 過去の出走表(Kドリームスのレース詳細)から競走得点を読んで、scores.json の記録を埋める(scorefill.js)。
+# 期待値 v2 の「得点の変化(今 − 90日以上前)」と、採点の scoreDiff(前回開催からの増減)に使う。
+# 手動で1回動かせばよい(以後の記録は毎朝の fetch.js が足していく)。
+#
+# ★scores.json は main.yml(fetch.js)も1日4回書く。push がぶつかったら、最新の scores.json を取り直して
+#   集めた分(scorefill-out.json)を足し直してから push する(rebase で JSON を混ぜない)
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: '開始日 YYYY-MM-DD'
+        required: true
+        default: '2026-05-01'
+      to:
+        description: '終了日 YYYY-MM-DD'
+        required: true
+        default: '2026-08-27'
+
+concurrency:
+  group: scorefill
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  fill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 過去の出走表から得点を集める
+        env:
+          FROM: ${{ github.event.inputs.from }}
+          TO: ${{ github.event.inputs.to }}
+        run: node scorefill.js --from "$FROM" --to "$TO" --conc=4
+      - name: scores.json に足して push(ぶつかったら取り直して足し直す)
+        run: |
+          git config user.name "race-bot"
+          git config user.email "actions@github.com"
+          for i in 1 2 3 4 5 6; do
+            git fetch -q origin main && git reset -q --hard origin/main
+            node scorefill.js --merge scorefill-out.json
+            git add scores.json
+            git diff --cached --quiet && { echo "変更なし"; exit 0; }
+            git commit -qm "過去の出走表から得点を埋める"
+            if git push -q origin HEAD:main; then echo "push成功"; exit 0; fi
+            echo "ぶつかったのでやり直し $i/6"; sleep 8
+          done
+          echo "6回やってもpushできませんでした"; exit 1

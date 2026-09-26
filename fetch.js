@@ -19,6 +19,7 @@ const fs = require("fs");
 const path = require("path");
 const { parseCard, predict, sujiExpect, applyScoreLog, f3PlanFrom } = require("./engine.js");
 const { T, TRACK_NAMES } = require("./bankdata.js");
+const EV = require("./ev.js");
 
 // 競走得点の日次ログ。Kドリームスには前得点が無いので、ここから scoreDiff を復元する。
 // この実行で書き足すより前の状態を読む(当日ぶんは prevMeetScore が見ないので順序は問わない)。
@@ -70,52 +71,8 @@ async function pool(items, worker) {
   }));
 }
 
-// ---- HTML → テキスト ----
-function htmlToText(html) {
-  let s = String(html)
-    .replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<!--[\s\S]*?-->/g, " ");
-  s = s.replace(/<img\b[^>]*\balt\s*=\s*["']([^"']*)["'][^>]*>/gi, (_, a) => {
-    const v = a.replace(/\s+/g, " ").trim(); return /^[1-9]$/.test(v) ? v : " "; });
-  s = s.replace(/<(br|\/tr|\/td|\/th|\/p|\/div|\/li|\/h[1-6]|\/option|\/a|\/span)\b[^>]*>/gi, "\n")
-       .replace(/<[^>]+>/g, " ")
-       .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-       .replace(/&#(\d+);/g, (_, n) => { try { return String.fromCodePoint(+n); } catch { return " "; } });
-  // 空白は2個までは残す。並び予想は「空白2個」でラインを区切っているので、
-  // 1個につぶすと 1 7 4  8 2  5 6 3 → 1 7 4 8 2 5 6 3 になり並びが消える。
-  return s.replace(/\u00a0/g, " ").replace(/\t/g, " ").replace(/ {2,}/g, "  ");
-}
-
-// ---- 並び予想は「色付きの番号チップ」で書かれている ----
-//   <div class="line_position">
-//     <span class="icon_p"><span class="p001">1</span><span class="p201">先行</span></span>
-//     <span class="icon_p"><span class="p007">7</span><span class="p105">追込</span></span>
-//     <span class="icon_p space"></span>          ← ★ラインの切れ目(中身が空)
-//     <span class="icon_p"><span class="p008">8</span><span class="p202">押え先</span></span>
-//     ...
-//   </div>
-// 普通にタグを消すと空の span が消えて区切りが失われるので、
-// HTML→テキストに渡す前に「← 1 7 4・8 2・5 6 3」という1行に置き換えておく。
-function narabiFromHtml(html) {
-  const m = String(html).match(/<div[^>]*class="[^"]*line_position[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
-  if (!m) return null;
-  const parts = m[1].split(/<span[^>]*\bclass\s*=\s*"([^"]*icon_p[^"]*)"[^>]*>/i);
-  const groups = []; let cur = [];
-  for (let i = 1; i + 1 < parts.length; i += 2) {
-    const cls = parts[i] || "", body = parts[i + 1] || "";
-    if (/(^|[\s])space([\s]|$)/.test(cls)) { if (cur.length) { groups.push(cur); cur = []; } continue; }
-    const d = body.replace(/<[^>]+>/g, " ").match(/[1-9]/);
-    if (d) cur.push(d[0]);
-  }
-  if (cur.length) groups.push(cur);
-  if (!groups.length) return null;
-  return "← " + groups.map((g) => g.join(" ")).join("・");
-}
-function withNarabiText(html) {
-  const s = narabiFromHtml(html);
-  if (!s) return html;
-  // <br> にしておくと HTML→テキストで必ず独立した1行になる
-  return String(html).replace(/<div[^>]*class="[^"]*line_position[^"]*"[^>]*>[\s\S]*?<\/div>/i, "<br>" + s + "<br>");
-}
+// HTML → テキスト、並び予想の読み取りは cardtext.js(scorefill.js と共用)
+const { htmlToText, withNarabiText } = require("./cardtext.js");
 
 // ---- ページは4万字あるので、予想に必要な部分だけ残す(races.json を太らせないため) ----
 const PROF = /^[^\/\s]{1,6}[\s　]?[^\/\s]{0,6}\/\d{1,2}\/\d{1,3}$/;
@@ -176,18 +133,27 @@ function buildEntry(text, item) {
   }
   const rankOf = {};
   (r.scores || []).forEach((s, i) => { rankOf[s.car] = i + 1; });
-  // riders = [車番, 年齢, 期, ライン内位置, 評価順位, 評価点, 競走得点, 府県]
+  // riders = [車番, 年齢, 期, ライン内位置, 評価順位, 評価点, 競走得点, 府県, 3連対率, 着度数の合計, 得点の変化]
   // 8番目(府県)は 2026-09-26 に追加(期待値の「地元」「同県の番手」に使う。ev.js)。それより前のデータには無い
+  // 9〜11番目も 2026-09-26 に追加(期待値 v2)。得点の変化 = 今の得点 − 90〜365日前の最後の得点(scores.json から。無ければ null)
   // 7番目(競走得点)は 2026-09-21 に追加。それ以前のデータには入っていないので、
   // 読む側は rd[6] が undefined でも動くようにすること。
   // 評価点(6番目)は採点の総合点で、競走得点とは別物。後から
   // 「得点の序列と並びの序列が食い違うラインは機能しないのでは」といった検証を
   // するには生の競走得点が要るため、保存しておく。
+  const d8 = (() => { const m = String(p.date || "").match(/(\d{4})年(\d{1,2})月(\d{1,2})日/); return m ? m[1] + m[2].padStart(2, "0") + m[3].padStart(2, "0") : null; })();
+  const scoreChangeOf = (en) => {
+    if (!SCORE_LOG || !SCORE_LOG.riders || !en.name || !en.ki) return null;
+    return EV.scoreChange(SCORE_LOG.riders[en.name + "|" + String(en.ki).replace(/期$/, "")], d8, en.score);
+  };
   const riders = p.entries.map((en) => {
     const sc = (r.scores || []).find((x) => x.car === en.car);
     return [en.car, en.age || 0, parseInt(en.ki, 10) || 0, posOf[en.car] ?? 3, rankOf[en.car] || 9,
             Number((sc?.total || 0).toFixed(1)), en.score > 0 ? Number(en.score.toFixed(2)) : null,
-            en.pref ? String(en.pref).replace(/[\s　]/g, "") : null];
+            en.pref ? String(en.pref).replace(/[\s　]/g, "") : null,
+            en.rate && en.rate.sanren != null ? en.rate.sanren : null,
+            en.seiseki ? (en.seiseki.win1 || 0) + (en.seiseki.win2 || 0) + (en.seiseki.win3 || 0) + (en.seiseki.out || 0) : 0,
+            scoreChangeOf(en)];
   });
   return {
     key: (p.place || "?") + "_" + (p.raceNo || "?"),
