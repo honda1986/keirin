@@ -53,7 +53,7 @@ class Base(unittest.TestCase):
         self.store = BetStore(os.path.join(self.dir, "bet_done.json"))
 
     def write_config(self, **over):
-        d = {"i_have_read_the_terms": True, "poll_seconds": 10}
+        d = {"i_have_read_the_terms": True, "poll_seconds": 10, "decide_at_minutes": 6}
         d.update(over)
         p = os.path.join(self.dir, "config.json")
         with open(p, "w", encoding="utf-8") as f:
@@ -147,7 +147,7 @@ class TestCycle(Base):
         r = self.runner("dry", plan(race()), FakeSite(site_close=None))
         self.store = BetStore(os.path.join(self.dir, "dry.json"))
         r.store = self.store
-        r.cfg = config_mod.from_dict({"require_site_close": True}, base_dir=self.dir)
+        r.cfg = config_mod.from_dict({"require_site_close": True, "decide_at_minutes": 6}, base_dir=self.dir)
         r.cycle()
         self.assertEqual(len(self.site.calls), 1)
 

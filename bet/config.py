@@ -22,7 +22,8 @@ DEFAULTS = {
     "use_ev_7car": True,
     "use_ev": True,            # 古い設定（7車・9車まとめて）。新しい2つが無ければその既定値に使う
     "buy_7car": True,
-    "decide_left_minutes": 6.0,
+    "decide_at_minutes": 2.5,
+    "decide_left_minutes": 6.0,   # 古い設定（使っていない。残っていても警告しないため）
     "max_snap_age_minutes": 4.0,
     "close_min_minutes": 1.5,
     "require_site_close": True,
@@ -57,7 +58,7 @@ class Config:
     use_ev_9car: bool = True
     use_ev_7car: bool = True
     buy_7car: bool = True
-    decide_left_minutes: float = 6.0
+    decide_at_minutes: float = 2.5
     max_snap_age_minutes: float = 4.0
     close_min_minutes: float = 1.5
     require_site_close: bool = True
@@ -146,7 +147,7 @@ def from_dict(d, base_dir="."):
         use_ev_9car=_as_bool(d, "use_ev_9car") if "use_ev_9car" in d else _as_bool(d, "use_ev"),
         use_ev_7car=_as_bool(d, "use_ev_7car") if "use_ev_7car" in d else _as_bool(d, "use_ev"),
         buy_7car=_as_bool(d, "buy_7car"),
-        decide_left_minutes=_as_num(d, "decide_left_minutes", lo=2, hi=15),
+        decide_at_minutes=_as_num(d, "decide_at_minutes", lo=1, hi=10),
         max_snap_age_minutes=_as_num(d, "max_snap_age_minutes", lo=1, hi=10),
         close_min_minutes=_as_num(d, "close_min_minutes", lo=0.5, hi=10),
         require_site_close=_as_bool(d, "require_site_close"),
@@ -174,10 +175,10 @@ def from_dict(d, base_dir="."):
             f"max_yen_per_day ({cfg.max_yen_per_day}) が bet_yen ({cfg.bet_yen}) より "
             "小さいので、1点も買えません"
         )
-    if cfg.close_min_minutes >= cfg.decide_left_minutes:
+    if cfg.close_min_minutes >= cfg.decide_at_minutes:
         raise ConfigError(
             f"close_min_minutes ({cfg.close_min_minutes}) は "
-            f"decide_left_minutes ({cfg.decide_left_minutes}) より小さくしてください"
+            f"decide_at_minutes ({cfg.decide_at_minutes}) より小さくしてください"
         )
     for k in d:
         if not k.startswith("_") and any(w in k.lower() for w in ("password", "passwd", "pin", "account", "login_id")):

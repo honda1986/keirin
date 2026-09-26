@@ -39,6 +39,9 @@ const [WIN_LO, WIN_HI] = winArg ? winArg.split(",").map(Number) : [2, 15];   // 
 const DAY_ARG = (argv.find((a) => a.startsWith("--day=")) || "").slice(6);    // 動作確認用: races.json のこの日を今日とみなす
 const HAS_RACES = argv.includes("--has-races");   // 今日の出走表があれば終了コード0、無ければ1(何も取りに行かない)
 const EVERY_SEC = 170;          // 同じレースを見る間隔(3分弱。1分おきに呼ばれる前提)
+// 🔥のレースは締切6分前からは毎回(1分おき)見る。自動購入(bet/)は締切2.5分前の「いちばん新しい倍率」で
+// 期待値を出して買うかを決めるので、そのときの倍率が新しいほど確定オッズに近い
+const HOT_LAST_MIN = 6, HOT_EVERY_SEC = 50;
 const CLOSE_BEFORE = 5;         // 締切は発走の5分前(index.html と同じ)
 const BUDGET_MS = 50 * 1000;    // 1回の持ち時間。超えたら残りは次の回へ
 const WAIT_MS = 700;            // 1リクエストごとの間隔(並列にしない)
@@ -138,7 +141,8 @@ async function main() {
     const left = minsToClose(today, x.startTime);
     if (left == null || left < WIN_LO || left > WIN_HI) continue;
     const prev = st.last[x.key] || 0;
-    if (Date.now() - prev < EVERY_SEC * 1000) continue;
+    const every = x.plan && x.plan.hot && left <= HOT_LAST_MIN ? HOT_EVERY_SEC : EVERY_SEC;
+    if (Date.now() - prev < every * 1000) continue;
     const m = String(x.url || "").match(/keirin\.kdreams\.jp\/([a-z]+)\/racedetail\/(\d{16})/);
     if (!m) { console.log("  " + x.key + ": レースURLが無い"); continue; }
     todo.push({ x, left, roma: m[1], rid: m[2] });

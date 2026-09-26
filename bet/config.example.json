@@ -24,11 +24,12 @@
   "use_ev_7car": true,
   "buy_7car": true,
   "_4_いつ決めるか": [
-    "締切まで decide_left_minutes 分以内に取った倍率が届いたら、その倍率で1回だけ決める（ふつう締切3〜6分前）。",
-    "倍率が max_snap_age_minutes 分より古ければ使わない。",
+    "締切まで decide_at_minutes 分になるまで待ち、そのときのいちばん新しい倍率で1回だけ決める（確定オッズに近いほどよい）。",
+    "それより前の倍率では決めない。途中で期待値1未満に見えても、最後の倍率で1以上なら買う。",
+    "倍率が max_snap_age_minutes 分より古ければ注記付きで使い、その2倍より古ければ見送り。",
     "締切まで close_min_minutes 分を切ったら、決めていなくても買わない。"
   ],
-  "decide_left_minutes": 6,
+  "decide_at_minutes": 2.5,
   "max_snap_age_minutes": 4,
   "close_min_minutes": 1.5,
   "_5_締切": [
