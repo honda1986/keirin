@@ -4,22 +4,28 @@
 
 ★ログインID・パスワード・暗証番号は扱わない。ログインは開いた Chrome で人が手で入れる。
 
-採取（利用者の playwright codegen、2026-09-21）で分かっている流れ:
-  トップ → （手でログイン）→「投票する」→ ★別ウィンドウ（ポップアップ）が開く
-  → 場（例「広島」）→ レース（「1R」）→ #mode1 の「通常」→「連複」→ #mode3 の「通常」
-  → #row1_{車} #row2_{車} #row3_{車}（三連複は昇順で1段に1車ずつ）
-  → #textfield11 に「1」（100円単位）→「セット」→「投票手続へ」→「購入する」→「続けて購入する」
+使う画面は「レースまとめ投票」（2026-09-26 に利用者が記録モードで採った実物の操作から作った）:
 
-採取コードの「その日たまたま」の書き方は直してある:
-  link("投票する").nth(2)      → 競輪の「投票する」を href / 周りの文字で探す（見つからなければ nth(vote_link_index)）
-  link("1R 発売中").nth(4)     → 使わない。場の名前で場を選び、R 番号で選ぶ
-  get_by_role("textbox")      → 使わない（暗証番号の欄。ログインは人が手でやる）
-  link("広島").dblclick()      → 1回押して、R のリンクが出なければもう1回
+  トップ「投票する」(a.btn_vote, href=/keirin/auth/VoteKeirinTop.do…) → ★別ウィンドウが開く
+  → いったん「Loading」→ 場を選ぶ画面（場の名前は画像で、文字が無い）
+  → 「レースまとめ投票」(a#todayMultiRace) → まとめ投票の画面:
+      セット金額      input#textfield11（100円単位。「1」で100円）
+      車番            table#shaArea の td[name=keirin1|2|3] > a（1着・2着・3着の列。押すと a.on）
+                      三連複フォーメーションで 1列に1車ずつ → 1通り（買い目一覧では昇順 "3-4-7"）
+      レース          table#raceArea の input[type=checkbox][value="YYYYMMDD_場コード_R"]
+                      （締め切ったレースはチェック欄が無い。場コードは ul#course の li[value]）
+      賭式            input#sanrenpuku（name=betTypeSelect。ほかは外す）
+      支払い方法      input#paymentMethodBuyLimit（投票資金）/ input#paymentMethodOpCoin（OPコイン）
+      セット          a#multiSet → div#buylist の tr[id^=kaime]、td#sumBetCount「組数：1通り」td#sumPay「合計金額：100円」
+      全買い目削除    li#all > a
+      投票手続へ      a#gotobuy
+  → 投票申込確認（VoteConfirm.do / VoteConfirmOpcoin.do）:
+      div#section2 の表 [開催日, 開催場, R, 賭式, 投票方式, 買い目, 金額]、組数「1通り」、合計金額 td#voteInfoTotalAmount
+      投票を申込 a#buy（★買い目一覧の table#buy と id がかぶる。必ず a#buy）/ 戻る ul#confirmS a
+  → 投票申込完了: 「投票申込を受け付けました。」、表の最後の列「受付」が ○、続けて購入する a#buythru
 
-★まだ採取できていないもの（dry の shots/ を見て直す）:
-  締切の表示場所 / 確認画面の合計の表示 / ログイン済みの目印 / 締切後・残高不足の画面 /
-  9車立ての #row*_8 #row*_9 / ベットリストの消し方
-  → いまは画面の文字（inner_text）から正規表現で読む。読めなければ安全側（買わない）に倒す
+★締切の時刻はこの画面に出ない。レースのチェック欄があれば「発売中」とみなす（ON_SALE）。
+  時刻は発走−5分（betplan.js）を使う。
 """
 import os
 import re
@@ -27,33 +33,47 @@ import time
 
 from jst import now
 
-SELECTORS = {
-    "login_id": 'input[name="SSO_ACCOUNTID"]',      # あれば「ログインしていない」の印に使うだけ。入力はしない
+SEL = {
+    "login_id": 'input[name="SSO_ACCOUNTID"]',   # あれば「ログインしていない」の印に使うだけ。入力はしない
     "vote_link": "投票する",
-    "mode1": "#mode1",
-    "mode1_link": "通常",
-    "kind_link": "連複",
-    "mode3": "#mode3",
-    "mode3_link": "通常",
-    "row": "#row{n}_{car}",
+    "multi_race": "#todayMultiRace",
+    "course": "#course",
+    "course_li": "#course li",
+    "matome_tab": '#course li[value="00"] a',
+    "race_area": "#raceArea",
+    "race_box": '#raceArea input[type="checkbox"][value="{date}_{jcd}_{rno}"]',
+    "race_checked": "#raceArea input[type=checkbox]:checked",
+    "sha_cell": '#shaArea td[name="keirin{col}"] a',
+    "sha_on": "#shaArea a.on",
+    "sha_reset": "#reset",
+    "bet_types": '#betTypeArea input[name="betTypeSelect"]',
+    "sanrenpuku": "#sanrenpuku",
     "amount": "#textfield11",
-    "set": "セット",
-    "to_confirm": "投票手続へ",
-    "buy": "購入する",
-    "again": "続けて購入する",
-    "clear": ["全て取消", "全取消", "すべて取消", "取消", "削除", "クリア"],
-    "back": ["戻る", "修正する", "修正"],
+    "pay_cash": "#paymentMethodBuyLimit",
+    "pay_opcoin": "#paymentMethodOpCoin",
+    "set": "#multiSet",
+    "slip_rows": "#buylist tr[id^=kaime]",
+    "slip_all_delete": "#all a",
+    "sum_count": "#sumBetCount",
+    "sum_pay": "#sumPay",
+    "to_confirm": "#gotobuy",
+    "confirm_rows": "#section2 table tr",
+    "buy": "a#buy",
+    "back": "#confirmS a",
+    "again": "#buythru",
 }
 
+ON_SALE = "発売中"          # 締切の時刻は出ないが、チェック欄があって発売中と確かめた、の印
 WAIT_MS = 15000
+READY_MS = 30000
 
 
 class SkipRace(Exception):
-    """このレースは買えない（場が無い・締切が近い・9車の欄が無い など）。ベットリストには何も積んでいない"""
+    """このレースは買えない（売っていない・締め切った・車立てが違う など）。買い目一覧には何も積んでいない"""
 
 
 class ConfirmMismatch(Exception):
-    """確認画面の中身が買い目と合わない。押さずに止めた"""
+    """買い目一覧・確認画面の中身が買い目と合わない。押さずに止めた"""
 
 
 class LoggedOut(Exception):
@@ -61,95 +81,103 @@ class LoggedOut(Exception):
 
 
 class BetUncertain(Exception):
-    """「購入する」を押した後で転んだ。通ったか分からない"""
+    """「投票を申込」を押した後で転んだ。通ったか分からない"""
 
 
-# ---------------------------------------------------------------- 画面の文字を読む（純関数。テストあり）
-
-# 区切りは - = － ― ー ‐ → ・（前後の空白は可）。空白だけの区切りは数えない（車番のボタン「1 2 3 …」を拾うため）
-TRIO = re.compile(r"(?<![\d.:／/])([1-9])\s*[-=－―ー‐→・]\s*([1-9])\s*[-=－―ー‐→・]\s*([1-9])(?![\d.:／/])")
-
+# ---------------------------------------------------------------- 読んだ文字の照合（純関数。テストあり）
 
 def _norm(text):
-    """全角数字・全角記号をそろえる"""
-    t = str(text or "")
-    t = t.translate(str.maketrans("０１２３４５６７８９：，＝－Ｒ", "0123456789:,=-R"))
-    return re.sub(r"[ \t　]+", " ", t)
+    """全角をそろえ、空白を消す（「岐 阜」→「岐阜」）"""
+    t = str(text or "").translate(str.maketrans("０１２３４５６７８９：，＝－", "0123456789:,=-"))
+    return re.sub(r"[\s　]+", "", t)
 
 
-def tickets_in(text):
-    """画面の中の三連複らしい組（昇順にそろえた "a=b=c"）の集合"""
-    out = set()
-    for m in TRIO.finditer(_norm(text)):
-        cs = sorted({int(m.group(1)), int(m.group(2)), int(m.group(3))})
-        if len(cs) == 3:
-            out.add("=".join(map(str, cs)))
-    return out
+def _ticket_of(text):
+    """"3-4-7" や "3連複フ3-4-7" から昇順の "3=4=7"。読めなければ None"""
+    m = re.search(r"(?<!\d)([1-9])[-=]([1-9])[-=]([1-9])(?!\d)", _norm(text))
+    if not m:
+        return None
+    cs = sorted({int(x) for x in m.groups()})
+    return "=".join(map(str, cs)) if len(cs) == 3 else None
 
 
-def check_confirm_text(text, place, rno, ticket, yen):
-    """確認画面の文字を照合する。合わないところを並べて返す（空なら合っている）
+def _yen_of(text):
+    m = re.search(r"([\d,]+)円", _norm(text))
+    return int(m.group(1).replace(",", "")) if m else None
 
-    ★これが最後の砦。1レース1点ずつ買うので、確認画面の合計は必ず yen 円・1点のはず。
-      ベットリストに前の買い残りが混ざっていれば、ここで気づいて止まる。
-    """
-    t = _norm(text)
+
+def check_slip(rows, sum_count, sum_pay, place, rno, ticket, units, yen):
+    """セットした後の買い目一覧を照合する。rows = 各行のセルの文字のリスト"""
     bad = []
-    if place not in t:
-        bad.append(f"場「{place}」が見当たらない")
-    elif not re.search(rf"(?<!\d){rno}\s*R", t):
-        bad.append(f"「{rno}R」が見当たらない")
-    elif not re.search(rf"{re.escape(place)}[^\n]{{0,30}}?(?<!\d){rno}\s*R|(?<!\d){rno}\s*R[^\n]{{0,30}}?{re.escape(place)}", t):
-        bad.append(f"「{place}」と「{rno}R」が同じ行に無い")
-    if not re.search(r"(3|三)\s*連\s*複", t):
-        bad.append("「3連複」が見当たらない")
-    ts = tickets_in(t)
-    if ticket not in ts:
-        bad.append(f"組 {ticket} が見当たらない（読めた組: {', '.join(sorted(ts)) or 'なし'}）")
-    elif len(ts) > 1:
-        bad.append(f"組が複数ある（{', '.join(sorted(ts))}）。ベットリストに買い残りがあるかもしれない")
-    m = re.search(r"合計[^\n]{0,30}?([\d,]+)\s*円", t)
+    if len(rows) != 1:
+        bad.append(f"買い目一覧が {len(rows)}行（1行のはず）")
+    else:
+        cells = [_norm(c) for c in rows[0]]
+        joined = "|".join(cells)
+        if not any(c.endswith(place) or c == place for c in cells):
+            bad.append(f"場「{place}」が見当たらない（{joined}）")
+        if str(rno) not in cells:
+            bad.append(f"R「{rno}」が見当たらない（{joined}）")
+        if "3連複" not in joined:
+            bad.append(f"「3連複」が見当たらない（{joined}）")
+        tk = next((t for t in map(_ticket_of, cells) if t), None)
+        if tk != ticket:
+            bad.append(f"買い目が {tk}（{ticket} のはず）")
+    if not re.search(r"(?<!\d)1通り", _norm(sum_count)):
+        bad.append(f"組数が「{sum_count}」（1通りのはず）")
+    if _yen_of(sum_pay) != yen:
+        bad.append(f"合計金額が「{sum_pay}」（{yen}円のはず）")
+    return bad
+
+
+def check_confirm(rows, page_text, place, rno, ticket, yen):
+    """投票申込確認の表を照合する。rows = [開催日, 開催場, R, 賭式, 投票方式, 買い目, 金額] の行（見出しは除く）
+
+    ★これが最後の砦。1レース1点ずつ買うので、表は必ず1行・合計は yen 円・1通りのはず。
+    """
+    bad = []
+    if len(rows) != 1:
+        bad.append(f"確認画面の表が {len(rows)}行（1行のはず）")
+    else:
+        c = [_norm(x) for x in rows[0]] + [""] * 7
+        if c[1] != place:
+            bad.append(f"開催場が「{c[1]}」（{place} のはず）")
+        if c[2] != str(rno):
+            bad.append(f"R が「{c[2]}」（{rno} のはず）")
+        if c[3] != "3連複":
+            bad.append(f"賭式が「{c[3]}」（3連複のはず）")
+        if _ticket_of(c[5]) != ticket:
+            bad.append(f"買い目が「{c[5]}」（{ticket.replace('=', '-')} のはず）")
+        if _yen_of(c[6]) != yen:
+            bad.append(f"金額が「{c[6]}」（{yen}円のはず）")
+    t = _norm(page_text)
+    m = re.search(r"合計金額[^\d]{0,10}([\d,]+)円", t)
     if not m:
         bad.append("合計金額が読めない")
     elif int(m.group(1).replace(",", "")) != yen:
         bad.append(f"合計金額が {m.group(1)}円（{yen}円のはず）")
-    m = re.search(r"合計[^\n]{0,30}?([\d,]+)\s*(点|件|票)", t) or re.search(r"([\d,]+)\s*点", t)
-    if m and int(m.group(1).replace(",", "")) != 1:
-        bad.append(f"点数が {m.group(1)}（1点のはず）")
+    m = re.search(r"組数[^\d]{0,10}([\d,]+)通り", t)
+    if m and m.group(1) != "1":
+        bad.append(f"組数が {m.group(1)}通り（1通りのはず）")
     return bad
 
 
-def read_close(text, rno):
-    """画面の文字から、そのレースの締切 "HH:MM" を読む。読めなければ None
-
-    ★どこに出ているか未採取。「{R}R … 締切 HH:MM」→「締切 HH:MM」→「HH:MM 締切」の順に探す。
-      違うレースの時刻を拾う恐れがあるので、使う側は「予定の締切（発走−5分）と早いほう」にする
-      （遅い時刻を拾っても買いすぎにはならない）。
-    """
-    t = _norm(text)
-    for pat in (rf"(?<!\d){rno}\s*R[^\n]{{0,40}}?締\s*切[^\d\n]{{0,8}}(\d{{1,2}}):(\d{{2}})",
-                r"締\s*切[^\d\n]{0,8}(\d{1,2}):(\d{2})",
-                r"(\d{1,2}):(\d{2})\s*締\s*切"):
-        m = re.search(pat, t)
-        if m:
-            h, mi = int(m.group(1)), int(m.group(2))
-            if 0 <= h <= 23 and 0 <= mi <= 59:
-                return f"{h:02d}:{mi:02d}"
-    return None
-
-
-def looks_done(text):
-    """「購入する」のあとの画面が、受け付けた画面に見えるか"""
-    t = _norm(text)
-    if re.search(r"(受付|受け付け)(ました|完了)|購入(が)?完了|投票(が)?完了|受付番号", t):
-        return True
-    return False
+def check_done(rows, page_text, place, rno, ticket):
+    """投票申込完了の画面。受け付けたら ""、そうでなければ理由"""
+    t = _norm(page_text)
+    if not re.search(r"受け?付けました", t):
+        return "「受け付けました」が無い"
+    for r in rows:
+        c = [_norm(x) for x in r]
+        if len(c) >= 8 and c[1] == place and c[2] == str(rno) and _ticket_of(c[5]) == ticket:
+            return "" if c[7] == "○" else f"受付が「{c[7]}」"
+    return "完了画面の表にこのレースが無い"
 
 
 def looks_refused(text):
-    """はっきり断られた画面か（締切・残高不足など）。断られても「押した」ことに変わりはない"""
+    """はっきり断られた画面か（締切・残高不足など）"""
     t = _norm(text)
-    m = re.search(r"(締め?切(られ|りました|後)|発売(は)?終了|残高(が)?不足|購入限度|受付できません|エラー)[^\n]{0,40}", t)
+    m = re.search(r"(締め?切(られ|りました|後)|発売(は)?終了|残高(が)?不足|入金が必要|チャージが必要|購入限度|上限額に達|受付できません|エラー)[^\n]{0,30}", t)
     return m.group(0) if m else ""
 
 
@@ -190,7 +218,7 @@ def safe_html(page_or_frame):
 
 
 def shot(page, shot_dir, name, html=False):
-    """スクショ（と HTML）を残す。★HTML には残高やお名前が入ることがある。人に渡す前に確かめること"""
+    """スクショ（と HTML）を残す。★残高やお名前が写ることがある。人に渡す前に確かめること"""
     if not shot_dir:
         return ""
     try:
@@ -200,12 +228,16 @@ def shot(page, shot_dir, name, html=False):
         if html:
             with open(base + ".html", "w", encoding="utf-8") as f:
                 f.write(safe_html(page))
-            for i, fr in enumerate(page.frames[1:], 1):      # 枠（iframe）の中も
-                with open(f"{base}_frame{i}.html", "w", encoding="utf-8") as f:
-                    f.write(f"<!-- {fr.url} -->\n" + safe_html(fr))
         return base + ".png"
     except Exception:
         return ""
+
+
+def _rows(page, selector):
+    """表の行ごとのセルの文字。見出し（th だけの行）は除く"""
+    return page.eval_on_selector_all(selector, """rs => rs
+        .map(r => [...r.querySelectorAll('td')].map(td => td.innerText))
+        .filter(cs => cs.length > 0)""")
 
 
 def open_top(page, url):
@@ -216,11 +248,10 @@ def open_top(page, url):
 def check_logged_in(page):
     """True=入っている / False=入っていない / None=分からない
 
-    ★ログイン済みの目印は未採取。ID の欄が見えていれば「入っていない」、
-      「ログアウト」の文字があれば「入っている」とみなす。
+    ID の欄が見えていれば「入っていない」、「ログアウト」の文字があれば「入っている」とみなす。
     """
     try:
-        if page.locator(SELECTORS["login_id"]).first.is_visible(timeout=1500):
+        if page.locator(SEL["login_id"]).first.is_visible(timeout=1500):
             return False
     except Exception:
         pass
@@ -233,11 +264,11 @@ def check_logged_in(page):
 
 
 def _find_vote_link(page, fallback_index):
-    """トップの「投票する」の中から競輪のものを探す（採取は nth(2) だったが、開催数で順番が変わる）"""
-    links = page.get_by_role("link", name=SELECTORS["vote_link"])
+    """トップの「投票する」の中から競輪のもの（href に /keirin/ ）を探す"""
+    links = page.get_by_role("link", name=SEL["vote_link"])
     n = links.count()
     if n == 0:
-        raise RuntimeError("トップに「投票する」が見当たりません（ログインが切れた？）")
+        raise LoggedOut("トップに「投票する」が見当たりません（ログインが切れた？）")
     scores = page.evaluate("""() => {
       const out = [];
       for (const a of document.querySelectorAll('a')) {
@@ -272,6 +303,7 @@ class Session:
         self.log = log
         self.vote = None
         self.shot_dir = cfg.path("shot_dir")
+        self.pay = getattr(cfg, "payment_method", "opcoin")
 
     def _say(self, msg):
         if self.log:
@@ -279,20 +311,51 @@ class Session:
 
     # ---- 投票の窓 ----
     def vote_page(self):
-        """投票の窓を返す。閉じられていたら開き直す"""
-        if self.vote is not None and not self.vote.is_closed():
-            return self.vote
-        self.vote = None
-        _settle(self.page)
-        if check_logged_in(self.page) is False:
-            raise LoggedOut("ログインが切れています")
-        link, how = _find_vote_link(self.page, self.cfg.vote_link_index)
-        with self.page.expect_popup(timeout=WAIT_MS) as info:
-            link.click()
-        self.vote = info.value
-        _settle(self.vote)
-        self._say(f"投票の窓を開きました（{how}）")
+        """まとめ投票の画面になった投票の窓を返す。閉じられていたら開き直す"""
+        if self.vote is None or self.vote.is_closed():
+            self.vote = None
+            _settle(self.page)
+            if check_logged_in(self.page) is False:
+                raise LoggedOut("ログインが切れています")
+            link, how = _find_vote_link(self.page, self.cfg.vote_link_index)
+            with self.page.expect_popup(timeout=WAIT_MS) as info:
+                link.click()
+            self.vote = info.value
+            self._say(f"投票の窓を開きました（{how}）")
+        self._to_matome(self.vote)
         return self.vote
+
+    def _to_matome(self, vp):
+        """「レースまとめ投票」の画面にする。開いた直後は「Loading」を挟むので、部品が出るまで待つ"""
+        ready = f"{SEL['race_area']}, {SEL['multi_race']}, {SEL['course']}, {SEL['login_id']}"
+        for _ in range(4):
+            try:
+                vp.wait_for_selector(ready, timeout=READY_MS)
+            except Exception:
+                break
+            _settle(vp)
+            if vp.locator(SEL["login_id"]).count():
+                self.close_vote()
+                raise LoggedOut("投票の窓がログイン画面になっている")
+            if self._visible(vp, "race_area") and self._visible(vp, "amount"):
+                return
+            for key in ("multi_race", "matome_tab"):
+                loc = vp.locator(SEL[key])
+                if loc.count() and loc.first.is_visible():
+                    loc.first.click()
+                    _settle(vp)
+                    break
+            time.sleep(0.5)
+        png = shot(vp, self.shot_dir, "matome_missing", html=True)
+        raise RuntimeError("「レースまとめ投票」の画面を開けない" + (f"（{png}）" if png else ""))
+
+    @staticmethod
+    def _visible(vp, key):
+        loc = vp.locator(SEL[key])
+        try:
+            return loc.count() > 0 and loc.first.is_visible()
+        except Exception:
+            return False
 
     def close_vote(self):
         try:
@@ -303,7 +366,7 @@ class Session:
         self.vote = None
 
     def keepalive(self):
-        """買い目が無い間に、トップを読み直してログインを保つ。ログイン状態を返す"""
+        """買うものが無い間に、トップを読み直してログインを保つ。ログイン状態を返す"""
         try:
             self.page.reload()
             _settle(self.page)
@@ -311,159 +374,159 @@ class Session:
             pass
         return check_logged_in(self.page)
 
-    # ---- 1レースを開く ----
-    @staticmethod
-    def _venue_link(vp, place):
-        venue = vp.get_by_role("link", name=place, exact=True)
-        if venue.count() == 0:
-            cand = vp.get_by_role("link", name=place)
-            return cand if cand.count() == 1 else None
-        return venue
-
-    def open_race(self, place, rno):
-        vp = self.vote_page()
-        venue = self._venue_link(vp, place)
-        if venue is None:
-            # 窓の中でログインが切れた・画面が古いだけかもしれない。1回だけ開き直して探す
-            if vp.locator(SELECTORS["login_id"]).count():
-                self.close_vote()
-                raise LoggedOut("投票の窓がログイン画面になっている")
-            self.close_vote()
-            vp = self.vote_page()
-            venue = self._venue_link(vp, place)
-        if venue is None:
-            png = shot(vp, self.shot_dir, f"venue_missing_{place}", html=True)
-            links = vp.get_by_role("link", name=place)
-            names = []
-            for i in range(min(links.count(), 5)):
-                try:
-                    names.append(repr(links.nth(i).inner_text(timeout=1000).strip()[:20]))
-                except Exception:
-                    pass
-            raise SkipRace(f"投票の窓に場「{place}」が見当たらない（オッズパークで売っていない？ "
-                           f"「{place}」を含むリンク {links.count()}個 {' '.join(names)} / 枠 {len(vp.frames) - 1}個）"
-                           + (f"（{png}）" if png else ""))
-        venue.first.click()
-        _settle(vp)
-        race = self._race_link(vp, rno)
-        if race is None:                     # 採取は dblclick だった。1回で出なければもう1回
-            venue.first.click()
+    # ---- 1レース ----
+    def _reload_matome(self, vp):
+        """締め切ったレースを消すため、まとめ投票のタブを押し直す（タブが無ければそのまま）"""
+        tab = vp.locator(SEL["matome_tab"])
+        if tab.count() and tab.first.is_visible():
+            tab.first.click()
             _settle(vp)
-            race = self._race_link(vp, rno)
-        if race is None:
-            raise SkipRace(f"{place}の「{rno}R」が見当たらない（発売していない？）")
-        race.click()
-        _settle(vp)
-        t = body_text(vp)
-        if place not in t or not re.search(rf"(?<!\d){rno}\s*R", _norm(t)):
-            raise RuntimeError(f"{place}{rno}R を開いたはずが、画面に場名かレース番号が見当たらない")
-        return vp, read_close(t, rno)
+            vp.wait_for_selector(SEL["race_area"], state="visible", timeout=READY_MS)
 
-    @staticmethod
-    def _race_link(vp, rno):
-        for pat in (rf"^\s*{rno}\s*R\s*$", rf"^\s*{rno}\s*R(\s|$)"):
-            loc = vp.get_by_role("link", name=re.compile(pat))
-            n = loc.count()
-            if n == 1:
-                return loc.first
-            if n > 1:
-                visible = [loc.nth(i) for i in range(n) if loc.nth(i).is_visible()]
-                if len(visible) == 1:
-                    return visible[0]
+    def course_code(self, vp, place):
+        """ul#course の li から場コード。無ければ None / 発売が無ければ ""（inactive）"""
+        items = vp.eval_on_selector_all(SEL["course_li"], "ls => ls.map(l => [l.getAttribute('value') || '', l.innerText])")
+        for value, name in items:
+            if _norm(name) == place:
+                return value
         return None
 
-    # ---- 買い目を入れて確認画面へ ----
-    def fill_ticket(self, vp, ticket, yen):
-        cars = [int(x) for x in ticket.split("=")]
-        if len(cars) != 3 or cars != sorted(set(cars)):
-            raise ValueError(f"買い目が変です: {ticket}")
-        vp.locator(SELECTORS["mode1"]).get_by_role("link", name=SELECTORS["mode1_link"]).first.click()
-        kind = vp.get_by_role("link", name=SELECTORS["kind_link"])
-        if kind.count() > 1:
-            exact = vp.get_by_role("link", name=re.compile(r"^\s*(3|三)?\s*連複\s*$"))
-            kind = exact if exact.count() == 1 else kind
-        if kind.count() != 1:
-            raise RuntimeError(f"「{SELECTORS['kind_link']}」のリンクが {kind.count()}個（1個のはず）")
-        kind.first.click()
-        _settle(vp)
-        vp.locator(SELECTORS["mode3"]).get_by_role("link", name=SELECTORS["mode3_link"]).first.click()
-        _settle(vp)
-        for n, car in enumerate(cars, 1):          # 押す前に欄が揃っているか見る（9車の #row*_9 は未採取。まだ何も積んでいない）
-            if vp.locator(SELECTORS["row"].format(n=n, car=car)).count() == 0:
-                raise SkipRace(f"{SELECTORS['row'].format(n=n, car=car)} が画面に無い（{car}番の欄が未採取）")
-        for n, car in enumerate(cars, 1):
-            vp.locator(SELECTORS["row"].format(n=n, car=car)).get_by_role("link", name=str(car), exact=True).first.click()
-        box = vp.locator(SELECTORS["amount"])
+    def open_race(self, b):
+        vp = self.vote_page()
+        self._reload_matome(vp)
+        jcd = self.course_code(vp, b.place)
+        if jcd is None:
+            raise SkipRace(f"オッズパークの場の一覧に「{b.place}」が無い（今日は売っていない？）")
+        if not jcd:
+            raise SkipRace(f"{b.place}は発売が終わっている")
+        box = vp.locator(SEL["race_box"].format(date=b.date, jcd=jcd, rno=b.rno))
         if box.count() != 1:
-            raise RuntimeError(f"金額の欄 {SELECTORS['amount']} が {box.count()}個（1個のはず）")
-        units = str(yen // 100)                   # 100円単位（採取は「1」）
+            raise SkipRace(f"{b.place}{b.rno}R のチェック欄が無い（締め切った・発売していない）")
+        cars = box.evaluate("""el => {
+          const td = el.closest('td'), tr = td.parentElement, next = tr.nextElementSibling;
+          const i = [...tr.children].indexOf(td) - 1;        // 次の行は場の欄（rowspan）が無いぶん1つずれる
+          const c = next && next.children[i];
+          const m = c && c.innerText.match(/(\\d+)/);
+          return m ? parseInt(m[1], 10) : null;
+        }""")
+        if cars is not None and b.cars and cars != b.cars:
+            raise SkipRace(f"{b.place}{b.rno}R はオッズパークでは{cars}車立て（予想は{b.cars}車）。別のレースの恐れがあるので見送り")
+        return vp, jcd
+
+    def clear_slip(self):
+        """買い目一覧を空にする。True=空になった / False=残っている"""
+        vp = self.vote
+        if vp is None or vp.is_closed():
+            return True
+        try:
+            back = vp.locator(SEL["back"])
+            if vp.locator(SEL["buy"]).count() and back.count():     # 確認画面にいる → 戻る
+                back.first.click()
+                _settle(vp)
+            self._to_matome(vp)
+            if vp.locator(SEL["slip_rows"]).count() == 0:
+                return True
+            vp.once("dialog", lambda d: d.accept())                  # 「削除しますか？」が出たら OK（削除なので安全）
+            vp.locator(SEL["slip_all_delete"]).first.click()
+            _settle(vp)
+            vp.wait_for_timeout(500)
+            return vp.locator(SEL["slip_rows"]).count() == 0
+        except Exception:
+            return False
+
+    def _reset_inputs(self, vp):
+        """前の選択を消す（車番・レース・賭式）"""
+        if vp.locator(SEL["sha_on"]).count():
+            vp.locator(SEL["sha_reset"]).first.click()
+            vp.wait_for_timeout(300)
+            for a in vp.locator(SEL["sha_on"]).all():             # リセットで消えなければ1つずつ
+                a.click()
+        for cb in vp.locator(SEL["race_checked"]).all():
+            cb.uncheck()
+        for cb in vp.locator(SEL["bet_types"]).all():
+            want = cb.get_attribute("id") == SEL["sanrenpuku"].lstrip("#")
+            if cb.is_checked() != want:
+                cb.set_checked(want)
+        if vp.locator(SEL["sha_on"]).count() or vp.locator(SEL["race_checked"]).count():
+            raise RuntimeError("前の選択が消えない")
+
+    def fill_ticket(self, vp, b, jcd):
+        """買い目を入れてセットし、買い目一覧を照合してから確認画面へ。確認画面の (表, 文字) を返す"""
+        cars = [int(x) for x in b.ticket.split("=")]
+        if len(cars) != 3 or cars != sorted(set(cars)) or cars[-1] > (b.cars or 9):
+            raise ValueError(f"買い目が変です: {b.ticket}")
+        units = str(b.yen // 100)
+        if not self.clear_slip():
+            raise RuntimeError("買い目一覧に前の残りがあって消せない")
+        self._reset_inputs(vp)
+        box = vp.locator(SEL["amount"])
         box.click()
         box.fill(units)
         if box.input_value().strip() != units:
-            raise RuntimeError(f"金額の欄に {units} が入らない（{box.input_value()!r}）")
-        vp.get_by_role("link", name=SELECTORS["set"], exact=True).first.click()
+            raise RuntimeError(f"セット金額の欄に {units} が入らない（{box.input_value()!r}）")
+        for col, car in enumerate(cars, 1):
+            cell = vp.locator(SEL["sha_cell"].format(col=col)).filter(has_text=re.compile(rf"^\s*{car}\s*$"))
+            if cell.count() != 1:
+                raise RuntimeError(f"{col}列目の車番 {car} が {cell.count()}個（1個のはず）")
+            cell.first.click()
+            if "on" not in (cell.first.get_attribute("class") or "").split():
+                raise RuntimeError(f"{col}列目の車番 {car} が選ばれない")
+        if vp.locator(SEL["sha_on"]).count() != 3:
+            raise RuntimeError(f"選ばれた車番が {vp.locator(SEL['sha_on']).count()}個（3個のはず）")
+        race = vp.locator(SEL["race_box"].format(date=b.date, jcd=jcd, rno=b.rno))
+        race.check()
+        if vp.locator(SEL["race_checked"]).count() != 1 or not race.is_checked():
+            raise RuntimeError("レースのチェックが1つにならない")
+        pay = vp.locator(SEL["pay_opcoin"] if self.pay == "opcoin" else SEL["pay_cash"])
+        pay.check()
+        if not pay.is_checked():
+            raise RuntimeError("支払い方法を選べない")
+        vp.locator(SEL["set"]).click()
         _settle(vp)
-        vp.get_by_role("link", name=SELECTORS["to_confirm"]).first.click()
-        _settle(vp)
-        return body_text(vp)
-
-    def _click_any(self, vp, names):
-        for name in names:
-            for role in ("link", "button"):
-                loc = vp.get_by_role(role, name=name, exact=True)
-                try:
-                    if loc.count() and loc.first.is_visible():
-                        loc.first.click()
-                        _settle(vp)
-                        return name
-                except Exception:
-                    continue
-        return ""
-
-    def clear_slip(self):
-        """確認画面・ベットリストに積んだ買い目を消す。True=消した / False=消せなかった
-
-        ★消し方は未採取。「戻る」系で入力画面に戻り、「取消」系を押してみる。
-          消せたかは、画面に組が残っていないかで見る。
-        """
-        vp = self.vote
-        if vp is None or vp.is_closed():
-            return True                       # 窓ごと無い → 積んだものも見えない。次は開き直す
-        self._click_any(vp, SELECTORS["back"])
-        if self._click_any(vp, SELECTORS["clear"]):
-            self._click_any(vp, ["OK", "はい"])
-        left = tickets_in(body_text(vp))
-        if not left:
-            return True
-        # 消せない → 窓を閉じる。次は開き直す（ベットリストがサーバ側に残るかは未確認）
-        self.close_vote()
-        return False
-
-    # ---- 購入 ----
-    def press_buy(self, vp):
-        """「購入する」を押して、受け付けたかを返す。ここから先の例外はすべて BetUncertain"""
+        vp.wait_for_timeout(500)
+        rows = _rows(vp, SEL["slip_rows"])
+        sc = vp.locator(SEL["sum_count"]).inner_text() if vp.locator(SEL["sum_count"]).count() else ""
+        sp = vp.locator(SEL["sum_pay"]).inner_text() if vp.locator(SEL["sum_pay"]).count() else ""
+        bad = check_slip(rows, sc, sp, b.place, b.rno, b.ticket, units, b.yen)
+        if bad:
+            png = shot(vp, self.shot_dir, f"{b.key}_slip", html=True)
+            raise ConfirmMismatch("買い目一覧が合わない: " + " / ".join(bad) + (f"（{png}）" if png else ""))
+        vp.locator(SEL["to_confirm"]).click()
         try:
-            vp.get_by_role("link", name=SELECTORS["buy"], exact=True).first.click()
+            vp.wait_for_selector(SEL["buy"], timeout=READY_MS)
+        except Exception:
+            why = looks_refused(body_text(vp))
+            png = shot(vp, self.shot_dir, f"{b.key}_no_confirm", html=True)
+            raise RuntimeError("確認画面にならない" + (f"（{why}）" if why else "") + (f"（{png}）" if png else ""))
+        _settle(vp)
+        return _rows(vp, SEL["confirm_rows"]), body_text(vp)
+
+    # ---- 申込 ----
+    def press_buy(self, vp, b):
+        """「投票を申込」を押して、受け付けたかを確かめる。ここから先の例外はすべて BetUncertain"""
+        try:
+            vp.locator(SEL["buy"]).click()
         except Exception as e:
-            raise BetUncertain(f"「購入する」を押す途中で失敗: {type(e).__name__}: {e}")
+            raise BetUncertain(f"「投票を申込」を押す途中で失敗: {type(e).__name__}: {e}")
         try:
+            try:
+                vp.wait_for_selector(SEL["again"], timeout=READY_MS)
+            except Exception:
+                pass
             _settle(vp)
-            time.sleep(1)
             t = body_text(vp)
-            again = vp.get_by_role("link", name=SELECTORS["again"])
-            done = looks_done(t) or (again.count() > 0 and again.first.is_visible())
-            png = shot(vp, self.shot_dir, "after_buy", html=True)
+            why = check_done(_rows(vp, SEL["confirm_rows"]), t, b.place, b.rno, b.ticket)
+            png = shot(vp, self.shot_dir, f"{b.key}_done", html=True)
         except Exception as e:
             raise BetUncertain(f"押した後の画面が読めない: {type(e).__name__}: {e}")
-        if not done:
-            why = looks_refused(t)
-            raise BetUncertain(("断られたようです: " + why) if why else "受け付けた画面か確かめられない" + (f"（{png}）" if png else ""))
+        if why:
+            refused = looks_refused(t)
+            raise BetUncertain(why + (f"（{refused}）" if refused else "") + (f"（{png}）" if png else ""))
         try:
-            if again.count() and again.first.is_visible():
-                again.first.click()
-                _settle(vp)
+            vp.locator(SEL["again"]).first.click()           # 続けて購入する
+            _settle(vp)
         except Exception:
-            pass                                  # 受け付けは済んでいる。次の周で窓を見直す
+            pass                                           # 受け付けは済んでいる。次は窓を見直す
         return png
 
 
@@ -474,18 +537,17 @@ def bet(session, b, live, guard, before_press):
     before_press()      : live で押す直前に呼ぶ。bet_done.json に書く。書けなければ例外（押さない）
     返すのは 記録に残す説明
     """
-    shot_dir = session.shot_dir
-    vp, site_close = session.open_race(b.place, b.rno)
-    guard(site_close)
-    text = session.fill_ticket(vp, b.ticket, b.yen)
-    png = shot(vp, shot_dir, f"{b.key}_confirm", html=not live)
-    bad = check_confirm_text(text, b.place, b.rno, b.ticket, b.yen)
+    vp, jcd = session.open_race(b)
+    guard(ON_SALE)
+    rows, text = session.fill_ticket(vp, b, jcd)
+    png = shot(vp, session.shot_dir, f"{b.key}_confirm", html=not live)
+    bad = check_confirm(rows, text, b.place, b.rno, b.ticket, b.yen)
     if bad:
         raise ConfirmMismatch("確認画面が買い目と合わない: " + " / ".join(bad) + (f"（{png}）" if png else ""))
-    close_note = f"サイトの締切 {site_close}" if site_close else "サイトの締切は読めず"
+    pay = "OPコイン" if session.pay == "opcoin" else "投票資金"
     if not live:
-        return f"確認画面まで（押していません）。{close_note}。{png}"
-    guard(site_close)                     # 選んでから押すまでに時間が経っている
+        return f"確認画面まで（押していません・{pay}）。{png}"
+    guard(ON_SALE)                        # 選んでから押すまでに時間が経っている
     before_press()
-    png2 = session.press_buy(vp)
-    return f"購入済み。{close_note}。{png2}"
+    png2 = session.press_buy(vp, b)
+    return f"購入済み（{pay}）。{png2}"

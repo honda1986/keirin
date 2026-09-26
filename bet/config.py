@@ -24,6 +24,7 @@ DEFAULTS = {
     "max_snap_age_minutes": 4.0,
     "close_min_minutes": 1.5,
     "require_site_close": True,
+    "payment_method": "opcoin",
     "poll_seconds": 20,
     "keepalive_minutes": 10,
     "node": "node",
@@ -57,6 +58,7 @@ class Config:
     max_snap_age_minutes: float = 4.0
     close_min_minutes: float = 1.5
     require_site_close: bool = True
+    payment_method: str = "opcoin"
     poll_seconds: int = 20
     keepalive_minutes: int = 10
     node: str = "node"
@@ -144,6 +146,7 @@ def from_dict(d, base_dir="."):
         max_snap_age_minutes=_as_num(d, "max_snap_age_minutes", lo=1, hi=10),
         close_min_minutes=_as_num(d, "close_min_minutes", lo=0.5, hi=10),
         require_site_close=_as_bool(d, "require_site_close"),
+        payment_method=_as_str(d, "payment_method", required=True),
         poll_seconds=_as_int(d, "poll_seconds", lo=10, hi=120),
         keepalive_minutes=_as_int(d, "keepalive_minutes", lo=0),
         node=_as_str(d, "node", required=True),
@@ -158,6 +161,8 @@ def from_dict(d, base_dir="."):
         shot_dir=_as_str(d, "shot_dir", required=True),
         stop_file=_as_str(d, "stop_file", required=True),
     )
+    if cfg.payment_method not in ("opcoin", "cash"):
+        raise ConfigError(f"payment_method は \"opcoin\"（OPコイン）か \"cash\"（投票資金）にしてください（いまは {cfg.payment_method!r}）")
     if cfg.bet_yen % 100:
         raise ConfigError(f"bet_yen は100円単位にしてください（いまは {cfg.bet_yen}）")
     if cfg.max_yen_per_day is not None and cfg.max_yen_per_day < cfg.bet_yen:

@@ -1,0 +1,11 @@
+<!doctype html><html><head><meta charset="utf-8"><title>投票申込完了（テスト用の偽物）</title></head><body>
+<span id="msg"></span>
+<div id="section2"><table class="tb30 w963px"><tbody><tr><th>開催日</th><th>開催場</th><th>R</th><th>賭式</th><th>投票方式</th><th class="w200px">買い目</th><th>金額</th><th>受付</th></tr></tbody></table></div>
+<form><a href="#" onclick="localStorage.setItem('view','top');location.href='VoteKeirinTop.do';return false;" id="buythru">続けて購入する</a></form>
+<script>
+const s = JSON.parse(localStorage.getItem("done") || "[]");
+document.getElementById("msg").textContent = s.length ? "投票申込を受け付けました。ご利用ありがとうございます。" : "エラーが発生しました";
+const sp = (n) => (n.length === 2 ? n[0] + " " + n[1] : n);
+document.querySelector("#section2 tbody").insertAdjacentHTML("beforeend", s.map((x) => "<tr><td>2026/9/26</td><td>" + sp(x.venue) + "</td><td>" + x.race +
+  "</td><td>3連複</td><td>フォーメーション</td><td> " + x.t + ' </td><td class="al-right">' + x.units * 100 + '円 </td><td> <span class="tx_green">○</span> </td></tr>').join(""));
+</script></body></html>

@@ -1,59 +1,106 @@
-<!doctype html><html><head><meta charset="utf-8"><title>投票（テスト用の偽物）</title></head><body>
-<div id="venues"></div><div id="races"></div><div id="head"></div>
-<div id="input" style="display:none">
-  <div id="mode1"><a href="#" onclick="st.m1=1;return false">通常</a> <a href="#">フォーメーション</a></div>
-  <a href="#" onclick="st.kind='2車単';return false">2車単</a> <a href="#" onclick="st.kind='3連複';return false">3連複</a>
-  <div id="mode3"><a href="#" onclick="st.m3=1;return false">通常</a> <a href="#">ボックス</a></div>
-  <div id="rows"></div>
-  金額 <input id="textfield11" size="3">00円
-  <a href="#" onclick="setBet();return false">セット</a>
-  <a href="#" onclick="toConfirm();return false">投票手続へ</a>
-  <a href="#" onclick="slip=[];save();draw();return false">全て取消</a>
-  <div id="slipv"></div>
+<!doctype html><html><head><meta charset="utf-8"><title>投票｜オッズパーク競輪（テスト用の偽物）</title></head><body id="vote">
+<!-- テスト用の偽物。2026-09-26 の記録モードで採った実物の id・class・表の形だけ真似ている -->
+<div id="loading">Loading</div>
+<div id="main" style="display:none">
+<div id="section2"></div>
+<div id="matome" style="display:none">
+  <div id="section3">セット金額&nbsp;<input name="textfield" type="text" id="textfield11" size="8" maxlength="4" class="txtinput">&nbsp;00円</div>
+  <table id="shaArea" class="tb06"><tbody><tr><th>1着</th><th>2着</th><th>3着</th></tr></tbody></table>
+  <a href="javaScript:void(0);" id="reset">リセット</a>
+  <table id="raceArea" class="tb06b r-matome"><tbody></tbody></table>
+  <table class="tbOSLC slct1" id="betTypeArea"><tbody><tr>
+    <td><input type="checkbox" value="5" id="renfuku" name="betTypeSelect"><br>2車複</td>
+    <td><input type="checkbox" value="8" id="sanrenpuku" name="betTypeSelect"><br>3連複</td>
+    <td><input type="checkbox" value="9" id="sanrentan" name="betTypeSelect" checked><br>3連単</td>
+  </tr></tbody></table>
+  <a href="javaScript:void(0)" id="multiSet" class="vote-set">セット</a>
 </div>
-<div id="confirm" style="display:none"><div id="conf"></div>
-  <a href="#" onclick="buy();return false">購入する</a> <a href="#" onclick="show('input');return false">戻る</a></div>
-<div id="done" style="display:none"><div id="donemsg"></div><a href="#" onclick="show('input');return false">続けて購入する</a></div>
+<div id="right">
+  <div id="buylist"></div>
+  <div id="buylistRemove"><ul id="delK"><li id="choice"><a class="inactive">選択項目削除</a></li><li id="all"><a>全買い目削除</a></li></ul></div>
+  <table id="voteInfo"><tbody>
+    <tr><td id="paymentMethod"><span><input type="radio" id="paymentMethodBuyLimit" name="paymentMethod" value="0" checked><label for="paymentMethodBuyLimit">投票資金</label></span>
+      <span><input type="radio" id="paymentMethodOpCoin" name="paymentMethod" value="1"><label for="paymentMethodOpCoin">OPコイン</label></span></td></tr>
+    <tr><td id="sumBetCount">組数：0通り</td><td id="sumPay">合計金額：0円</td></tr>
+  </tbody></table>
+  <form id="confirm"><a href="#" id="gotobuy">投票手続へ</a></form>
+</div>
+</div>
 <script>
-const Q = new URLSearchParams(location.search);
-const VENUES = { "広島": 9, "岐阜": 9, "青森": 7 };
-const st = { venue: null, race: null, kind: null, m1: 0, m3: 0, pick: {} };
-let slip = JSON.parse(localStorage.getItem("slip") || "[]");
-const save = () => localStorage.setItem("slip", JSON.stringify(slip));
-const closeAt = () => { const d = new Date(Date.now() + 9 * 3600e3 + (+(localStorage.getItem("closeMin") || 10)) * 60e3); return d.toISOString().slice(11, 16); };
-function show(id) { for (const x of ["input", "confirm", "done"]) document.getElementById(x).style.display = x === id ? "block" : "none"; draw(); }
-function a(t, f) { const e = document.createElement("a"); e.href = "#"; e.textContent = t; e.onclick = () => { f(); return false; }; return e; }
-function draw() {
-  const v = document.getElementById("venues"); v.innerHTML = "";
-  for (const n of Object.keys(VENUES)) { v.append(a(n, () => { st.venue = n; st.race = null; draw(); })); v.append(" "); }
-  const r = document.getElementById("races"); r.innerHTML = "";
-  if (st.venue) for (let i = 1; i <= 12; i++) { r.append(a(i + "R", () => { st.race = i; st.pick = {}; show("input"); })); r.append(" "); }
-  document.getElementById("head").textContent = st.race ? st.venue + " " + st.race + "R 締切 " + closeAt() : "";
-  const rows = document.getElementById("rows"); rows.innerHTML = "";
-  const n = VENUES[st.venue] || 0;
-  for (let k = 1; k <= 3; k++) {
-    const d = document.createElement("div"); d.textContent = k + "着 ";
-    for (let c = 1; c <= n; c++) { const s = document.createElement("span"); s.id = "row" + k + "_" + c; s.append(a(String(c), () => { st.pick[k] = c; })); d.append(s, " "); }
-    rows.append(d);
+const D8 = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10).replace(/-/g, "");
+// 場: 名前・コード（"" は発売終了）・車立て・締め切ったR
+const VENUES = [
+  { name: "青森", code: "", cars: 7, closed: 12 },
+  { name: "岐阜", code: "43", cars: 9, closed: 1 },
+  { name: "岸和田", code: "56", cars: 7, closed: 11 },
+  { name: "別府", code: "86", cars: 7, closed: 0 },
+  { name: "熊本", code: "", cars: 7, closed: 12 },
+];
+const LS = localStorage;
+const slip = () => JSON.parse(LS.getItem("slip") || "[]");
+const saveSlip = (s) => LS.setItem("slip", JSON.stringify(s));
+const $ = (q) => document.querySelector(q);
+const sp = (n) => (n.length === 2 ? n[0] + " " + n[1] : n);
+function drawTop() {
+  $("#matome").style.display = "none";
+  $("#section2").innerHTML = '<h3>当日発売</h3><ul class="joumei">' +
+    VENUES.map((v) => v.code ? '<li class="active"><a href="javascript:void(0)" class="v' + v.code + '"><span>' + (v.closed + 1) + 'R 発売中</span></a></li>'
+                             : '<li class="inactive"><a><span>発売終了</span></a></li>').join("") +
+    '<li class="active mR15"><a class="matome" id="todayMultiRace" style="display:inline-block;width:120px;height:40px;background:#fc0"><span></span></a></li></ul>';
+  $("#todayMultiRace").onclick = () => { LS.setItem("view", "matome"); draw(); };
+}
+function drawMatome() {
+  $("#section2").innerHTML = '<ul id="course">' + VENUES.map((v) => '<li value="' + v.code + '" class="' + (v.code ? "notSelect" : "inactive") + '"><a' + (v.code ? ' href="#"' : "") + ">" + v.name + "</a></li>").join("") +
+    '<li value="00" class="long active"><a href="#">レースまとめ投票</a></li></ul>';
+  $('#course li[value="00"] a').onclick = () => { draw(); return false; };
+  $("#matome").style.display = "block";
+  const sha = $("#shaArea tbody");
+  if (sha.children.length === 1) for (let c = 1; c <= 9; c++) {
+    const tr = document.createElement("tr");
+    for (let k = 1; k <= 3; k++) { const td = document.createElement("td"); td.setAttribute("name", "keirin" + k); const a = document.createElement("a"); a.href = "javaScript:void(0)"; a.textContent = c; a.onclick = () => { a.classList.toggle("on"); return false; }; td.append(a); tr.append(td); }
+    sha.append(tr);
   }
-  document.getElementById("slipv").textContent = slip.length ? "ベットリスト " + slip.length + "件" : "";
+  let h = '<tr><th class="th0">場</th><th class="th1">全<br>R</th>' + [...Array(12)].map((_, i) => '<th class="th1">' + (i + 1) + "R</th>").join("") + "</tr>";
+  VENUES.filter((v) => v.code).forEach((v, gi) => {
+    h += '<tr><td rowspan="2"> 9/26<br>' + v.name + '</td><td height="15px"><input type="checkbox" name="shadatsu"></td>';
+    for (let r = 1; r <= 12; r++) h += r <= v.closed ? '<td class="keshi"></td>' : '<td><input name="group' + (gi + 1) + '" type="checkbox" value="' + D8 + "_" + v.code + "_" + r + '"></td>';
+    h += '</tr><tr class="tate"><td>車<br>立</td>' + [...Array(12)].map((_, i) => "<td" + (i < v.closed ? ' class="keshi"' : "") + ">" + v.cars + "<br>車</td>").join("") + "</tr>";
+  });
+  $("#raceArea tbody").innerHTML = h;
 }
-function setBet() {
-  const u = parseInt(document.getElementById("textfield11").value, 10);
-  if (!(st.m1 && st.m3 && st.kind === "3連複" && st.pick[1] && st.pick[2] && st.pick[3] && u > 0)) { alert("入力が足りません"); return; }
-  slip.push({ venue: st.venue, race: st.race, t: [st.pick[1], st.pick[2], st.pick[3]].sort().join("-"), yen: u * 100 }); save(); draw();
+function drawSlip() {
+  const s = slip();
+  $("#buylist").innerHTML = s.length ? '<table id="buy" class="tb05 w100pr"><thead><tr><th>選択</th><th>場</th><th>R</th><th>買い目</th><th>オッズ</th><th>金額</th></tr></thead><tbody>' +
+    s.map((x, i) => '<tr id="kaime' + (i + 1) + '"><td><a class="del" href="#"></a></td><td>09/26<br>' + sp(x.venue) + "</td><td>" + x.race + "</td><td>3連複フ<br>" + x.t +
+      '</td><td><span class="tx_red">9.1</span></td><td><input name="textfield" type="text" id="textfield" value="' + x.units + '">00円</td></tr>').join("") + "</tbody></table>" : "";
+  $("#sumBetCount").textContent = "組数：" + s.length + "通り";
+  $("#sumPay").textContent = "合計金額：" + s.reduce((a, x) => a + x.units * 100, 0).toLocaleString() + "円";
 }
-function toConfirm() {
-  const c = document.getElementById("conf");
-  c.innerHTML = slip.map((s) => "<div>" + s.venue + " " + s.race + "R 3連複 " + s.t + " " + s.yen + "円</div>").join("") +
-    "<div>合計 " + slip.length + "点 " + slip.reduce((x, s) => x + s.yen, 0).toLocaleString() + "円</div>";
-  show("confirm");
-}
-async function buy() {
-  const r = await fetch("/api/buy", { method: "POST", body: JSON.stringify(slip) });
-  slip = []; save();
-  document.getElementById("donemsg").textContent = r.ok ? "購入が完了しました 受付番号 " + (await r.text()) : "エラーが発生しました";
-  show("done");
-}
-draw();
+function draw() { (LS.getItem("view") === "matome" ? drawMatome : drawTop)(); drawSlip(); }
+$("#reset").onclick = () => { document.querySelectorAll("#shaArea a.on").forEach((a) => a.classList.remove("on")); return false; };
+$("#all a").onclick = () => { if (confirm("全ての買い目を削除しますか？")) { saveSlip([]); drawSlip(); } return false; };
+$("#multiSet").onclick = () => {
+  const u = parseInt($("#textfield11").value, 10);
+  const races = [...document.querySelectorAll("#raceArea input[name^=group]:checked")].map((e) => e.value.split("_"));
+  const col = (k) => [...document.querySelectorAll('#shaArea td[name="keirin' + k + '"] a.on')].map((a) => +a.textContent);
+  const types = [...document.querySelectorAll("input[name=betTypeSelect]:checked")].map((e) => e.id);
+  if (!(u > 0) || !races.length || types.join() !== "sanrenpuku" || !col(1).length || !col(2).length || !col(3).length) { alert("入力が足りません"); return false; }
+  const s = slip();
+  for (const [d, code, r] of races) {
+    const seen = new Set();
+    for (const a of col(1)) for (const b of col(2)) for (const c of col(3)) {
+      const t = [a, b, c]; if (new Set(t).size < 3) continue;
+      const k = t.sort((x, y) => x - y).join("-"); if (seen.has(k)) continue; seen.add(k);
+      s.push({ venue: VENUES.find((v) => v.code === code).name, race: +r, t: LS.getItem("bug") === "swap" ? "1-2-3" : k, units: u });
+    }
+  }
+  saveSlip(s); drawSlip(); return false;
+};
+$("#gotobuy").onclick = () => {
+  if (!slip().length) { alert("買い目がありません"); return false; }
+  LS.setItem("pay", document.querySelector("input[name=paymentMethod]:checked").value);
+  location.href = LS.getItem("pay") === "1" ? "VoteConfirmOpcoin.do" : "VoteConfirm.do";
+  return false;
+};
+setTimeout(() => { $("#loading").style.display = "none"; $("#main").style.display = "block"; draw(); }, 700);   // 実物も「Loading」を挟む
 </script></body></html>

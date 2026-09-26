@@ -118,56 +118,44 @@ class TestSelector(unittest.TestCase):
 
 
 class TestConfirm(unittest.TestCase):
-    OK = "広島 3R 締切 15:23\n広島 3R 3連複 3-4-6 100円\n合計 1点 100円"
+    """実物（2026-09-26 に記録モードで採った画面）の文字の形で確かめる"""
+    SLIP = [["", "09/26\n岐 阜", "2", "3連複フ\n3-4-7", "9.1", "00円"]]
+    CONF = [["2026/9/26", "岐阜", "2", "3連複", "フォーメーション", " 3-4-7 ", "100円 "]]
+    CONF_TEXT = "投票申込確認\n開催日\t開催場\n2026/9/26\t岐阜\t2\t3連複\t3-4-7\t100円\n組数\t1通り\n合計金額\t100円\n投票を申込"
+    DONE = [["2026/9/26", "岐 阜", "2", "3連複", "フォーメーション", " 3-4-7 ", "100円 ", " ○ "]]
 
-    def test_合っていれば空(self):
-        self.assertEqual(op.check_confirm_text(self.OK, "広島", 3, "3=4=6", 100), [])
+    def test_買い目一覧(self):
+        self.assertEqual(op.check_slip(self.SLIP, "組数：1通り", "合計金額：100円", "岐阜", 2, "3=4=7", "1", 100), [])
+        self.assertTrue(op.check_slip(self.SLIP, "組数：1通り", "合計金額：100円", "岐阜", 2, "3=4=6", "1", 100))
+        self.assertTrue(op.check_slip(self.SLIP, "組数：1通り", "合計金額：100円", "岐阜", 12, "3=4=7", "1", 100))
+        self.assertTrue(op.check_slip(self.SLIP, "組数：1通り", "合計金額：100円", "別府", 2, "3=4=7", "1", 100))
+        self.assertTrue(op.check_slip(self.SLIP * 2, "組数：2通り", "合計金額：200円", "岐阜", 2, "3=4=7", "1", 100))
+        self.assertTrue(op.check_slip(self.SLIP, "組数：11通り", "合計金額：100円", "岐阜", 2, "3=4=7", "1", 100))
 
-    def test_全角や別の区切りでも読める(self):
-        t = "広島　３R　三連複　３＝４＝６　\n合計金額 １００円"
-        self.assertEqual(op.check_confirm_text(t, "広島", 3, "3=4=6", 100), [])
+    def test_確認画面(self):
+        self.assertEqual(op.check_confirm(self.CONF, self.CONF_TEXT, "岐阜", 2, "3=4=7", 100), [])
+        self.assertTrue(op.check_confirm(self.CONF, self.CONF_TEXT, "岐阜", 2, "3=4=7", 200))
+        self.assertTrue(op.check_confirm(self.CONF, self.CONF_TEXT, "岐阜", 3, "3=4=7", 100))
+        self.assertTrue(op.check_confirm(self.CONF * 2, self.CONF_TEXT, "岐阜", 2, "3=4=7", 100))
+        bad = [["2026/9/26", "岐阜", "2", "3連単", "フォーメーション", "3-4-7", "100円"]]
+        self.assertTrue(op.check_confirm(bad, self.CONF_TEXT, "岐阜", 2, "3=4=7", 100))
+        self.assertTrue(any("合計" in x for x in op.check_confirm(self.CONF, "組数 1通り", "岐阜", 2, "3=4=7", 100)))
 
-    def test_違う組(self):
-        self.assertTrue(op.check_confirm_text(self.OK, "広島", 3, "3=4=7", 100))
+    def test_完了画面(self):
+        t = "投票申込完了\n投票申込を受け付けました。ご利用ありがとうございます。"
+        self.assertEqual(op.check_done(self.DONE, t, "岐阜", 2, "3=4=7"), "")
+        self.assertIn("受付", op.check_done([self.DONE[0][:7] + ["×"]], t, "岐阜", 2, "3=4=7"))
+        self.assertTrue(op.check_done(self.DONE, "エラーが発生しました", "岐阜", 2, "3=4=7"))
+        self.assertTrue(op.check_done(self.DONE, t, "岐阜", 3, "3=4=7"))
 
-    def test_違うレース(self):
-        self.assertTrue(op.check_confirm_text(self.OK, "広島", 4, "3=4=6", 100))
-        self.assertTrue(op.check_confirm_text(self.OK.replace("3R", "13R"), "広島", 3, "3=4=6", 100))
-        self.assertTrue(op.check_confirm_text(self.OK, "岐阜", 3, "3=4=6", 100))
-
-    def test_場とRは同じ行(self):
-        t = "岐阜 3R\n広島 5R 3連複 3-4-6 100円\n合計 1点 100円"
-        self.assertTrue(op.check_confirm_text(t, "広島", 3, "3=4=6", 100))
-        t = "3R\t広島競輪\t3連複 3-4-6\n合計 100円"
-        self.assertEqual(op.check_confirm_text(t, "広島", 3, "3=4=6", 100), [])
-
-    def test_買い残りが混ざっている(self):
-        t = "広島 3R 3連複 1-2-5 100円\n広島 3R 3連複 3-4-6 100円\n合計 2点 200円"
-        bad = op.check_confirm_text(t, "広島", 3, "3=4=6", 100)
-        self.assertTrue(any("複数" in b for b in bad))
-        self.assertTrue(any("200" in b for b in bad))
-
-    def test_合計が読めなければ止める(self):
-        bad = op.check_confirm_text("広島 3R 3連複 3-4-6", "広島", 3, "3=4=6", 100)
-        self.assertTrue(any("合計" in b for b in bad))
-
-    def test_時刻や日付を組と間違えない(self):
-        self.assertEqual(op.tickets_in("2026-09-26 15:23 締切 1 2 3 4 5 6 7 8 9"), set())
-
-    def test_締切を読む(self):
-        self.assertEqual(op.read_close("広島 3R 締切 15:23", 3), "15:23")
-        self.assertEqual(op.read_close("1R 締切10:05\n3R 締切 １５：２３", 3), "15:23")
-        self.assertEqual(op.read_close("発走 15:28", 3), None)
-
-    def test_受付画面(self):
-        self.assertTrue(op.looks_done("購入が完了しました 受付番号 123"))
-        self.assertFalse(op.looks_done("投票内容の確認"))
-        self.assertTrue(op.looks_refused("締切られました"))
+    def test_断られた画面(self):
+        self.assertTrue(op.looks_refused("※投票の前に入金が必要です。"))
+        self.assertEqual(op.looks_refused("投票申込確認"), "")
 
     def test_早いほうの締切(self):
         self.assertEqual(earlier(DATE, "15:23", "15:21"), "15:21")
         self.assertEqual(earlier(DATE, "15:23", None), "15:23")
-        self.assertEqual(earlier(DATE, "15:23", "15:30"), "15:23")
+        self.assertEqual(earlier(DATE, "15:23", op.ON_SALE), "15:23")
 
 
 class TestStoreAndConfig(unittest.TestCase):
@@ -213,7 +201,7 @@ class TestStoreAndConfig(unittest.TestCase):
         self.assertEqual((c.bet_yen, c.max_yen_per_day, c.max_races_per_day), (100, 1000, 10))
 
     def test_おかしな値は止める(self):
-        for bad in ({"bet_yen": 150}, {"max_yen_per_day": 50}, {"close_min_minutes": 7}, {"use_ev": "yes"}):
+        for bad in ({"bet_yen": 150}, {"max_yen_per_day": 50}, {"close_min_minutes": 7}, {"use_ev": "yes"}, {"payment_method": "card"}):
             with self.assertRaises(config_mod.ConfigError, msg=str(bad)):
                 cfg(**bad)
 
