@@ -1,6 +1,7 @@
 <!doctype html><html><head><meta charset="utf-8"><title>投票｜オッズパーク競輪（テスト用の偽物）</title></head><body id="vote">
 <!-- テスト用の偽物。2026-09-26 の記録モードで採った実物の id・class・表の形だけ真似ている -->
 <div id="loading">Loading</div>
+<div id="auth" style="display:none">本人確認 パスワードを入力してください。<input type="password" id="pw"><button>確 認</button></div>
 <div id="main" style="display:none">
 <div id="section2"></div>
 <div id="matome" style="display:none">
@@ -37,6 +38,7 @@ const VENUES = [
   { name: "熊本", code: "", cars: 7, closed: 12 },
 ];
 const LS = localStorage;
+let AMOUNT = "";
 const slip = () => JSON.parse(LS.getItem("slip") || "[]");
 const saveSlip = (s) => LS.setItem("slip", JSON.stringify(s));
 const $ = (q) => document.querySelector(q);
@@ -77,10 +79,11 @@ function drawSlip() {
   $("#sumPay").textContent = "合計金額：" + s.reduce((a, x) => a + x.units * 100, 0).toLocaleString() + "円";
 }
 function draw() { (LS.getItem("view") === "matome" ? drawMatome : drawTop)(); drawSlip(); }
+$("#textfield11").addEventListener("keyup", (e) => { AMOUNT = e.target.value; });
 $("#reset").onclick = () => { document.querySelectorAll("#shaArea a.on").forEach((a) => a.classList.remove("on")); return false; };
 $("#all a").onclick = () => { if (confirm("全ての買い目を削除しますか？")) { saveSlip([]); drawSlip(); } return false; };
 $("#multiSet").onclick = () => {
-  const u = parseInt($("#textfield11").value, 10);
+  const u = parseInt(AMOUNT, 10);          // ★fill() だけでは拾えない（キーを押した合図が要る）
   const races = [...document.querySelectorAll("#raceArea input[name^=group]:checked")].map((e) => e.value.split("_"));
   const col = (k) => [...document.querySelectorAll('#shaArea td[name="keirin' + k + '"] a.on')].map((a) => +a.textContent);
   const types = [...document.querySelectorAll("input[name=betTypeSelect]:checked")].map((e) => e.id);
@@ -102,5 +105,9 @@ $("#gotobuy").onclick = () => {
   location.href = LS.getItem("pay") === "1" ? "VoteConfirmOpcoin.do" : "VoteConfirm.do";
   return false;
 };
-setTimeout(() => { $("#loading").style.display = "none"; $("#main").style.display = "block"; draw(); }, 700);   // 実物も「Loading」を挟む
+function start() { $("#loading").style.display = "none"; $("#main").style.display = "block"; draw(); }
+if (LS.getItem("needAuth") === "1") {       // 本人確認。テストでは2.5秒後に「人が済ませた」ことにする
+  setTimeout(() => { $("#loading").style.display = "none"; $("#auth").style.display = "block"; }, 300);
+  setTimeout(() => { LS.removeItem("needAuth"); $("#auth").style.display = "none"; start(); }, 2800);
+} else setTimeout(start, 700);   // 実物も「Loading」を挟む
 </script></body></html>

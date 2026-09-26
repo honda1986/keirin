@@ -35,6 +35,7 @@ from jst import now
 
 SEL = {
     "login_id": 'input[name="SSO_ACCOUNTID"]',   # あれば「ログインしていない」の印に使うだけ。入力はしない
+    "password": 'input[type="password"]',        # 投票の窓の「本人確認」。★入力はしない（人が手で入れる）
     "vote_link": "投票する",
     "multi_race": "#todayMultiRace",
     "course": "#course",
@@ -63,7 +64,8 @@ SEL = {
     "again": "#buythru",
 }
 
-ON_SALE = "発売中"          # 締切の時刻は出ないが、チェック欄があって発売中と確かめた、の印
+ON_SALE = "発売中"
+AUTH_WAIT = 300           # 本人確認（パスワードの入れ直し）を人が済ませるのを待つ秒数          # 締切の時刻は出ないが、チェック欄があって発売中と確かめた、の印
 WAIT_MS = 15000
 READY_MS = 30000
 
@@ -304,10 +306,45 @@ class Session:
         self.vote = None
         self.shot_dir = cfg.path("shot_dir")
         self.pay = getattr(cfg, "payment_method", "opcoin")
+        self.dialogs = []          # サイトが出した小窓（alert / confirm）の文面
+        self.accept_next = False   # 次の小窓を OK にするか（全買い目削除のときだけ）
 
     def _say(self, msg):
         if self.log:
             self.log.event("見た", msg)
+
+    def _on_dialog(self, d):
+        """サイトの小窓。文面を残す。全買い目削除の確認だけ OK、ほかはキャンセル（買う方向には押さない）"""
+        ok = self.accept_next
+        self.accept_next = False
+        self.dialogs.append(d.message)
+        self._say(f"サイトの小窓「{d.message[:80]}」→ {'OK' if ok else 'キャンセル'}")
+        try:
+            d.accept() if ok else d.dismiss()
+        except Exception:
+            pass
+
+    def _dialogs_since(self, n):
+        new = self.dialogs[n:]
+        return f"（サイトの小窓: {' / '.join(m[:60] for m in new)}）" if new else ""
+
+    def _wait_auth(self, vp):
+        """投票の窓の「本人確認」（パスワードの入れ直し）。★このプログラムは入れない。人が済ませるのを待つ"""
+        msg = "★投票の窓で「本人確認」（パスワード）を聞かれています。Chrome の画面で手で入れて「確認」を押してください（このプログラムは入れません）"
+        if self.log:
+            self.log.event("待っています", msg)
+        else:
+            print(msg, flush=True)
+        end = time.time() + AUTH_WAIT
+        while time.time() < end:
+            vp.wait_for_timeout(2000)
+            if vp.is_closed():
+                raise LoggedOut("本人確認の途中で投票の窓が閉じられた")
+            if not self._visible(vp, "password"):
+                self._say("本人確認が済みました")
+                _settle(vp)
+                return
+        raise LoggedOut(f"本人確認が{AUTH_WAIT // 60}分待っても済まない")
 
     # ---- 投票の窓 ----
     def vote_page(self):
@@ -321,31 +358,39 @@ class Session:
             with self.page.expect_popup(timeout=WAIT_MS) as info:
                 link.click()
             self.vote = info.value
+            self.vote.on("dialog", self._on_dialog)
             self._say(f"投票の窓を開きました（{how}）")
         self._to_matome(self.vote)
         return self.vote
 
     def _to_matome(self, vp):
-        """「レースまとめ投票」の画面にする。開いた直後は「Loading」を挟むので、部品が出るまで待つ"""
-        ready = f"{SEL['race_area']}, {SEL['multi_race']}, {SEL['course']}, {SEL['login_id']}"
-        for _ in range(4):
-            try:
-                vp.wait_for_selector(ready, timeout=READY_MS)
-            except Exception:
-                break
-            _settle(vp)
-            if vp.locator(SEL["login_id"]).count():
+        """「レースまとめ投票」の画面にする。開いた直後は「Loading」を挟むので、部品が見えるまで待つ
+
+        ★wait_for_selector に「A, B, C」とまとめて渡すと、ページの中で最初に当たった要素（隠れた要素のこともある）
+          だけを待ってしまう。見えているかを1つずつ自分で見る
+        """
+        clicks = 0
+        end = time.time() + READY_MS / 1000 * 2
+        while time.time() < end:
+            if vp.is_closed():
+                raise RuntimeError("投票の窓が閉じられた")
+            if vp.locator(SEL["login_id"]).count() and self._visible(vp, "login_id"):
                 self.close_vote()
                 raise LoggedOut("投票の窓がログイン画面になっている")
+            if self._visible(vp, "password"):
+                self._wait_auth(vp)
+                end = time.time() + READY_MS / 1000
+                continue
             if self._visible(vp, "race_area") and self._visible(vp, "amount"):
+                _settle(vp)
                 return
             for key in ("multi_race", "matome_tab"):
-                loc = vp.locator(SEL[key])
-                if loc.count() and loc.first.is_visible():
-                    loc.first.click()
+                if clicks < 3 and self._visible(vp, key):
+                    vp.locator(SEL[key]).first.click()
+                    clicks += 1
                     _settle(vp)
                     break
-            time.sleep(0.5)
+            vp.wait_for_timeout(500)
         png = shot(vp, self.shot_dir, "matome_missing", html=True)
         raise RuntimeError("「レースまとめ投票」の画面を開けない" + (f"（{png}）" if png else ""))
 
@@ -381,7 +426,7 @@ class Session:
         if tab.count() and tab.first.is_visible():
             tab.first.click()
             _settle(vp)
-            vp.wait_for_selector(SEL["race_area"], state="visible", timeout=READY_MS)
+            self._to_matome(vp)
 
     def course_code(self, vp, place):
         """ul#course の li から場コード。無ければ None / 発売が無ければ ""（inactive）"""
@@ -426,10 +471,13 @@ class Session:
             self._to_matome(vp)
             if vp.locator(SEL["slip_rows"]).count() == 0:
                 return True
-            vp.once("dialog", lambda d: d.accept())                  # 「削除しますか？」が出たら OK（削除なので安全）
-            vp.locator(SEL["slip_all_delete"]).first.click()
-            _settle(vp)
-            vp.wait_for_timeout(500)
+            self.accept_next = True                                  # 「削除しますか？」が出たら OK（削除なので安全）
+            try:
+                vp.locator(SEL["slip_all_delete"]).first.click()
+                _settle(vp)
+                vp.wait_for_timeout(500)
+            finally:
+                self.accept_next = False                             # ★小窓が出なくても、次の小窓（申込など）に持ち越さない
             return vp.locator(SEL["slip_rows"]).count() == 0
         except Exception:
             return False
@@ -460,8 +508,13 @@ class Session:
             raise RuntimeError("買い目一覧に前の残りがあって消せない")
         self._reset_inputs(vp)
         box = vp.locator(SEL["amount"])
+        # ★fill() だと一度に入るだけで、キーを押した合図が出ない。サイトがそれで金額を拾うことがある
+        #   （2026-09-26 の dry で、画面には「1」が入っているのにセットしても買い目一覧が空だった）。人と同じく1文字ずつ打つ
         box.click()
-        box.fill(units)
+        box.press("Control+a")
+        box.press("Delete")
+        box.press_sequentially(units, delay=80)
+        box.press("Tab")
         if box.input_value().strip() != units:
             raise RuntimeError(f"セット金額の欄に {units} が入らない（{box.input_value()!r}）")
         for col, car in enumerate(cars, 1):
@@ -481,23 +534,29 @@ class Session:
         pay.check()
         if not pay.is_checked():
             raise RuntimeError("支払い方法を選べない")
+        n0 = len(self.dialogs)
         vp.locator(SEL["set"]).click()
         _settle(vp)
-        vp.wait_for_timeout(500)
+        for _ in range(10):                                   # 買い目一覧に出るまで最大5秒
+            if vp.locator(SEL["slip_rows"]).count():
+                break
+            vp.wait_for_timeout(500)
+        vp.wait_for_timeout(300)
         rows = _rows(vp, SEL["slip_rows"])
         sc = vp.locator(SEL["sum_count"]).inner_text() if vp.locator(SEL["sum_count"]).count() else ""
         sp = vp.locator(SEL["sum_pay"]).inner_text() if vp.locator(SEL["sum_pay"]).count() else ""
         bad = check_slip(rows, sc, sp, b.place, b.rno, b.ticket, units, b.yen)
         if bad:
             png = shot(vp, self.shot_dir, f"{b.key}_slip", html=True)
-            raise ConfirmMismatch("買い目一覧が合わない: " + " / ".join(bad) + (f"（{png}）" if png else ""))
+            raise ConfirmMismatch("買い目一覧が合わない: " + " / ".join(bad) + self._dialogs_since(n0) + (f"（{png}）" if png else ""))
+        n0 = len(self.dialogs)
         vp.locator(SEL["to_confirm"]).click()
         try:
             vp.wait_for_selector(SEL["buy"], timeout=READY_MS)
         except Exception:
             why = looks_refused(body_text(vp))
             png = shot(vp, self.shot_dir, f"{b.key}_no_confirm", html=True)
-            raise RuntimeError("確認画面にならない" + (f"（{why}）" if why else "") + (f"（{png}）" if png else ""))
+            raise RuntimeError("確認画面にならない" + (f"（{why}）" if why else "") + self._dialogs_since(n0) + (f"（{png}）" if png else ""))
         _settle(vp)
         return _rows(vp, SEL["confirm_rows"]), body_text(vp)
 

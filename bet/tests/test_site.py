@@ -180,6 +180,28 @@ class TestFakeSite(unittest.TestCase):
                 op.bet(self.session, self.bet_obj(**kw), True, lambda s: None, lambda: None)
         self.assertEqual(BOUGHT, [])
 
+    def test_本人確認は人が済ませるのを待つ(self):
+        self.login()
+        self.page.evaluate("localStorage.setItem('needAuth', '1')")
+        op.bet(self.session, self.bet_obj(), True, lambda s: None, lambda: None)
+        self.assertEqual(len(BOUGHT), 1)
+        self.assertIn("本人確認", open(self.cfg.path("log_path"), encoding="utf-8").read())
+
+    def test_セットできないときはサイトの小窓の文面を出す(self):
+        self.login()
+        self.session.vote_page()
+        self.session.vote.evaluate("localStorage.setItem('bug', 'swap')")
+        # わざと 3連単 だけにする偽物の不具合は無いので、代わりに賭式を外した状態でセットさせる
+        orig = self.session._reset_inputs
+        def broken(vp):
+            orig(vp)
+            vp.locator("#sanrenpuku").uncheck()
+        self.session._reset_inputs = broken
+        with self.assertRaises(op.ConfirmMismatch) as cm:
+            op.bet(self.session, self.bet_obj(), True, lambda s: None, lambda: self.fail("押そうとした"))
+        self.assertIn("入力が足りません", str(cm.exception))
+        self.assertEqual(BOUGHT, [])
+
     def test_窓を閉じられても開き直す(self):
         self.login()
         self.session.vote_page().close()

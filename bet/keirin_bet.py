@@ -385,6 +385,12 @@ def main(argv=None):
                 log.event("終了", "ログインしていない")
                 return 2
             log.event("見た", "ログインを確かめました")
+            # 投票の窓を先に開いておく。最初に「本人確認」（パスワード）を聞かれるので、人がいるうちに済ませる
+            try:
+                session.vote_page()
+                log.event("見た", "投票の窓（レースまとめ投票）を開きました")
+            except Exception as e:
+                log.event("見送り", f"投票の窓をまだ開けません（{type(e).__name__}: {e}）。買うときにもう一度開きます")
 
             def bet_fn(b, live, guard, before_press):
                 return op.bet(session, b, live, guard, before_press)
