@@ -171,6 +171,24 @@ def body_text(page):
         return ""
 
 
+# 画面の HTML を、入力欄の中身を消してから取り出す（ID・暗証番号・隠し欄のトークンを残さない）
+SAFE_HTML_JS = """() => {
+  const c = document.documentElement.cloneNode(true);
+  const keep = ['button', 'submit', 'reset', 'radio', 'checkbox', 'image'];
+  c.querySelectorAll('input').forEach((e) => { if (!keep.includes((e.getAttribute('type') || 'text').toLowerCase())) e.removeAttribute('value'); });
+  c.querySelectorAll('textarea').forEach((e) => { e.textContent = ''; });
+  c.querySelectorAll('script').forEach((e) => { e.textContent = '/* 省略 */'; });
+  return '<!doctype html>\\n' + c.outerHTML;
+}"""
+
+
+def safe_html(page_or_frame):
+    try:
+        return page_or_frame.evaluate(SAFE_HTML_JS)
+    except Exception as e:
+        return f"<!-- 取れず: {e} -->"
+
+
 def shot(page, shot_dir, name, html=False):
     """スクショ（と HTML）を残す。★HTML には残高やお名前が入ることがある。人に渡す前に確かめること"""
     if not shot_dir:
@@ -181,7 +199,10 @@ def shot(page, shot_dir, name, html=False):
         page.screenshot(path=base + ".png", full_page=True)
         if html:
             with open(base + ".html", "w", encoding="utf-8") as f:
-                f.write(page.content())
+                f.write(safe_html(page))
+            for i, fr in enumerate(page.frames[1:], 1):      # 枠（iframe）の中も
+                with open(f"{base}_frame{i}.html", "w", encoding="utf-8") as f:
+                    f.write(f"<!-- {fr.url} -->\n" + safe_html(fr))
         return base + ".png"
     except Exception:
         return ""
@@ -311,7 +332,17 @@ class Session:
             vp = self.vote_page()
             venue = self._venue_link(vp, place)
         if venue is None:
-            raise SkipRace(f"投票の窓に場「{place}」が見当たらない（オッズパークで売っていない？）")
+            png = shot(vp, self.shot_dir, f"venue_missing_{place}", html=True)
+            links = vp.get_by_role("link", name=place)
+            names = []
+            for i in range(min(links.count(), 5)):
+                try:
+                    names.append(repr(links.nth(i).inner_text(timeout=1000).strip()[:20]))
+                except Exception:
+                    pass
+            raise SkipRace(f"投票の窓に場「{place}」が見当たらない（オッズパークで売っていない？ "
+                           f"「{place}」を含むリンク {links.count()}個 {' '.join(names)} / 枠 {len(vp.frames) - 1}個）"
+                           + (f"（{png}）" if png else ""))
         venue.first.click()
         _settle(vp)
         race = self._race_link(vp, rno)

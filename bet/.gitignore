@@ -7,6 +7,8 @@ bet_done.json
 .bet_done-*.tmp
 logs/
 shots/
+# 記録モード(record.py)の記録。残高やお名前が写ることがある
+records/
 STOP
 __pycache__/
 *.pyc
