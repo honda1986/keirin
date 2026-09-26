@@ -56,6 +56,13 @@ function q2of(t2, n, trio) {
   return q;
 }
 
+// 混戦度: 2車複の3番人気の倍率 ÷ 1番人気の倍率(小さいほど混戦)。hikitsugi §4-10
+function f13of(f2) {
+  if (!Array.isArray(f2)) return null;
+  const v = f2.filter((x) => x > 0 && x < 9999).sort((a, b) => a - b);
+  return v.length >= 3 ? v[2] / v[0] : null;
+}
+
 const R = [];
 const files = fs.readdirSync(dir).filter((f) => /^\d{8}\.json\.gz$/.test(f)).sort();
 for (const f of files) {
@@ -82,7 +89,7 @@ for (const f of files) {
     const delta = EV.deltaFromRiders(e.riders, e.lines, e.place);
     const ev = delta ? EV.evOf(delta, pl.ticket, snap.o, n) : null;
     const hit = [e.f, e.s, e.t].sort((a, b) => a - b).join() === trio.join();
-    R.push({ id, n, gap: Math.log(q2 / q3), drift: fo ? Math.log(fo / o3) : null, ev, hit, pay: hit ? e.p3fpay : 0, o3,
+    R.push({ id, n, gap: Math.log(q2 / q3), drift: fo ? Math.log(fo / o3) : null, ev, hit, pay: hit ? e.p3fpay : 0, o3, f13: f13of(snap.f2),
       inBand: !pl.needOdds || (o3 >= pl.bandLo && o3 <= pl.bandHi) });
   }
 }
@@ -107,6 +114,14 @@ labels.forEach((lab, j) => {
 console.log("\n3. 判定時の期待値 × ずれ");
 for (const [lab, f] of [["期待値≥1", (r) => r.ev != null && r.ev >= 1], ["期待値<1", (r) => r.ev != null && r.ev < 1]]) {
   for (const [gl, gf] of [["ずれ+(2車が強気)", (r) => r.gap >= 0], ["ずれ−(3連複が強気)", (r) => r.gap < 0]]) {
+    const g = R.filter((r) => f(r) && gf(r) && r.inBand);
+    const ret = g.reduce((a, r) => a + r.pay, 0), h = g.filter((r) => r.hit).length;
+    console.log(`  ${lab}・${gl}: ${g.length}R 的中${pct(h, g.length)}% 回収${pct(ret, g.length * 100)}%`);
+  }
+}
+console.log("\n4. 判定時の期待値 × 混戦度(2車複 3番人気÷1番人気 ≤ 2.0)  ※確定オッズでは 期待値≥1・混戦 が 2025 136% / 2026 183%(§4-10)");
+for (const [lab, f] of [["期待値≥1", (r) => r.ev != null && r.ev >= 1], ["期待値<1", (r) => r.ev != null && r.ev < 1]]) {
+  for (const [gl, gf] of [["混戦", (r) => r.f13 != null && r.f13 <= 2.0], ["それ以外", (r) => r.f13 != null && r.f13 > 2.0]]) {
     const g = R.filter((r) => f(r) && gf(r) && r.inBand);
     const ret = g.reduce((a, r) => a + r.pay, 0), h = g.filter((r) => r.hit).length;
     console.log(`  ${lab}・${gl}: ${g.length}R 的中${pct(h, g.length)}% 回収${pct(ret, g.length * 100)}%`);
