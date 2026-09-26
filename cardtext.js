@@ -1,6 +1,6 @@
 // ============================================================
 // cardtext.js — Kドリームスのレース詳細ページ(HTML)を、parseCard が読めるテキストにする
-//   fetch.js(今日の出走表)と scorefill.js(過去の出走表から得点を埋める)が使う
+//   fetch.js(今日の出走表)・scorefill.js(過去の出走表から得点を埋める)・pastcard.js(過去の出走表の作り直し)が使う
 // ============================================================
 "use strict";
 // ---- HTML → テキスト ----
@@ -50,4 +50,29 @@ function withNarabiText(html) {
   return String(html).replace(/<div[^>]*class="[^"]*line_position[^"]*"[^>]*>[\s\S]*?<\/div>/i, "<br>" + s + "<br>");
 }
 
-module.exports = { htmlToText, narabiFromHtml, withNarabiText };
+// ---- ページは4万字あるので、予想に必要な部分だけ残す(races.json を太らせないため) ----
+const PROF = /^[^\/\s]{1,6}[\s　]?[^\/\s]{0,6}\/\d{1,2}\/\d{1,3}$/;
+function compactCard(text, place, raceNo) {
+  const L = text.split("\n").map((x) => x.trim()).filter(Boolean);
+  const out = [place + "競輪 レース詳細"];
+  const dl = L.find((x) => /^\d{4}年\d{1,2}月\d{1,2}日/.test(x));
+  out.push((dl ? dl.replace(/\s+/g, " ") : "") + " レース詳細 " + raceNo);
+  const gl = L.find((x) => /[ＳＡＬSAL]級/.test(x) && x.length <= 24);
+  if (gl) out.push(gl);
+  const si = L.findIndex((x) => /^発走予定/.test(x));
+  if (si >= 0) { out.push(L[si]); if (L[si + 1]) out.push(L[si + 1]); }
+  const seen = new Set();
+  for (let i = 2; i < L.length; i++) {
+    if (!PROF.test(L[i])) continue;
+    const car = parseInt(L[i - 2], 10);
+    if (!(car >= 1 && car <= 9)) continue;
+    if (seen.has(car)) break;                 // 2周目(別タブの繰り返し)に入ったら終わり
+    seen.add(car);
+    for (let j = Math.max(0, i - 3); j <= i + 18 && j < L.length; j++) out.push(L[j]);
+  }
+  const ni = L.findIndex((x) => /並び予想/.test(x) && x.length <= 40);
+  if (ni >= 0) for (let j = ni; j < Math.min(L.length, ni + 45); j++) { out.push(L[j]); if (/^レース評/.test(L[j])) break; }
+  return out.join("\n");
+}
+
+module.exports = { htmlToText, narabiFromHtml, withNarabiText, compactCard };
