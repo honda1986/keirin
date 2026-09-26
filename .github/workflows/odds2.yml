@@ -30,6 +30,11 @@ on:
         description: 'リクエスト間隔ミリ秒'
         required: false
         default: '150'
+      all:
+        description: 'history.json に無いレースも取る(2024年以前など)'
+        type: choice
+        options: ['no', 'yes']
+        default: 'no'
 
 concurrency:
   group: odds2
@@ -77,8 +82,10 @@ jobs:
           KINDS: ${{ inputs.kinds }}
           CONC: ${{ inputs.conc }}
           WAIT: ${{ inputs.wait }}
+          ALL: ${{ inputs.all }}
         run: |
           OPTS="--kinds=$KINDS --conc=$CONC --wait=$WAIT --out=odds2dir"
+          if [ "$ALL" = "yes" ]; then OPTS="$OPTS --all"; fi
           if [ "$MODE" = "probe" ]; then node odds2.js --probe "$FROM" $OPTS; exit 0; fi
           if [ "$MODE" = "apply" ]; then OPTS="$OPTS --apply"; fi
           node odds2.js "$FROM" "${TO:-$FROM}" $OPTS | tee run.log
@@ -105,4 +112,4 @@ jobs:
         run: |
           gh workflow run odds2.yml --ref main -R "$GITHUB_REPOSITORY" \
             -f mode=apply -f from="${{ inputs.from }}" -f to="${{ inputs.to }}" \
-            -f kinds="${{ inputs.kinds }}" -f conc="${{ inputs.conc }}" -f wait="${{ inputs.wait }}"
+            -f kinds="${{ inputs.kinds }}" -f conc="${{ inputs.conc }}" -f wait="${{ inputs.wait }}" -f all="${{ inputs.all || 'no' }}"
