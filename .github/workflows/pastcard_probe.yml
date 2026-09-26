@@ -1,0 +1,37 @@
+name: 過去の出走表の点検
+
+# Kドリームスの過去のレース詳細ページに並び予想が残っているか・🔥が作り直せるかを点検する(pastcard_probe.js)。
+# 読み取りだけ。結果はログと成果物(pastcard-probe.json)に出す。リポジトリには書かない。
+on:
+  workflow_dispatch:
+    inputs:
+      dates:
+        description: '日付(空白区切り YYYY-MM-DD)'
+        required: true
+        default: '2020-07-15 2021-06-15 2022-03-15 2022-09-15 2023-03-15 2023-09-15 2024-03-15 2024-09-15 2025-03-15 2025-06-15 2025-10-15 2026-02-15 2026-06-15'
+      per:
+        description: '1日あたりのレース数(0=全部)'
+        required: true
+        default: '40'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 点検
+        env:
+          DATES: ${{ github.event.inputs.dates }}
+          PER: ${{ github.event.inputs.per }}
+        run: node pastcard_probe.js $DATES
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pastcard-probe
+          path: pastcard-probe.json
