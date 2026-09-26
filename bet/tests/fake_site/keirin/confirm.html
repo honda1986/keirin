@@ -3,7 +3,7 @@
 <table class="tb21"><tbody><tr><td class="buyInfoTitle">組数</td><td class="buyInfoData" id="cnt"></td></tr>
 <tr><td class="buyInfoTitle">合計金額</td><td id="voteInfoTotalAmount" class="buyInfoData"></td></tr></tbody></table>
 <form><a href="#" onclick="clickVoteComplete();return false;" id="buy">投票を申込</a></form>
-<form><ul id="confirmS"><li class="btn1"><a href="#" onclick="location.href='VoteKeirinTop.do';return false;">戻る</a></li></ul></form>
+<form><ul id="confirmS"><li class="btn1"><a href="#" onclick="localStorage.setItem('view','top');location.href='VoteKeirinTop.do';return false;">戻る</a></li></ul></form>
 <script>
 const s = JSON.parse(localStorage.getItem("slip") || "[]");
 const d = new Date(Date.now() + 9 * 3600e3);

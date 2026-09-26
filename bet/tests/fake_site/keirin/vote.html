@@ -49,7 +49,10 @@ function drawTop() {
     VENUES.map((v) => v.code ? '<li class="active"><a href="javascript:void(0)" class="v' + v.code + '"><span>' + (v.closed + 1) + 'R 発売中</span></a></li>'
                              : '<li class="inactive"><a><span>発売終了</span></a></li>').join("") +
     '<li class="active mR15"><a class="matome" id="todayMultiRace" style="display:inline-block;width:120px;height:40px;background:#fc0"><span></span></a></li></ul>';
-  $("#todayMultiRace").onclick = () => { LS.setItem("view", "matome"); draw(); };
+  $("#todayMultiRace").onclick = () => {      // 実物: 買い目があると「削除されます。よろしいですか？」
+    if (slip().length) { if (!confirm("レースまとめ投票へ遷移すると、現在の買い目は削除されます。\nよろしいですか？")) return; saveSlip([]); }
+    LS.setItem("view", "matome"); draw();
+  };
 }
 function drawMatome() {
   $("#section2").innerHTML = '<ul id="course">' + VENUES.map((v) => '<li value="' + v.code + '" class="' + (v.code ? "notSelect" : "inactive") + '"><a' + (v.code ? ' href="#"' : "") + ">" + v.name + "</a></li>").join("") +

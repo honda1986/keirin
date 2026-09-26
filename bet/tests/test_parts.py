@@ -148,6 +148,13 @@ class TestConfirm(unittest.TestCase):
         self.assertTrue(op.check_done(self.DONE, "エラーが発生しました", "岐阜", 2, "3=4=7"))
         self.assertTrue(op.check_done(self.DONE, t, "岐阜", 3, "3=4=7"))
 
+    def test_消すだけの小窓はOK(self):
+        self.assertTrue(op.is_delete_only("レースまとめ投票へ遷移すると、現在の買い目は削除されます。\nよろしいですか？"))
+        self.assertTrue(op.is_delete_only("全ての買い目を削除しますか？"))
+        self.assertFalse(op.is_delete_only("投票を申込みます。よろしいですか？"))
+        self.assertFalse(op.is_delete_only("買い目を削除して購入しますか？"))
+        self.assertFalse(op.is_delete_only("締切間近です。よろしいですか？"))
+
     def test_断られた画面(self):
         self.assertTrue(op.looks_refused("※投票の前に入金が必要です。"))
         self.assertEqual(op.looks_refused("投票申込確認"), "")
