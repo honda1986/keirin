@@ -294,6 +294,18 @@ class Runner:
                 time.sleep(1)
 
 
+def code_version():
+    """いま動いている bet/ の版（bet/ を最後に変えたコミットと、その日時）。PC の取り込みが済んだかを確かめるため"""
+    import subprocess
+    here = os.path.dirname(os.path.abspath(__file__))
+    try:
+        p = subprocess.run(["git", "log", "-1", "--format=%h %cd", "--date=format-local:%m/%d %H:%M", "--", "."], cwd=here,
+                           capture_output=True, encoding="utf-8", timeout=10)
+        return p.stdout.strip() or "?"
+    except Exception:
+        return "?"
+
+
 def ensure_logged_in(session, tries=3):
     """ログインを確かめ、入っていなければ、開いている Chrome で手でログインしてもらう
 
@@ -345,6 +357,7 @@ def main(argv=None):
         return 2
 
     log = betlog.Log(cfg.path("log_path"), args.mode)
+    log.event("版", f"コード {code_version()}（PC は10分おきに GitHub から取り込みます）")
     try:
         store = BetStore(cfg.path("bet_done_path"))
     except BetDoneCorrupt as e:
