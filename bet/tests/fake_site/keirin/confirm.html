@@ -1,0 +1,20 @@
+<!doctype html><html><head><meta charset="utf-8"><title>投票申込確認（テスト用の偽物）</title></head><body>
+<div id="section2"><table class="tb30 w963px"><tbody><tr><th>開催日</th><th>開催場</th><th>R</th><th>賭式</th><th>投票方式</th><th class="w200px">買い目</th><th>金額</th></tr></tbody></table></div>
+<table class="tb21"><tbody><tr><td class="buyInfoTitle">組数</td><td class="buyInfoData" id="cnt"></td></tr>
+<tr><td class="buyInfoTitle">合計金額</td><td id="voteInfoTotalAmount" class="buyInfoData"></td></tr></tbody></table>
+<form><a href="#" onclick="clickVoteComplete();return false;" id="buy">投票を申込</a></form>
+<form><ul id="confirmS"><li class="btn1"><a href="#" onclick="location.href='VoteKeirinTop.do';return false;">戻る</a></li></ul></form>
+<script>
+const s = JSON.parse(localStorage.getItem("slip") || "[]");
+const d = new Date(Date.now() + 9 * 3600e3);
+document.querySelector("#section2 tbody").insertAdjacentHTML("beforeend", s.map((x) => "<tr><td>" + d.getUTCFullYear() + "/" + (d.getUTCMonth() + 1) + "/" + d.getUTCDate() +
+  "</td><td>" + x.venue + "</td><td>" + x.race + "</td><td>3連複</td><td>フォーメーション</td><td> " + x.t + ' </td><td class="al-right">' + x.units * 100 + "円 </td></tr>").join(""));
+document.getElementById("cnt").textContent = s.length + "通り";
+document.getElementById("voteInfoTotalAmount").textContent = s.reduce((a, x) => a + x.units * 100, 0) + "円";
+async function clickVoteComplete() {
+  const r = await fetch("/api/buy", { method: "POST", body: JSON.stringify({ pay: localStorage.getItem("pay"), slip: s }) });
+  localStorage.setItem("done", JSON.stringify(r.ok ? s : []));
+  localStorage.setItem("slip", "[]");
+  location.href = localStorage.getItem("pay") === "1" ? "VoteCompleteOpcoin.do" : "VoteComplete.do";
+}
+</script></body></html>

@@ -41,7 +41,9 @@ from oddspark_page import SAFE_HTML_JS   # noqa: E402
 # 押した・入れたところを拾う。どの画面・どの枠にも差し込む
 PROBE_JS = r"""
 (() => {
-  if (window.__kbRecOn) return; window.__kbRecOn = true;
+  // ★印は document に付ける。window.open の窓は about:blank → 本来のページへ移るとき window を使い回すので、
+  //   window に付けると2回目が「入れ済み」と思って何もせず、新しい document のクリックを拾えなかった（実物で起きた）
+  if (document.__kbRecOn) return; document.__kbRecOn = true;
   const SECRET = /pass|pwd|pin|暗証|account|login|user|sso|id$|^id|mail|kanyu|加入|会員/i;
   const short = (s, n) => (s || '').replace(/\s+/g, ' ').trim().slice(0, n);
   function cssPath(el) {
@@ -85,7 +87,7 @@ PROBE_JS = r"""
     return e.target;
   }
   const send = (o) => { try { window.__kbRecord(Object.assign(o, { url: location.href, frame: window !== window.top })); } catch (x) {} };
-  document.addEventListener('click', (e) => send({ ev: 'click', el: describe(target(e)) }), true);
+  document.addEventListener('click', (e) => { try { send({ ev: 'click', el: describe(target(e)) }); } catch (x) {} }, true);
   document.addEventListener('change', (e) => {
     const el = e.target; if (!el || !el.tagName) return;
     const d = describe(el);
@@ -169,8 +171,22 @@ class Recorder:
         if page is not None:
             self.dirty[page] = time.time() + 1.5    # 押してから画面が落ち着いたころに撮る
 
+    @staticmethod
+    def inject(page):
+        """記録の仕掛けを全部の枠に入れる（入れ済みなら何もしない）
+
+        ★add_init_script だけでは足りない。ポップアップが about:blank から本来のページへ移る最初の1回は
+          init script が走らない（2026-09-26 の実物の記録で「レースまとめ投票」を押したのが残らなかった）
+        """
+        for fr in list(page.frames):
+            try:
+                fr.evaluate(PROBE_JS)
+            except Exception:
+                pass
+
     def watch(self, page):
         self.pid(page)
+        page.on("domcontentloaded", lambda: self.inject(page))
         page.on("framenavigated", lambda fr: fr == page.main_frame and self.dirty.__setitem__(page, time.time() + 1.0))
         page.on("dialog", lambda d: self._dialog(page, d))
         page.on("close", lambda: self.note(f"[窓{self.pid(page)}] 閉じた"))
@@ -191,6 +207,7 @@ class Recorder:
             self.dirty.pop(page, None)
             if page.is_closed():
                 continue
+            self.inject(page)
             self.snap(page)
 
     def snap(self, page):

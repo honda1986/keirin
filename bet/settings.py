@@ -19,6 +19,7 @@ PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
 YEN, LIMIT_YEN, LIMIT_POINTS, YESNO, MINUTES = "yen", "limit_yen", "limit_pt", "yn", "min"
 ONOFF = "onoff"
+PAY = "pay"
 TERMS = "terms"
 
 TERMS_NOTE = """
@@ -35,7 +36,7 @@ ITEMS = [
     ("1日の上限（レース数）", "max_races_per_day", LIMIT_POINTS),
     ("期待値1以上だけ買う", "use_ev", ONOFF),
     ("7車立て（帯の中だけ）も買う", "buy_7car", YESNO),
-    ("サイトの締切が読めないと買わない", "require_site_close", ONOFF),
+    ("支払い方法", "payment_method", PAY),
     ("締切まで何分を切ったら買わないか", "close_min_minutes", MINUTES),
     ("ログイン維持の間隔", "keepalive_minutes", MINUTES),
 ]
@@ -68,6 +69,8 @@ def show(d, key, kind):
         return "はい" if v else "いいえ"
     if kind == ONOFF:
         return "する" if v else "しない"
+    if kind == PAY:
+        return "OPコイン" if v == "opcoin" else "投票資金"
     if v is None:
         return "無制限"
     if kind == YEN or kind == LIMIT_YEN:
@@ -96,6 +99,8 @@ def ask(label, kind, now):
         print("  1=買う / 2=買わない")
     elif kind == ONOFF:
         print("  1=する / 2=しない")
+    elif kind == PAY:
+        print("  1=OPコイン / 2=投票資金")
     elif kind in (LIMIT_YEN, LIMIT_POINTS):
         print("  数字を入れてください。0 なら無制限")
     elif kind == YEN:
@@ -105,6 +110,10 @@ def ask(label, kind, now):
     s = input("  新しい値（何も入れずに Enter で変えない）: ").strip()
     if not s:
         return None, "変えませんでした"
+    if kind == PAY:
+        if s not in ("1", "2"):
+            return None, "1 か 2 を入れてください"
+        return ("opcoin" if s == "1" else "cash"), ""
     if kind in (YESNO, ONOFF):
         if s not in ("1", "2"):
             return None, "1 か 2 を入れてください"

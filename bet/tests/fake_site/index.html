@@ -5,11 +5,12 @@
 </div>
 <div id="home" style="display:none">
   <a href="#" onclick="document.cookie='sess=;path=/;max-age=0';location.reload()">ログアウト</a>
-  <div class="box"><h2>競馬</h2><a href="/keiba/vote.html" target="_blank">投票する</a></div>
-  <div class="box"><h2>オートレース</h2><a href="/auto/vote.html" target="_blank">投票する</a></div>
-  <div class="box"><h2>競輪</h2><a href="/keirin/vote.html" target="_blank">投票する</a></div>
+  <div class="box"><h2>競馬</h2><a class="btn_vote" href="/keiba/auth/VoteKeibaTop.do" onclick="openFullWindow(this.href); return false;">投票する</a></div>
+  <div class="box"><h2>オートレース</h2><a class="btn_vote" href="/autorace/auth/VoteAutoraceTop.do" onclick="openFullWindow(this.href); return false;">投票する</a></div>
+  <div class="box" id="box2"><h2>競輪</h2><a class="btn_vote" href="/keirin/auth/VoteKeirinTop.do?gamenId=P001&gamenKoumokuId=keirinVote" onclick="openFullWindow(this.href); return false;">投票する</a></div>
 </div>
 <script>
+function openFullWindow(u) { window.open(u, "vote"); }
 const on = /(^|; )sess=1/.test(document.cookie);
 document.getElementById(on ? "home" : "login").style.display = "block";
 </script></body></html>

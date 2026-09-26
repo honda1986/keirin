@@ -30,10 +30,12 @@
   "max_snap_age_minutes": 4,
   "close_min_minutes": 1.5,
   "_5_締切": [
-    "締切は発走の5分前として動き、オッズパークの画面に出ている締切が早ければそちらに合わせる。",
-    "require_site_close=true なら、画面から締切が読めないレースは live で買わない（dry では読めたかをログに出す）。"
+    "締切は発走の5分前として動く。オッズパークの「レースまとめ投票」にそのレースのチェック欄が無ければ（締め切った・売っていない）買わない。",
+    "require_site_close は、画面で発売中を確かめられないときに買わないかどうか（true のままでよい）。"
   ],
   "require_site_close": true,
+  "_5b_支払い方法": "opcoin=OPコイン / cash=投票資金。オッズパークの支払い方法のどちらで買うか",
+  "payment_method": "opcoin",
   "poll_seconds": 20,
   "keepalive_minutes": 10,
   "_6_keirin": "betplan.js のある keirin のフォルダ（この bet フォルダの1つ上）と、Node のコマンド",
