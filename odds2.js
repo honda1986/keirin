@@ -70,38 +70,9 @@ async function pool(items, worker) {
   }));
 }
 
-const toText = (html) => html
-  .replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ")
-  .replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&gt;/g, ">").replace(/\s+/g, " ");
-
-// 組の並び(保存する配列の順)
-function combos(kind, n) {
-  const o = [];
-  for (let a = 1; a <= n; a++) for (let b = 1; b <= n; b++) {
-    if (a === b) continue;
-    if (KIND[kind].ordered) o.push(a + "-" + b);
-    else if (a < b) o.push(a + "=" + b);
-  }
-  return o;
-}
-
-// 「1 - 2 12.3」「1 → 2 12.3」「1 = 2 12.3」の並びを拾う。3連の「1=2=3」は拾わない
-function parseOdds(kind, html) {
-  const text = toText(html);
-  const out = new Map();
-  const sep = KIND[kind].ordered ? "(?:-|－|→|>)" : "(?:=|＝)";
-  const re = new RegExp("(?<![=＝\\-－→>]\\s*)(?<![\\d.,])(\\d)\\s*" + sep + "\\s*(\\d)(?!\\s*[=＝\\-－→>]\\s*\\d)[^\\d]{0,24}?([\\d,]+(?:\\.\\d+)?)", "g");
-  let m;
-  while ((m = re.exec(text))) {
-    const a = +m[1], b = +m[2];
-    if (a === b || a < 1 || b < 1) continue;
-    const v = parseFloat(m[3].replace(/,/g, ""));
-    if (!isFinite(v) || v <= 0) continue;
-    const key = KIND[kind].ordered ? a + "-" + b : Math.min(a, b) + "=" + Math.max(a, b);
-    if (!out.has(key)) out.set(key, v);
-  }
-  return out;
-}
+const { toText, combos2, parse2 } = require("./odds2parse.js");
+const combos = (kind, n) => combos2(kind, n);
+const parseOdds = (kind, html) => parse2(kind, html);
 
 function parseDayIndex(html, d8) {
   const seen = new Set(), out = [];
