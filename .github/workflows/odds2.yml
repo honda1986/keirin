@@ -1,0 +1,108 @@
+name: 2車単・2車複オッズ取得(検証用)
+
+# odds2.js で 2車単・2車複の確定オッズを取る。★保存は main ではなく odds2 ブランチ
+# (分析にしか使わないので、GitHub Pages に載る main を膨らませない)。
+# 時間切れ(5時間20分)で終わったら、同じ期間で自分を起動し直して続きを取る(取得済みは飛ばす)。
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'probe=画面の形を見る / 点検=書き込まない / apply=odds2 ブランチに保存'
+        type: choice
+        options: ['probe', '点検', 'apply']
+        default: 'probe'
+      from:
+        description: '開始日 YYYY-MM-DD'
+        required: true
+        default: '2026-09-20'
+      to:
+        description: '終了日 YYYY-MM-DD(probe では使わない)'
+        required: false
+      kinds:
+        description: '種別(2t=2車単, 2f=2車複)'
+        required: false
+        default: '2t,2f'
+      conc:
+        description: '同時リクエスト数'
+        required: false
+        default: '6'
+      wait:
+        description: 'リクエスト間隔ミリ秒'
+        required: false
+        default: '150'
+
+concurrency:
+  group: odds2
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  odds2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 保存先(odds2 ブランチ)を用意する
+        if: ${{ inputs.mode == 'apply' }}
+        run: |
+          git config --global user.name "race-bot"
+          git config --global user.email "actions@github.com"
+          if git ls-remote --exit-code origin refs/heads/odds2 >/dev/null 2>&1; then
+            git fetch -q origin refs/heads/odds2
+            git worktree add -q --detach odds2dir FETCH_HEAD
+          else
+            git worktree add -q --detach odds2dir
+            cd odds2dir
+            git checkout -q --orphan odds2
+            git rm -rqf .
+            printf '# 2車単・2車複の確定オッズ(検証用)\n\nodds2.js が書く。形式は odds2.js の先頭を参照。\n' > README.md
+            git add README.md
+            git commit -qm "odds2: 記録を始める"
+            git push -q origin HEAD:refs/heads/odds2
+          fi
+
+      - name: 取得
+        id: run
+        env:
+          MODE: ${{ inputs.mode }}
+          FROM: ${{ inputs.from }}
+          TO: ${{ inputs.to }}
+          KINDS: ${{ inputs.kinds }}
+          CONC: ${{ inputs.conc }}
+          WAIT: ${{ inputs.wait }}
+        run: |
+          OPTS="--kinds=$KINDS --conc=$CONC --wait=$WAIT --out=odds2dir"
+          if [ "$MODE" = "probe" ]; then node odds2.js --probe "$FROM" $OPTS; exit 0; fi
+          if [ "$MODE" = "apply" ]; then OPTS="$OPTS --apply"; fi
+          node odds2.js "$FROM" "${TO:-$FROM}" $OPTS | tee run.log
+          if grep -q "時間切れ" run.log; then echo "more=1" >> "$GITHUB_OUTPUT"; fi
+
+      - name: odds2 ブランチに保存
+        if: ${{ always() && inputs.mode == 'apply' }}
+        run: |
+          cd odds2dir
+          git add -A
+          git diff --cached --quiet && echo "変更なし" && exit 0
+          git commit -qm "2車オッズ ${{ inputs.from }}〜${{ inputs.to }}"
+          for i in 1 2 3 4 5; do
+            if git push -q origin HEAD:refs/heads/odds2; then echo "push成功"; exit 0; fi
+            echo "push失敗 $i/5。取り直して重ねる"; sleep 5
+            git fetch -q origin refs/heads/odds2 && git rebase -q FETCH_HEAD || { git rebase --abort; exit 1; }
+          done
+          exit 1
+
+      - name: 続きを起動する(時間切れのとき)
+        if: ${{ steps.run.outputs.more == '1' && inputs.mode == 'apply' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run odds2.yml --ref main -R "$GITHUB_REPOSITORY" \
+            -f mode=apply -f from="${{ inputs.from }}" -f to="${{ inputs.to }}" \
+            -f kinds="${{ inputs.kinds }}" -f conc="${{ inputs.conc }}" -f wait="${{ inputs.wait }}"
