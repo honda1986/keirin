@@ -21,6 +21,8 @@
 //   {"t":"14:03:12","k":"熊本_7R","rid":"8720...","left":9.8,"upd":"14:02","n":7,"o":[35個]}
 //   t=取得した時刻(JST) / left=締切まで何分 / upd=ページの「HH:MM現在」/ n=車立て
 //   o=3連複オッズ。1=2=3, 1=2=4, … の昇順(odds-YYYYMM.json と同じ並び)。取れなかった組は null
+//   t2=2車単・f2=2車複(2026-09-27〜。締切 TWO_CAR_LAST_MIN 分前以内の記録だけ。同じページに入っているので取り直さない)
+//      並びは odds2parse.js(2車単 1-2,1-3,…,2-1,… / 2車複 1=2,1=3,…)。2車と3連複の締切前の動きのずれを調べるため
 //
 // 使い方: node snap.js            … 窓に入っているレースを1周だけ見る(ワークフローが1分おきに呼ぶ)
 //         node snap.js --dry      … 取得して表示するだけ(書き込まない)
@@ -42,6 +44,8 @@ const EVERY_SEC = 170;          // 同じレースを見る間隔(3分弱。1分
 // 🔥のレースは締切6分前からは毎回(1分おき)見る。自動購入(bet/)は締切2.5分前の「いちばん新しい倍率」で
 // 期待値を出して買うかを決めるので、そのときの倍率が新しいほど確定オッズに近い
 const HOT_LAST_MIN = 6, HOT_EVERY_SEC = 50;
+const TWO_CAR_LAST_MIN = 6;     // 2車単・2車複も残すのは締切何分前からか(記録を膨らませすぎないため)
+const { toText: toText2, array2 } = require("./odds2parse.js");
 const CLOSE_BEFORE = 5;         // 締切は発走の5分前(index.html と同じ)
 const BUDGET_MS = 50 * 1000;    // 1回の持ち時間。超えたら残りは次の回へ
 const WAIT_MS = 700;            // 1リクエストごとの間隔(並列にしない)
@@ -156,8 +160,8 @@ async function main() {
     if (Date.now() - t0 > BUDGET_MS) { console.log("  持ち時間切れ。残りは次の回へ"); break; }
     const n = Array.isArray(x.riders) && x.riders.length ? x.riders.length : (x.plan && x.plan.cars) || 0;
     const url = "https://keirin.kdreams.jp/" + roma + "/racedetail/" + rid + "/?pageType=odds&kakeshikiType=3renhuku";
-    let p;
-    try { p = parseTrio(await fetchText(url)); }
+    let p, html;
+    try { html = await fetchText(url); p = parseTrio(html); }
     catch (e) { console.log("  " + x.key + ": 取得失敗(" + e.message + ")"); await sleep(WAIT_MS); continue; }
     const cs = combos(n || 9);
     const o = cs.map((k) => (p.odds.has(k) ? p.odds.get(k) : null));
@@ -168,12 +172,21 @@ async function main() {
       await sleep(WAIT_MS); continue;
     }
     const row = { t: hms(), k: x.key, rid, left: Math.round(left * 10) / 10, upd: p.upd, n: n || null, o };
+    if (left <= TWO_CAR_LAST_MIN && n) {
+      try {
+        const txt = toText2(html);
+        const t2 = array2("2t", txt, n), f2 = array2("2f", txt, n);
+        if (t2.some((v) => v != null)) row.t2 = t2;
+        if (f2.some((v) => v != null)) row.f2 = f2;
+      } catch (e) { console.log("  " + x.key + ": 2車のオッズが読めない(" + e.message + ")"); }
+    }
     rows.push(row);
     st.last[x.key] = Date.now();
     const bad = o.filter((v) => v != null && v >= 9999).length;
     console.log("  " + x.key + " 締切" + row.left + "分前 " + (p.upd || "?") + "現在 " + got + "/" + cs.length + "組" +
       (p.clash ? " ★人気順と高配当順で倍率が違う組 " + p.clash : "") +
-      (bad ? " (9999.9=" + bad + ")" : "") + (extra ? " ★車立てと合わない組 " + extra : ""));
+      (bad ? " (9999.9=" + bad + ")" : "") + (extra ? " ★車立てと合わない組 " + extra : "") +
+      (row.t2 ? " / 2車単" + row.t2.filter((v) => v != null).length + "・2車複" + (row.f2 || []).filter((v) => v != null).length + "組" : ""));
     await sleep(WAIT_MS);
   }
   if (DRY || !rows.length) return;
