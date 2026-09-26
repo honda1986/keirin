@@ -183,32 +183,48 @@ async function probe(dH) {
     try { idx = parseDayIndex(await get(`https://keirin.kdreams.jp/odds/${y}/${mo}/${dd}/`), d8); }
     catch (e) { console.log(dH, "一覧の取得に失敗:", e.message); continue; }
     const known = Object.keys(HIST).length > 0 && !ALL;
+    // ★1つのページに全種別のオッズ表が入っている(2026-09-26 の probe で確認)。1レース1回だけ取って、種別ごとに読む
     const jobs = [];
     for (const r of idx) {
       if (known && !HIST[r.id]) continue;
-      for (const kind of KINDS) if (!loadMonth(kind, d8).races[r.id]) jobs.push({ r, kind });
+      const kinds = KINDS.filter((kind) => !loadMonth(kind, d8).races[r.id]);
+      if (kinds.length) jobs.push({ r, kinds });
     }
     if (!jobs.length) { console.log(dH, idx.length ? "すべて取得済み" : "開催なし"); continue; }
-    await pool(jobs, async ({ r, kind }) => {
-      const s = stat[kind];
+    await pool(jobs, async ({ r, kinds }) => {
       let html;
-      try { html = await get(urlOf(r, kind)); } catch (e) { s.err++; return; }
-      const map = parseOdds(kind, html);
-      if (!map.size) { s.none++; return; }
-      let n = 0;
-      for (const k of map.keys()) for (const c of k.split(/[-=]/)) n = Math.max(n, +c);
-      const order = combos(kind, n);
-      const arr = order.map((k) => (map.has(k) ? map.get(k) : null));
-      if (arr.some((x) => x == null)) s.part++;
-      // 検算: 2車単は history.json の p2pay(払戻金)と、来た組のオッズ×100 が合うか
-      const e = HIST[r.id];
-      if (kind === "2t" && e && e.f && e.s && e.p2pay) {
-        const v = map.get(e.f + "-" + e.s);
-        if (v != null && Math.abs(v * 100 - e.p2pay) / e.p2pay <= 0.05) s.vOk++;
-        else { s.vNg++; if (s.ng.length < 8) s.ng.push(r.id + " ページ" + v + " / 払戻" + e.p2pay); }
+      try { html = await get(urlOf(r, kinds[0])); } catch (e) { for (const k of kinds) stat[k].err++; return; }
+      for (const kind of kinds) {
+        const s = stat[kind];
+        const map = parseOdds(kind, html);
+        if (!map.size) { s.none++; continue; }
+        let n = 0;
+        for (const k of map.keys()) for (const c of k.split(/[-=]/)) n = Math.max(n, +c);
+        const order = combos(kind, n);
+        const arr = order.map((k) => (map.has(k) ? map.get(k) : null));
+        if (arr.some((x) => x == null)) s.part++;
+        // 検算: 2車単は history.json の p2pay(払戻金)と、来た組のオッズ×100 が合うか
+        const e = HIST[r.id];
+        if (kind === "2t" && e && e.f && e.s && e.p2pay) {
+          const v = map.get(e.f + "-" + e.s);
+          if (v != null && Math.abs(v * 100 - e.p2pay) / e.p2pay <= 0.05) s.vOk++;
+          else { s.vNg++; if (s.ng.length < 8) s.ng.push(r.id + " ページ" + v + " / 払戻" + e.p2pay); }
+        }
+        // 検算: 2車複は 2車単の裏表から出した値とだいたい合うか(ワイドの表を拾っていないか)
+        if (kind === "2f") {
+          const t = parseOdds("2t", html);
+          for (const [k, v] of map) {
+            const [a, b] = k.split("=");
+            const x = t.get(a + "-" + b), y = t.get(b + "-" + a);
+            if (!x || !y) continue;
+            const est = 1 / (1 / x + 1 / y);
+            if (Math.abs(est - v) / v <= 0.25) s.vOk++; else { s.vNg++; if (s.ng.length < 8) s.ng.push(r.id + " " + k + " 2車複" + v + " / 2車単から" + est.toFixed(1)); }
+            break;
+          }
+        }
+        if (APPLY) loadMonth(kind, d8).races[r.id] = { cars: n, o: arr };
+        s.ok++;
       }
-      if (APPLY) loadMonth(kind, d8).races[r.id] = { cars: n, o: arr };
-      s.ok++;
     });
     console.log(dH, KINDS.map((k) => KIND[k].label + " " + stat[k].ok).join(" / "), "経過" + Math.round((Date.now() - startedAt) / 1000) + "秒");
     saveAll();
@@ -217,7 +233,7 @@ async function probe(dH) {
   for (const k of KINDS) {
     const s = stat[k];
     console.log(KIND[k].label + ": 取得", s.ok, "/ オッズ読めず", s.none, "/ 失敗", s.err, "/ 組が欠けた", s.part,
-      k === "2t" ? "/ 検算 一致" + s.vOk + " 不一致" + s.vNg : "");
+      "/ 検算 一致" + s.vOk + " 不一致" + s.vNg);
     s.ng.forEach((x) => console.log("   ", x));
   }
 })();
