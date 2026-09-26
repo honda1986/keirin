@@ -46,12 +46,13 @@ class RecordFailed(Exception):
     """押す直前に bet_done.json へ書けなかった。押していない"""
 
 
-def fake_plan(spec, at):
+def fake_plan(spec, at, lead=8.0):
     """疑似の買い目を1件だけ作る。画面操作を試すためだけのもの
 
       --fake 広島-1          広島1R、買い目 1=2=3
       --fake 広島-1-3-4-6    買い目も指定する（三連複なので順不同。昇順にそろえる）
-    締切は8分後、倍率は「締切5分前に取った・期待値1.20」ということにするので、そのまま「買い」に入る。
+    締切は lead 分後（決める時刻の少し先。分単位に切り捨てるので、1周〜2周で決める時刻に入る）、
+    倍率は「いま取った・期待値1.20」ということにするので、そのまま「買い」に入る。
     """
     parts = [p.strip() for p in str(spec).replace("R", "").split("-") if p.strip()]
     if len(parts) < 2 or not parts[1].isdigit() or not (1 <= int(parts[1]) <= 12):
@@ -59,12 +60,12 @@ def fake_plan(spec, at):
     cars = sorted({int(x) for x in parts[2:5]}) if len(parts) >= 5 else [1, 2, 3]
     if len(cars) != 3 or not all(1 <= c <= 9 for c in cars):
         raise ValueError("買い目は 1〜9 の重複しない3車にしてください")
-    close = (at + timedelta(minutes=8)).strftime("%H:%M")
+    close = (at + timedelta(minutes=lead)).strftime("%H:%M")
     return {"date": date_str(at), "races": [{
         "key": f"{parts[0]}_{parts[1]}R", "date": date_str(at), "place": parts[0], "rno": int(parts[1]),
         "raceNo": f"{parts[1]}R", "close": close, "cars": 9, "ticket": "=".join(map(str, cars)),
         "needOdds": False, "verdict": "buy", "ev": 1.2, "odds": 9.9,
-        "snap": {"t": at.strftime("%H:%M:%S"), "left": 5, "age": 0.1, "src": "疑似"},
+        "snap": {"t": at.strftime("%H:%M:%S"), "left": round(lead, 1), "age": 0.1, "src": "疑似"},
     }], "racesFrom": "疑似", "oddsFrom": "疑似"}
 
 
@@ -373,7 +374,8 @@ def main(argv=None):
             return 2
         print(f"★疑似の買い目で動かします（{args.fake}）。betplan.js は見ません")
         log.event("開始", f"★疑似の買い目 {args.fake}")
-        plan_fn = lambda: (fake_plan(args.fake, now()), "")     # noqa: E731
+        lead = cfg.decide_at_minutes + 0.5
+        plan_fn = lambda: (fake_plan(args.fake, now(), lead), "")     # noqa: E731
     else:
         plan_fn = lambda: plan_source.run(cfg)                  # noqa: E731
         plan, why = plan_fn()

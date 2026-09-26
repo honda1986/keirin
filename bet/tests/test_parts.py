@@ -22,7 +22,11 @@ NOW = datetime(2026, 9, 26, 15, 0, 0, tzinfo=JST)
 
 
 def cfg(**over):
-    return config_mod.from_dict(dict(over), base_dir=tempfile.gettempdir())
+    # 選び方のテストは「締切5分前(15:05)の時点で決める」形で書いてあるので、既定の2.5分ではなく6分にする。
+    # 決める時刻そのもののテストは decide_at_minutes=2.5 を渡す
+    d = {"decide_at_minutes": 6}
+    d.update(over)
+    return config_mod.from_dict(d, base_dir=tempfile.gettempdir())
 
 
 def race(close="15:05", verdict="buy", left=4.5, age=0.5, ev=1.2, odds=9.0, need=False, cars=9,
@@ -41,18 +45,28 @@ class TestSelector(unittest.TestCase):
     def sel(self, p, done=(), spent=0, bought=0, c=None, at=NOW):
         return selector.select(p, set(done), spent, bought, c or cfg(), at)
 
-    def test_締切6分以内の倍率で買いなら買う(self):
+    def test_決める時刻になったら最新の倍率で買いなら買う(self):
         r = self.sel(plan(race()))
         self.assertEqual([b.key for b in r.bets], ["20260926_岐阜_3R"])
         self.assertEqual(r.bets[0].ticket, "2=4=9")
 
-    def test_倍率がまだ締切6分より前のものなら待つ(self):
-        r = self.sel(plan(race(left=8.5)))
-        self.assertEqual((r.bets, r.skips), ([], []))
+    def test_締切2半分前までは決めない_見送りに見えても待つ(self):
+        c = cfg(decide_at_minutes=2.5)
+        for v in ("buy", "skipEv"):
+            r = self.sel(plan(race(close="15:05", verdict=v)), c=c)          # あと5分
+            self.assertEqual((r.bets, r.skips), ([], []), v)
+        # あと2.4分になったら、そのときの最新の倍率(ここでは買い)で決める
+        r = self.sel(plan(race(close="15:05", verdict="buy", left=2.6, age=0.2)), c=c, at=NOW.replace(minute=2, second=36))
+        self.assertEqual(len(r.bets), 1)
+        self.assertIn("締切2.6分前の倍率で判断", r.bets[0].note)
 
-    def test_古い倍率では決めない(self):
+    def test_少し古い倍率は注記付きで使い_古すぎれば見送り(self):
         r = self.sel(plan(race(age=6)))
-        self.assertEqual((r.bets, r.skips), ([], []))
+        self.assertEqual(len(r.bets), 1)
+        self.assertIn("少し古い倍率", r.bets[0].note)
+        r = self.sel(plan(race(age=9)))
+        self.assertEqual(r.bets, [])
+        self.assertIn("届かない", r.skips[0][1])
 
     def test_期待値1未満は見送りと決める(self):
         r = self.sel(plan(race(verdict="skipEv", ev=0.87)))
@@ -76,10 +90,10 @@ class TestSelector(unittest.TestCase):
             self.assertEqual(len(r.skips), 1, v)
 
     def test_締切間際は手元の最後の倍率で決める(self):
-        # 締切まで2.5分・倍率は締切8分前のもの（新しいのが届かない）
+        # 締切まで1.8分・倍率は締切8分前のもの（新しいのが届かない）
         r = self.sel(plan(race(close="15:02", left=8.0, age=5.0)), at=NOW.replace(second=10))
         self.assertEqual(len(r.bets), 1)
-        self.assertIn("締切8.0分前の倍率で判断", r.bets[0].note)
+        self.assertIn("少し古い倍率", r.bets[0].note)
 
     def test_締切間際で倍率が無ければ見送り(self):
         r = self.sel(plan(race(close="15:02", snap=False, verdict="noOdds")), at=NOW.replace(second=10))

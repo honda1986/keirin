@@ -5,13 +5,14 @@
 ★買い目も判定も作り直さない。betplan.js（アプリと同じ ev.js）の verdict をそのまま使う。
   ここで決めるのは「いつ決めるか」と「上限」だけ。
 
-いつ決めるか:
-  締切前オッズは PC の snap.js が締切15〜2分前に3分おきに取る。
-  「締切まで decide_left_minutes（既定6分）以内に取った倍率」が届いた時点で1回だけ決める
-  （ふつうは締切3〜6分前の倍率。確定オッズにいちばん近い）。
-  決めたら、あとで倍率が動いても決め直さない（何度も見て「買い」を拾うと、検証していない別のルールになる）。
-  締切間際（close_min_minutes + 1.5分）になっても届かなければ、そのとき手元にある最後の倍率で決める。
-  それも無ければ見送り。
+いつ決めるか（2026-09-26 に変更）:
+  締切まで decide_at_minutes（既定2.5分）になるまで待ち、そのとき手元にある**いちばん新しい倍率**で1回だけ決める。
+  期待値の成績は確定オッズで測っているので、決めるのは確定に近いほどよい。
+  締切前オッズは PC の snap.js が締切15〜2分前に3分おき（🔥は締切6分前から1分おき）に取る。
+  それより前の倍率では決めない（途中で見送りに見えても、最後の倍率で1以上なら買う）。
+  ★「一度でも1以上になったら買う」にはしない。1の前後を行き来するだけのレースを拾い、検証していない別のルールになる。
+  決めたら、あとで倍率が動いても決め直さない。
+  倍率が max_snap_age_minutes より古ければ、その2倍までなら注記を付けて使い、それより古ければ見送り。
 """
 from dataclasses import dataclass, field
 
@@ -20,7 +21,6 @@ from jst import minutes_to_close
 
 LATE_WINDOW = 30          # 締切を何分過ぎたぶんまで「間に合わなかった」と報せるか
 LOOK_MINUTES = 16         # 締切まで何分以内のレースを見るか（snap.js は15分前から）
-LAST_CHANCE = 1.5         # close_min_minutes にこれを足した時刻を過ぎたら、手元の倍率で決める
 
 
 @dataclass(frozen=True)
@@ -113,26 +113,24 @@ def select(plan, done_keys, spent_yen, races_bought, cfg, at):
             res.skips.append((_bet(r, cfg, minutes), "7車立ては買わない設定"))
             continue
 
+        if minutes > cfg.decide_at_minutes:
+            continue                      # まだ決めない（締切 decide_at_minutes 分前まで待つ）
         snap = r.get("snap") or None
         age = snap.get("age") if snap else None
         left = snap.get("left") if snap else None
-        usable = snap is not None and age is not None and left is not None and age <= cfg.max_snap_age_minutes
-        last_chance = minutes <= cfg.close_min_minutes + LAST_CHANCE
         note = ""
         use_ev = cfg.use_ev_7car if r.get("needOdds") else cfg.use_ev_9car     # 7車立て・9車立て（8車以上）で別々に決める
         if not use_ev and not r.get("needOdds"):
             # 期待値を使わない設定の9車立ては、倍率が無くても買う（アプリの「期待値で絞る」をオフにしたのと同じ）
-            if minutes > cfg.decide_left_minutes:
-                continue
             res.bets.append(_bet(r, cfg, minutes, "期待値を使わない設定"))
             continue
-        ready = usable and left <= cfg.decide_left_minutes
-        if not ready and last_chance and snap is not None and age is not None and age <= cfg.max_snap_age_minutes * 2:
-            ready, note = True, f"締切{left}分前の倍率で判断（それより新しい倍率が届かない）"
-        if not ready:
-            if last_chance:
-                res.skips.append((_bet(r, cfg, minutes), "締切前の倍率が届かない"))
+        if snap is None or age is None or age > cfg.max_snap_age_minutes * 2:
+            res.skips.append((_bet(r, cfg, minutes), "締切前の倍率が届かない" + (f"（いちばん新しいのが{age:.0f}分前）" if age is not None else "")))
             continue
+        if age > cfg.max_snap_age_minutes:
+            note = f"少し古い倍率（{age:.0f}分前に取った・締切{left}分前）で判断"
+        elif left is not None:
+            note = f"締切{left}分前の倍率で判断"
 
         v = r.get("verdict")
         if use_ev:

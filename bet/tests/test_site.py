@@ -100,7 +100,7 @@ class TestFakeSite(unittest.TestCase):
         BOUGHT.clear()
         self.dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.dir, True)
-        self.cfg = config_mod.from_dict({"i_have_read_the_terms": True, "oddspark_url": self.url}, base_dir=self.dir)
+        self.cfg = config_mod.from_dict({"i_have_read_the_terms": True, "oddspark_url": self.url, "decide_at_minutes": 10}, base_dir=self.dir)
         self.ctx = self.browser.new_context()
         self.addCleanup(self.ctx.close)
         self.page = self.ctx.new_page()
@@ -153,7 +153,7 @@ class TestFakeSite(unittest.TestCase):
         self.assertEqual(BOUGHT[1]["slip"], [{"venue": "別府", "race": 5, "t": "2-5-6", "units": 1}])
 
     def test_投票資金で買う設定(self):
-        self.cfg = config_mod.from_dict({"oddspark_url": self.url, "payment_method": "cash"}, base_dir=self.dir)
+        self.cfg = config_mod.from_dict({"oddspark_url": self.url, "payment_method": "cash", "decide_at_minutes": 10}, base_dir=self.dir)
         self.session = op.Session(self.ctx, self.page, self.cfg, self.log)
         self.login()
         note = op.bet(self.session, self.bet_obj(), True, lambda s: None, lambda: None)
