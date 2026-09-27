@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""keirin_bet.py -- アプリの🔥（期待値で絞ったもの）を、オッズパークで自動購入する
+"""keirin_bet.py -- アプリの🔥（9車・5〜15倍）とモデルD（全レース・期待値1.1以上・10〜30倍）を、オッズパークで自動購入する
 
   python keirin_bet.py --mode check   ブラウザを開かず、買う／見送るの判定を並べるだけ
   python keirin_bet.py --mode dry     ブラウザを開き、確認画面まで進んで押さない
@@ -133,7 +133,9 @@ class Runner:
         today = plan.get("date") or date_str(at)
         done = self.store.keys() | self.decided
         spent, bought = self.store.spent_on(today), self.store.races_on(today)
-        res = selector.select(plan, done, spent, bought, self.cfg, at)
+        bought_keys = {k for k in self.store.keys() if self.store.bought(k)}
+        res = selector.select(plan, done, spent, bought, self.cfg, at, bought_keys)
+        self.decided.update(res.quiet)         # モデルDで買う組が無かったレースなど（黙って決める）
 
         for w in res.warnings:
             self._once("w:" + w, "見送り", w)
@@ -142,7 +144,7 @@ class Runner:
                 self._once("late:" + key, "見送り", text)
 
         n_hot, nxt = selector.summary(plan, at)
-        head = f"今日の勝負レース {n_hot}（出走表:{plan.get('racesFrom')} 倍率:{plan.get('oddsFrom')}）/ いま買う {len(res.bets)}件 / {nxt}"
+        head = f"今日の🔥とモデルD {n_hot}（出走表:{plan.get('racesFrom')} 倍率:{plan.get('oddsFrom')}）/ いま買う {len(res.bets)}件 / {nxt}"
         key0 = (nxt.split("（")[0], len(res.bets), len(res.skips))
         if key0 != self._last_summary[0] or time.time() - self._last_summary[1] > SUMMARY_EVERY or res.bets:
             self.log.event("見た", head)
@@ -367,6 +369,18 @@ def main(argv=None):
         return 2
     for k in cfg.unknown_keys:
         print(f"（config.json の {k} は使っていません）")
+    try:
+        import json as _json
+        with open(args.config, encoding="utf-8") as f:
+            _raw = _json.load(f)
+        if _raw.get("use_ev_9car", _raw.get("use_ev")) and "hot9_use_ev" not in _raw:
+            print("（2026-09-27 の見直しで、🔥の9車立ては期待値で絞らず 5〜15倍の帯の中を全部買うようにしました（5年とも回収100%超え）。"
+                  "期待値で絞るなら run.bat の 7) で「🔥9車立て: 期待値1以上だけ買う」を する にしてください）")
+        if _raw.get("buy_7car") and "buy_7car_hot" not in _raw:
+            print("（2026-09-27 の見直しで、🔥の7車立ては買わなくしました（5年とも回収100%未満）。"
+                  "買うなら run.bat の 7) で「🔥の7車立ても買う」を はい にしてください）")
+    except Exception:
+        pass
     if args.notify_test:
         ok, msg = notify.test(cfg)
         print(msg)

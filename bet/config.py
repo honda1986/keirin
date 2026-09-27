@@ -19,10 +19,13 @@ DEFAULTS = {
     "bet_yen": 100,
     "max_yen_per_day": 1000,
     "max_races_per_day": 10,
-    "use_ev_9car": True,
+    "use_ev_9car": True,       # 古い設定（使っていない。2026-09-27 に hot9_use_ev へ）
+    "hot9_use_ev": False,      # 🔥9車立て（5〜15倍）を期待値1以上に絞る。5年とも帯の中を全部買うほうが安定していたので既定は絞らない
     "use_ev_7car": True,
     "use_ev": True,            # 古い設定（7車・9車まとめて）。新しい2つが無ければその既定値に使う
-    "buy_7car": True,
+    "buy_7car": True,          # 古い設定（使っていない。2026-09-27 に buy_7car_hot へ。残っていても警告しないため）
+    "buy_7car_hot": False,     # 🔥の7車立ても買う（5年とも回収100%未満。既定は買わない）
+    "buy_model_d": True,       # モデルD（全レース・期待値1.1以上・10〜30倍）も買う
     "decide_at_minutes": 2.5,
     "decide_left_minutes": 6.0,   # 古い設定（使っていない。残っていても警告しないため）
     "max_snap_age_minutes": 4.0,
@@ -61,7 +64,8 @@ class Config:
     max_races_per_day: "int | None" = 10
     use_ev_9car: bool = True
     use_ev_7car: bool = True
-    buy_7car: bool = True
+    buy_7car_hot: bool = False
+    buy_model_d: bool = True
     decide_at_minutes: float = 2.5
     max_snap_age_minutes: float = 4.0
     close_min_minutes: float = 1.5
@@ -151,9 +155,10 @@ def from_dict(d, base_dir="."):
         bet_yen=_as_int(d, "bet_yen", lo=100, hi=10000),
         max_yen_per_day=_as_limit(d, "max_yen_per_day"),
         max_races_per_day=_as_limit(d, "max_races_per_day"),
-        use_ev_9car=_as_bool(d, "use_ev_9car") if "use_ev_9car" in d else _as_bool(d, "use_ev"),
+        use_ev_9car=_as_bool(d, "hot9_use_ev"),
         use_ev_7car=_as_bool(d, "use_ev_7car") if "use_ev_7car" in d else _as_bool(d, "use_ev"),
-        buy_7car=_as_bool(d, "buy_7car"),
+        buy_7car_hot=_as_bool(d, "buy_7car_hot"),
+        buy_model_d=_as_bool(d, "buy_model_d"),
         decide_at_minutes=_as_num(d, "decide_at_minutes", lo=1, hi=10),
         max_snap_age_minutes=_as_num(d, "max_snap_age_minutes", lo=1, hi=10),
         close_min_minutes=_as_num(d, "close_min_minutes", lo=0.5, hi=10),

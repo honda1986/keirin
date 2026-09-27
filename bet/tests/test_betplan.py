@@ -68,26 +68,49 @@ class TestBetplan(unittest.TestCase):
 
     def test_期待値はev_jsと同じで_1以上なら買い(self):
         r = race()
-        o = self.odds(9, 4.0, base=300.0)
+        o = self.odds(9, 8.0, base=300.0)
         out = self.run_plan([r], [{"t": "15:00:10.000", "k": "岐阜_3R", "left": 4.8, "n": 9, "o": o}])
-        x = out["races"][0]
+        x = [y for y in out["races"] if y["kind"] == "hot"][0]
+        self.assertEqual((x["needOdds"], x["bandLo"], x["bandHi"]), (True, 5, 15))      # 9車も帯 5〜15倍（2026-09-27〜）
         self.assertEqual((x["close"], x["rno"], x["ticket"]), ("15:05", 3, "1=2=3"))
         self.assertAlmostEqual(x["ev"], self.ev_by_node(r, o), places=3)
         self.assertEqual(x["verdict"], "buy" if x["ev"] >= 1 else "skipEv")
         self.assertAlmostEqual(x["snap"]["age"], 0.8, places=1)
         self.assertEqual(x["snap"]["left"], 4.8)
 
+    def hot(self, out):
+        return [y for y in out["races"] if y["kind"] == "hot"]
+
     def test_期待値1未満(self):
-        o = self.odds(9, 40.0, base=5.0)
-        x = self.run_plan([race()], [{"t": "15:00:10", "k": "岐阜_3R", "left": 4.8, "n": 9, "o": o}])["races"][0]
+        o = self.odds(9, 14.0, base=2.0)
+        x = self.hot(self.run_plan([race()], [{"t": "15:00:10", "k": "岐阜_3R", "left": 4.8, "n": 9, "o": o}]))[0]
         self.assertEqual(x["verdict"], "skipEv")
         self.assertLess(x["ev"], 1)
 
+    def test_9車は帯の外なら見送り(self):
+        x = self.hot(self.run_plan([race()], [{"t": "15:00:10", "k": "岐阜_3R", "left": 4.8, "n": 9, "o": self.odds(9, 4.0, base=300.0)}]))[0]
+        self.assertEqual((x["verdict"], x["odds"]), ("skipBand", 4.0))
+
+    def test_モデルDの買う組はevd_jsと同じ(self):
+        r = race()
+        o = [8.0 + (i * 7) % 60 for i, _ in enumerate(combos(9))]
+        out = self.run_plan([r], [{"t": "15:00:10", "k": "岐阜_3R", "left": 4.8, "n": 9, "o": o}])
+        d = [y for y in out["races"] if y["kind"] == "D"][0]
+        code = ("const E=require('./evd.js');const r=%s;const p=E.pick(E.evAll(r.riders,r.lines,r.place,%s,9));"
+                "console.log(JSON.stringify(p))") % (json.dumps(r, ensure_ascii=False), json.dumps(o))
+        p = json.loads(subprocess.run([NODE, "-e", code], capture_output=True, encoding="utf-8", cwd=KEIRIN).stdout)
+        if p is None:
+            self.assertEqual((d["verdict"], d["ticket"]), ("none", None))
+        else:
+            self.assertEqual((d["verdict"], d["ticket"], d["odds"]), ("buy", p["ticket"], p["odds"]))
+            self.assertTrue(10 <= d["odds"] <= 30 and d["ev"] >= 1.1)
+        self.assertEqual(d["key"], "岐阜_3R")
+
     def test_7車は帯の外なら見送り(self):
         r = race(cars=7, need=True)
-        x = self.run_plan([r], [{"t": "15:00:10", "k": "岐阜_3R", "left": 4.8, "n": 7, "o": self.odds(7, 16.0, base=200.0)}])["races"][0]
+        x = self.hot(self.run_plan([r], [{"t": "15:00:10", "k": "岐阜_3R", "left": 4.8, "n": 7, "o": self.odds(7, 16.0, base=200.0)}]))[0]
         self.assertEqual((x["verdict"], x["odds"]), ("skipBand", 16.0))
-        x = self.run_plan([r], [{"t": "15:00:10", "k": "岐阜_3R", "left": 4.8, "n": 7, "o": self.odds(7, 5.0, base=200.0)}])["races"][0]
+        x = self.hot(self.run_plan([r], [{"t": "15:00:10", "k": "岐阜_3R", "left": 4.8, "n": 7, "o": self.odds(7, 5.0, base=200.0)}]))[0]
         self.assertIn(x["verdict"], ("buy", "skipEv"))
 
     def test_票が薄い_倍率なし_本命でないレース(self):
@@ -95,13 +118,13 @@ class TestBetplan(unittest.TestCase):
         o[0] = 3.0
         out = self.run_plan([race(), race("広島_1R", "15:20", ticket="1=2=4"), race("別府_2R", hot=False)],
                             [{"t": "15:00:10", "k": "岐阜_3R", "left": 4.8, "n": 9, "o": o}])
-        v = {x["key"]: x["verdict"] for x in out["races"]}
+        v = {x["key"]: x["verdict"] for x in out["races"] if x["kind"] == "hot"}
         self.assertEqual(v, {"岐阜_3R": "thin", "広島_1R": "noOdds"})
 
     def test_新しいほうの倍率を使う(self):
         local = {"t": "14:57:00", "k": "岐阜_3R", "left": 8.0, "n": 9, "o": self.odds(9, 4.0)}
         live = {"date": "20260926", "source": "GitHub", "races": {"岐阜_3R": {"t": "15:00:30", "left": 4.5, "n": 9, "o": self.odds(9, 6.0)}}}
-        x = self.run_plan([race()], [local], live=live)["races"][0]
+        x = self.hot(self.run_plan([race()], [local], live=live))[0]
         self.assertEqual((x["snap"]["src"], x["odds"]), ("odds-live", 6.0))
 
     def test_ほかの日の出走表は使わない(self):

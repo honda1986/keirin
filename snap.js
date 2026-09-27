@@ -41,8 +41,9 @@ const [WIN_LO, WIN_HI] = winArg ? winArg.split(",").map(Number) : [2, 15];   // 
 const DAY_ARG = (argv.find((a) => a.startsWith("--day=")) || "").slice(6);    // 動作確認用: races.json のこの日を今日とみなす
 const HAS_RACES = argv.includes("--has-races");   // 今日の出走表があれば終了コード0、無ければ1(何も取りに行かない)
 const EVERY_SEC = 170;          // 同じレースを見る間隔(3分弱。1分おきに呼ばれる前提)
-// 🔥のレースは締切6分前からは毎回(1分おき)見る。自動購入(bet/)は締切2.5分前の「いちばん新しい倍率」で
-// 期待値を出して買うかを決めるので、そのときの倍率が新しいほど確定オッズに近い
+// 締切6分前からは全レースを毎回(1分おき)見る。自動購入(bet/)は締切2.5分前の「いちばん新しい倍率」で
+// 期待値を出して買うかを決めるので、そのときの倍率が新しいほど確定オッズに近い。
+// 2026-09-27 から全レース(それまでは🔥だけ): モデルD(evd.js)は全レース・全組から買う組を探すため
 const HOT_LAST_MIN = 6, HOT_EVERY_SEC = 50;
 const TWO_CAR_LAST_MIN = 6;     // 2車単・2車複も残すのは締切何分前からか(記録を膨らませすぎないため)
 const { toText: toText2, array2 } = require("./odds2parse.js");
@@ -145,7 +146,7 @@ async function main() {
     const left = minsToClose(today, x.startTime);
     if (left == null || left < WIN_LO || left > WIN_HI) continue;
     const prev = st.last[x.key] || 0;
-    const every = x.plan && x.plan.hot && left <= HOT_LAST_MIN ? HOT_EVERY_SEC : EVERY_SEC;
+    const every = left <= HOT_LAST_MIN ? HOT_EVERY_SEC : EVERY_SEC;
     if (Date.now() - prev < every * 1000) continue;
     const m = String(x.url || "").match(/keirin\.kdreams\.jp\/([a-z]+)\/racedetail\/(\d{16})/);
     if (!m) { console.log("  " + x.key + ": レースURLが無い"); continue; }
