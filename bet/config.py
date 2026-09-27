@@ -10,6 +10,7 @@
 """
 import json
 import os
+import re
 import shutil
 from dataclasses import dataclass, field
 
@@ -41,6 +42,9 @@ DEFAULTS = {
     "log_path": "logs/keirin_bet.log",
     "shot_dir": "shots",
     "stop_file": "STOP",
+    "ntfy_server": "https://ntfy.sh",
+    "ntfy_topic": "",          # 空なら通知しない
+    "ntfy_in_dry": False,      # dry でも通知する（設定を試すため）
 }
 
 
@@ -76,6 +80,9 @@ class Config:
     log_path: str = "logs/keirin_bet.log"
     shot_dir: str = "shots"
     stop_file: str = "STOP"
+    ntfy_server: str = "https://ntfy.sh"
+    ntfy_topic: str = ""
+    ntfy_in_dry: bool = False
     unknown_keys: list = field(default_factory=list)
 
     def path(self, name):
@@ -165,6 +172,9 @@ def from_dict(d, base_dir="."):
         log_path=_as_str(d, "log_path", required=True),
         shot_dir=_as_str(d, "shot_dir", required=True),
         stop_file=_as_str(d, "stop_file", required=True),
+        ntfy_server=_as_str(d, "ntfy_server", required=True),
+        ntfy_topic=_as_str(d, "ntfy_topic"),
+        ntfy_in_dry=_as_bool(d, "ntfy_in_dry"),
     )
     if cfg.payment_method not in ("opcoin", "cash"):
         raise ConfigError(f"payment_method は \"opcoin\"（OPコイン）か \"cash\"（投票資金）にしてください（いまは {cfg.payment_method!r}）")
@@ -175,6 +185,10 @@ def from_dict(d, base_dir="."):
             f"max_yen_per_day ({cfg.max_yen_per_day}) が bet_yen ({cfg.bet_yen}) より "
             "小さいので、1点も買えません"
         )
+    if not cfg.ntfy_server.startswith(("https://", "http://")):
+        raise ConfigError(f"ntfy_server は https:// で始まるURLにしてください（いまは {cfg.ntfy_server!r}）")
+    if cfg.ntfy_topic and not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", cfg.ntfy_topic):
+        raise ConfigError(f"ntfy_topic は半角の英数字・_・- だけ（64文字まで）にしてください（いまは {cfg.ntfy_topic!r}）")
     if cfg.close_min_minutes >= cfg.decide_at_minutes:
         raise ConfigError(
             f"close_min_minutes ({cfg.close_min_minutes}) は "
