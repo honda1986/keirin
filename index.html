@@ -2752,17 +2752,20 @@ function calDetail(d8, day) {
 // 月ごとの成績(タップでその月へ)
 function renderMonths(days, months) {
   const box = $("monthBox"); if (!box) return;
-  const rows = months.slice().reverse().map((ym) => ({ ym, g: calSum(Object.keys(days).filter((d) => d.slice(0, 6) === ym).flatMap((d) => days[d].h)) }));
-  const all = calSum(Object.keys(days).flatMap((d) => days[d].h));
+  // ★「Ⓓ モデルD」を選んだときはモデルDの一覧(day.d)で数える(2026-09-27 に🔥の一覧のまま数えていたのを直した)
+  const rows = months.slice().reverse().map((ym) => ({ ym, g: calSum(Object.keys(days).filter((d) => d.slice(0, 6) === ym).flatMap((d) => calList(days[d]))) }));
+  const all = calSum(Object.keys(days).flatMap((d) => calList(days[d])));
   const maxAbs = Math.max(1, ...rows.map((r) => Math.abs(r.g.pl)));
   const tr = (label, g, ym) => '<tr' + (ym ? ' data-ym="' + ym + '" style="cursor:pointer"' : "") + (ym === CAL.ym ? ' class="on"' : "") + '><td class="l" style="white-space:nowrap">' + label + "</td><td>" + g.n + "</td><td>" +
     (g.n ? Math.round(g.hit / g.n * 1000) / 10 + "%" : "—") + '</td><td style="font-weight:900;color:' + roiColor(g.roi) + '">' + (g.roi != null ? g.roi + "%" : "—") + "</td>" +
     '<td style="white-space:nowrap;text-align:left;color:' + (g.pl >= 0 ? "var(--green)" : "var(--red)") + '">' + kyen(g.pl) +
     (ym ? '<span class="bar" style="width:' + Math.round(Math.abs(g.pl) / maxAbs * 40) + "px;background:" + (g.pl >= 0 ? "var(--green)" : "var(--red)") + '"></span>' : "") + "</td></tr>";
-  box.innerHTML = '<div style="font-size:13px;font-weight:900;margin-bottom:6px">月ごとの成績</div>' +
+  box.innerHTML = '<div style="font-size:13px;font-weight:900;margin-bottom:6px">月ごとの成績' + (CAL.kind === "D" ? "（Ⓓ モデルD）" : "") + "</div>" +
     '<div class="tbl-scroll"><table class="mtbl"><thead><tr><th class="l">月</th><th>R数</th><th>的中率</th><th>回収率</th><th class="l">収支(円)</th></tr></thead><tbody>' +
     rows.map((r) => tr(+r.ym.slice(0, 4) + "年" + +r.ym.slice(4, 6) + "月", r.g, r.ym)).join("") + tr("<b>全期間</b>", all, null) + "</tbody></table></div>" +
-    '<div style="font-size:10px;color:var(--dim);margin-top:4px">上の「🔥全部/9車/7車」と帯・期待値の設定がそのまま反映されます。期待値予想は2025年のデータで係数を作ったので、2025年の数字は良く見えやすい(2026年からが本当の成績)。期待値を出せないレースは買った扱い。' + (DAILY_AT ? "集計 " + new Date(DAILY_AT).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "") + "</div>";
+    '<div style="font-size:10px;color:var(--dim);margin-top:4px">' + (CAL.kind === "D"
+      ? "モデルD(期待値1.1以上・10〜30倍の1組)の成績。〜2026/9/25 はその年より前のデータだけで作ったモデルと確定オッズでのさかのぼり計算。"
+      : "上の「🔥全部/9車/7車」と帯・期待値の設定がそのまま反映されます。期待値予想は2025年のデータで係数を作ったので、2025年の数字は良く見えやすい(2026年からが本当の成績)。期待値を出せないレースは買った扱い。") + (DAILY_AT ? "集計 " + new Date(DAILY_AT).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "") + "</div>";
   box.querySelectorAll("tr[data-ym]").forEach((t) => t.addEventListener("click", () => { CAL.ym = t.dataset.ym; CAL.sel = null; renderCal(); $("calBox").scrollIntoView({ behavior: "smooth", block: "start" }); }));
 }
 // タブ
