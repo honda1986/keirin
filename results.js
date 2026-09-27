@@ -561,7 +561,7 @@ function evForEntry(dir, e, d, ticket) {
   if (fo) { const v = EV.evOf(delta, ticket, fo.o, fo.cars); if (v != null) return [Math.round(v * 1e4) / 1e4, "f"]; }
   return [null, null];
 }
-// モデルD(evd.js)の買い目。〜2026-09-25 は d-past.json(作り直した出走表・確定オッズで計算したもの)。
+// モデルD(evd.js)の買い目。2025-01-01〜2026-09-25 は d-past.json(その年より前のデータで作ったモデル・作り直した出走表・確定オッズで計算したもの)。
 // それより後は history の riders(府県つき)と倍率(締切前の記録があればそれ、無ければ確定オッズ)から毎晩計算する
 const EVD = require("./evd.js");
 let D_PAST = null;
