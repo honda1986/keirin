@@ -14,6 +14,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import config as config_mod    # noqa: E402
+import notify                  # noqa: E402
 
 PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
@@ -21,6 +22,8 @@ YEN, LIMIT_YEN, LIMIT_POINTS, YESNO, MINUTES = "yen", "limit_yen", "limit_pt", "
 ONOFF = "onoff"
 PAY = "pay"
 TERMS = "terms"
+TOPIC = "topic"
+SENDTEST = "sendtest"
 
 TERMS_NOTE = """
   これは「オッズパークの利用規約を自分で読んで、
@@ -40,7 +43,16 @@ ITEMS = [
     ("支払い方法", "payment_method", PAY),
     ("締切まで何分を切ったら買わないか", "close_min_minutes", MINUTES),
     ("ログイン維持の間隔", "keepalive_minutes", MINUTES),
+    ("通知先（ntfy のトピック名）", "ntfy_topic", TOPIC),
+    ("dry でも通知する", "ntfy_in_dry", ONOFF),
+    ("通知を試しに1通送る", None, SENDTEST),
 ]
+
+TOPIC_NOTE = """
+  スマホに ntfy アプリを入れて、ここに入れたのと同じ名前のトピックを購読してください。
+  購入した・購入に失敗した・買えずに見送った・止まった ときに通知が来ます。
+  ★トピック名を知っている人は誰でも通知を読めます。keirin-hamu-8f3k2q のような
+    推測されにくい名前にしてください（半角の英数字・_・- だけ）。"""
 
 
 def load_raw():
@@ -63,6 +75,8 @@ def save_raw(d):
 
 
 def show(d, key, kind):
+    if kind == SENDTEST:
+        return ""
     v = d.get(key, config_mod.DEFAULTS.get(key))
     if key in ("use_ev_9car", "use_ev_7car") and key not in d:
         v = d.get("use_ev", True)              # 古い設定（まとめて1つ）を引き継ぐ
@@ -74,6 +88,8 @@ def show(d, key, kind):
         return "する" if v else "しない"
     if kind == PAY:
         return "OPコイン" if v == "opcoin" else "投票資金"
+    if kind == TOPIC:
+        return v or "通知しない"
     if v is None:
         return "無制限"
     if kind == YEN or kind == LIMIT_YEN:
@@ -98,6 +114,12 @@ def ask(label, kind, now):
         if input("  > ").strip().lower() != "yes":
             return None, "変えませんでした"
         return True, ""
+    if kind == TOPIC:
+        print(TOPIC_NOTE)
+        s = input("  トピック名（何も入れずに Enter で変えない / - だけで通知をやめる）: ").strip()
+        if not s:
+            return None, "変えませんでした"
+        return ("" if s == "-" else s), ""
     if kind == YESNO:
         print("  1=買う / 2=買わない")
     elif kind == ONOFF:
@@ -164,6 +186,13 @@ def main():
             continue
 
         label, key, kind = ITEMS[int(n) - 1]
+        if kind == SENDTEST:
+            try:
+                ok, msg = notify.test(config_mod.from_dict(d))
+            except config_mod.ConfigError as e:
+                ok, msg = False, f"設定が読めません: {e}"
+            print(f"  {msg}")
+            continue
         try:
             value, why = ask(label, kind, show(d, key, kind))
         except (EOFError, KeyboardInterrupt):

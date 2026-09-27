@@ -24,6 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import betlog                       # noqa: E402
 import browser                      # noqa: E402
 import config as config_mod         # noqa: E402
+import notify                       # noqa: E402
 import oddspark_page as op          # noqa: E402
 import plan_source                  # noqa: E402
 import selector                     # noqa: E402
@@ -73,7 +74,7 @@ class Runner:
     """1周ぶんの流れ。画面操作は bet_fn として外から差し込む（テストは偽物を渡す）"""
 
     def __init__(self, cfg, store, mode, log, plan_fn, bet_fn=None, cleanup_fn=None,
-                 keepalive_fn=None, now_fn=None):
+                 keepalive_fn=None, now_fn=None, notifier=None):
         self.cfg = cfg
         self.store = store
         self.mode = mode
@@ -83,6 +84,7 @@ class Runner:
         self.cleanup_fn = cleanup_fn
         self.keepalive_fn = keepalive_fn
         self.now_fn = now_fn or now
+        self.notifier = notifier or notify.Notifier(cfg, "off")     # "off" は何も送らない
         self.stop_path = cfg.path("stop_file")
         self.halt_reason = ""
         self.decided = set()        # check / dry で決めたレース（live は bet_done.json に書く）
@@ -169,7 +171,9 @@ class Runner:
             return "ok"
         left = minutes_to_close(b.date, b.close, self.now_fn())
         if left is None or left < self.cfg.close_min_minutes:
-            self._decide_skip(b, f"押す前に締切が近づいた（あと{left:.1f}分）" if left is not None else "締切が読めない")
+            why = f"押す前に締切が近づいた（あと{left:.1f}分）" if left is not None else "締切が読めない"
+            self._decide_skip(b, why)
+            self.notifier.gave_up(b, why)
             return "ok"
 
         live = self.mode == "live"
@@ -198,6 +202,7 @@ class Runner:
             return self._uncertain(b, e)
         except op.LoggedOut as e:
             self._cleanup_note(b, "失敗", f"{e}。ログインし直します")
+            self.notifier.failed(b, f"ログインが切れていました（{e}）。ログインし直してもう一度試します")
             self.fails[b.key] = self.fails.get(b.key, 0) + 1
             if self.keepalive_fn and self.fails[b.key] < MAX_FAILS:
                 self._last_touch = self.now_fn()
@@ -210,11 +215,13 @@ class Runner:
             return "halt"
         except RecordFailed as e:
             self._cleanup_note(b, "失敗", f"bet_done.json に書けないので押しませんでした（{e}）")
+            self.notifier.failed(b, f"bet_done.json に書けないので押しませんでした（{e}）")
             self.halt_reason = "★bet_done.json に書けません。直してから動かし直してください"
             return "halt"
         except op.SkipRace as e:
             self._cleanup_note(b, "見送り", str(e), log=False)
             self._decide_skip(b, str(e))
+            self.notifier.gave_up(b, str(e))
             return "ok"
         except Exception as e:
             if pressed["v"]:               # 押した後の例外は press_buy が BetUncertain にするはずだが、念のため
@@ -223,6 +230,9 @@ class Runner:
             self._cleanup_note(b, "失敗", f"{type(e).__name__}: {e} ★手で確認してください")
             if self.fails[b.key] >= MAX_FAILS and b.key not in self.decided:
                 self._decide_skip(b, f"画面操作が{MAX_FAILS}回失敗したので見送り")
+                self.notifier.gave_up(b, f"画面操作が{MAX_FAILS}回失敗したので見送りました（{type(e).__name__}: {e}）")
+            else:
+                self.notifier.failed(b, f"画面操作に失敗しました（{type(e).__name__}: {e}）。次の周でもう一度試します")
             return "abort"
 
         self._last_touch = self.now_fn()
@@ -230,9 +240,12 @@ class Runner:
             cleaned = self.cleanup_fn() if self.cleanup_fn else None
             tail = "" if cleaned is None else ("。ベットリストは片付けました" if cleaned else "。★ベットリストが片付いたか確かめてください")
             self.log.bet(b, "見送り", f"{note}{tail}")
+            self.notifier.dry_done(b, note)
             return "ok"
         self.store.set_note(b.key, note)
-        self.log.bet(b, "購入した", f"当日計 {self.store.spent_on(today)}円 {note}")
+        spent = self.store.spent_on(today)
+        self.log.bet(b, "購入した", f"当日計 {spent}円 {note}")
+        self.notifier.bought(b, spent, note)
         return "ok"
 
     def _cleanup_note(self, b, result, note, log=True):
@@ -253,6 +266,7 @@ class Runner:
         except Exception as e2:
             note = f"★記録もできませんでした（{e2}）。次に動かす前に bet_done.json を直すこと"
         self.log.bet(b, "失敗", f"{e} ★オッズパークの投票履歴で確かめてください（{note}）。止めます")
+        self.notifier.uncertain(b, f"{e}（{note}）")
         self.halt_reason = ("★購入の結果が分からないので止めました。オッズパークの投票履歴を見て、"
                             "買えていなければ bet_done.json のその行（note に「要確認」）を消してください")
         return "halt"
@@ -284,6 +298,8 @@ class Runner:
                 return 0
             if state == "halt":
                 self.log.event("終了", self.halt_reason or "止めました")
+                self.notifier.halted(self.halt_reason or "止めました")
+                self.notifier.flush()
                 return 4
             if state == "abort":
                 self.log.event("打ち切り", "この周は途中で止めました。次の周へ")
@@ -334,7 +350,8 @@ def ensure_logged_in(session, tries=3):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="keirin の🔥 → オッズパーク 自動購入")
-    ap.add_argument("--mode", required=True, choices=MODES, help="check / dry / live（既定はありません）")
+    ap.add_argument("--mode", choices=MODES, help="check / dry / live（既定はありません）")
+    ap.add_argument("--notify-test", action="store_true", help="ntfy に試しに1通送って終わる")
     ap.add_argument("--config", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json"))
     ap.add_argument("--once", action="store_true", help="1周だけ動かして終わる")
     ap.add_argument("--fake", metavar="場-R[-車-車-車]", help="疑似の買い目で画面操作を試す（dry / check だけ。例 広島-1-3-4-6）")
@@ -350,6 +367,12 @@ def main(argv=None):
         return 2
     for k in cfg.unknown_keys:
         print(f"（config.json の {k} は使っていません）")
+    if args.notify_test:
+        ok, msg = notify.test(cfg)
+        print(msg)
+        return 0 if ok else 2
+    if not args.mode:
+        ap.error("--mode を指定してください（check / dry / live）")
     if args.fake and args.mode == "live":
         print("--fake は live では使えません（疑似の買い目でお金は使いません）。--mode dry で試してください。")
         return 2
@@ -359,6 +382,11 @@ def main(argv=None):
 
     log = betlog.Log(cfg.path("log_path"), args.mode)
     log.event("版", f"コード {code_version()}（PC は10分おきに GitHub から取り込みます）")
+    notifier = notify.Notifier(cfg, args.mode, log)
+    if notifier.enabled:
+        log.event("見た", f"購入・失敗を ntfy に通知します（トピック {cfg.ntfy_topic}）")
+        if len(cfg.ntfy_topic) < 12:
+            log.event("見た", "★ntfy のトピック名が短いです。知られると誰でも通知を読めるので、長く推測されにくい名前にしてください")
     try:
         store = BetStore(cfg.path("bet_done_path"))
     except BetDoneCorrupt as e:
@@ -427,7 +455,7 @@ def main(argv=None):
                 return ensure_logged_in(session)
 
             runner = Runner(cfg, store, args.mode, log, plan_fn, bet_fn=bet_fn,
-                            cleanup_fn=cleanup_fn, keepalive_fn=keepalive_fn)
+                            cleanup_fn=cleanup_fn, keepalive_fn=keepalive_fn, notifier=notifier)
             return runner.loop(once=args.once)
     except browser.BrowserUnavailable as e:
         print(e)
@@ -435,6 +463,12 @@ def main(argv=None):
     except KeyboardInterrupt:
         log.event("終了", "Ctrl+C")         # 記録は押す直前に書いてあるので、ここで壊れるものは無い
         return 0
+    except Exception as e:
+        # 思わぬエラーで落ちたとき。黙って止まると気づけないので知らせる
+        log.event("終了", f"思わぬエラーで止まりました（{type(e).__name__}: {e}）")
+        notifier.halted(f"思わぬエラーで止まりました（{type(e).__name__}: {e}）。PC の画面とログを確かめてください")
+        notifier.flush()
+        raise
 
 
 if __name__ == "__main__":

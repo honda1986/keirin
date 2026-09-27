@@ -60,5 +60,15 @@
   "bet_done_path": "bet_done.json",
   "log_path": "logs/keirin_bet.log",
   "shot_dir": "shots",
-  "stop_file": "STOP"
+  "stop_file": "STOP",
+  "_10_通知": [
+    "ntfy（https://ntfy.sh）でスマホに通知する。送るのは 購入した / 購入に失敗した / 買うつもりのレースを買えずに見送った / 止まった。",
+    "スマホに ntfy アプリを入れ、ntfy_topic と同じ名前のトピックを購読する。空なら通知しない。",
+    "★トピック名を知っている人は誰でも読める。keirin-hamu-8f3k2q のような推測されにくい名前にすること。",
+    "ntfy_in_dry を true にすると dry でも（確認画面まで進んだときに）通知する。設定を試す用。",
+    "run.bat の 7)（設定）から トピック名の設定と、試しに1通送ることができる。"
+  ],
+  "ntfy_server": "https://ntfy.sh",
+  "ntfy_topic": "",
+  "ntfy_in_dry": false
 }
