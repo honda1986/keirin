@@ -53,7 +53,7 @@ class Base(unittest.TestCase):
         self.store = BetStore(os.path.join(self.dir, "bet_done.json"))
 
     def write_config(self, **over):
-        d = {"i_have_read_the_terms": True, "poll_seconds": 10, "decide_at_minutes": 6}
+        d = {"i_have_read_the_terms": True, "poll_seconds": 10, "decide_at_minutes": 6, "hot9_use_ev": True}
         d.update(over)
         p = os.path.join(self.dir, "config.json")
         with open(p, "w", encoding="utf-8") as f:
@@ -181,6 +181,19 @@ class TestCycle(Base):
         r2.keepalive_fn = lambda: False
         self.assertEqual(r2.cycle(), "halt")
         self.assertEqual(self.store.keys(), set())
+
+    def test_モデルDも同じレースで別に買い_買う組が無いレースは記録しない(self):
+        p = plan(race(), race(kind="D", ticket="3=5=8", odds=18.0, ev=1.15),
+                 race(place="広島", rno=1, close="15:04", kind="D", verdict="none", ticket=None))
+        r = self.runner("live", p)
+        self.assertEqual(r.cycle(), "ok")
+        self.assertEqual(sorted(self.store.keys()), ["20260926_岐阜_3R", "20260926_岐阜_3R_D"])
+        self.assertEqual(self.store.bets["20260926_岐阜_3R_D"]["kind"], "D")
+        self.assertEqual(self.store.bets["20260926_岐阜_3R_D"]["ticket"], "3=5=8")
+        self.assertIn("岐阜3R(モデルD)", self.logtext())
+        self.assertNotIn("広島", self.logtext().split("見た")[-1])      # 買う組が無いレースはログにも出さない
+        self.assertEqual(r.cycle(), "ok")                                # 次の周で買い直さない
+        self.assertEqual(len(self.site.pressed), 2)
 
     def test_STOPで止まる(self):
         open(self.cfg.path("stop_file"), "w").close()

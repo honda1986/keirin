@@ -30,10 +30,10 @@ def cfg(**over):
 
 
 def race(close="15:05", verdict="buy", left=4.5, age=0.5, ev=1.2, odds=9.0, need=False, cars=9,
-         place="岐阜", rno=3, ticket="2=4=9", snap=True):
-    return {"key": f"{place}_{rno}R", "date": DATE, "place": place, "rno": rno, "raceNo": f"{rno}R",
-            "close": close, "cars": cars, "ticket": ticket, "needOdds": need, "bandLo": 4 if need else None,
-            "bandHi": 15 if need else None, "verdict": verdict, "ev": ev, "odds": odds,
+         place="岐阜", rno=3, ticket="2=4=9", snap=True, kind="hot", same=False, bandlo=4, bandhi=15):
+    return {"kind": kind, "key": f"{place}_{rno}R", "date": DATE, "place": place, "rno": rno, "raceNo": f"{rno}R",
+            "close": close, "cars": cars, "ticket": ticket, "needOdds": need, "bandLo": bandlo if need else None,
+            "bandHi": bandhi if need else None, "verdict": verdict, "ev": ev, "odds": odds, "sameAsHot": same,
             "snap": {"t": "14:59:30", "left": left, "age": age, "src": "PC"} if snap else None}
 
 
@@ -69,17 +69,17 @@ class TestSelector(unittest.TestCase):
         self.assertIn("届かない", r.skips[0][1])
 
     def test_期待値1未満は見送りと決める(self):
-        r = self.sel(plan(race(verdict="skipEv", ev=0.87)))
+        r = self.sel(plan(race(verdict="skipEv", ev=0.87)), c=cfg(hot9_use_ev=True))
         self.assertEqual(r.bets, [])
         self.assertEqual(len(r.skips), 1)
         self.assertIn("0.87", r.skips[0][1])
 
     def test_帯の外は見送り(self):
-        r = self.sel(plan(race(verdict="skipBand", need=True, cars=7, odds=16.2)))
+        r = self.sel(plan(race(verdict="skipBand", need=True, cars=7, odds=16.2)), c=cfg(buy_7car_hot=True))
         self.assertIn("帯4〜15倍の外", r.skips[0][1])
 
-    def test_7車を買わない設定(self):
-        r = self.sel(plan(race(need=True, cars=7)), c=cfg(buy_7car=False))
+    def test_本命ラインの7車は既定では買わない(self):
+        r = self.sel(plan(race(need=True, cars=7)))
         self.assertEqual(r.bets, [])
         self.assertIn("7車", r.skips[0][1])
 
@@ -118,28 +118,71 @@ class TestSelector(unittest.TestCase):
         self.assertEqual(r.bets, [])
         self.assertTrue(any("10レース" in w for w in r.warnings))
 
-    def test_期待値を使わない設定の9車は倍率なしでも買う(self):
-        r = self.sel(plan(race(verdict="noOdds", snap=False)), c=cfg(use_ev_9car=False))
+    def test_期待値を使わない設定でも帯は見る(self):
+        r = self.sel(plan(race(verdict="noOdds", snap=False)), c=cfg(hot9_use_ev=False))
+        self.assertEqual(r.bets, [])              # 9車も 5〜15倍の帯を見るので、倍率が無ければ買わない（2026-09-27〜）
+        r = self.sel(plan(race(verdict="skipEv", ev=0.8)), c=cfg(hot9_use_ev=False))
+        self.assertEqual(len(r.bets), 1)          # 帯の中なら期待値に関わらず
+        r = self.sel(plan(race(verdict="skipBand", need=True, bandlo=5, bandhi=15, odds=4.5)), c=cfg(hot9_use_ev=False))
+        self.assertEqual(r.bets, [])
+        r = self.sel(plan(race(verdict="skipEv", need=True, cars=7)), c=cfg(use_ev_7car=False, buy_7car_hot=True))
         self.assertEqual(len(r.bets), 1)
-        r = self.sel(plan(race(verdict="skipEv", need=True, cars=7)), c=cfg(use_ev_7car=False))
-        self.assertEqual(len(r.bets), 1)          # 7車は帯の中なら期待値に関わらず
-        r = self.sel(plan(race(verdict="skipBand", need=True, cars=7)), c=cfg(use_ev_7car=False))
+        r = self.sel(plan(race(verdict="skipBand", need=True, cars=7)), c=cfg(use_ev_7car=False, buy_7car_hot=True))
         self.assertEqual(r.bets, [])
 
     def test_期待値は7車と9車で別々(self):
         p = plan(race(verdict="skipEv", ev=0.8), race(place="別府", rno=4, verdict="skipEv", ev=0.8, need=True, cars=7, close="15:04"))
-        r = self.sel(p, c=cfg(use_ev_9car=False, use_ev_7car=True))
+        r = self.sel(p, c=cfg(hot9_use_ev=False, use_ev_7car=True, buy_7car_hot=True))
         self.assertEqual([b.place for b in r.bets], ["岐阜"])
         self.assertEqual([b.place for b, _ in r.skips], ["別府"])
-        r = self.sel(p, c=cfg(use_ev_9car=True, use_ev_7car=False))
+        r = self.sel(p, c=cfg(hot9_use_ev=True, use_ev_7car=False, buy_7car_hot=True))
         self.assertEqual([b.place for b in r.bets], ["別府"])
         self.assertEqual([b.place for b, _ in r.skips], ["岐阜"])
+
+    def test_モデルDは本命ラインと別のキーで買う(self):
+        p = plan(race(), race(kind="D", ticket="3=5=8", odds=18.0, ev=1.15))
+        r = self.sel(p)
+        self.assertEqual(sorted(b.key for b in r.bets), [make_key(DATE, "岐阜", 3), make_key(DATE, "岐阜", 3, "D")])
+        d = [b for b in r.bets if b.kind == "D"][0]
+        self.assertEqual((d.ticket, d.label), ("3=5=8", "岐阜3R(モデルD)"))
+        self.assertTrue(d.key.endswith("_D"))
+
+    def test_モデルDで買う組が無ければ黙って決める(self):
+        r = self.sel(plan(race(kind="D", verdict="none", ticket=None)))
+        self.assertEqual((r.bets, r.skips, r.quiet), ([], [], [make_key(DATE, "岐阜", 3, "D")]))
+        r = self.sel(plan(race(kind="D", snap=False, verdict="noOdds", ticket=None)))
+        self.assertEqual((r.bets, r.skips), ([], []))
+
+    def test_モデルDが本命ラインと同じ組なら重ねない(self):
+        r = self.sel(plan(race(), race(kind="D", ticket="2=4=9", same=True)))
+        self.assertEqual([b.kind for b in r.bets], ["hot"])
+        self.assertIn("🔥と同じ組", r.skips[0][1])
+        # 🔥を買わない（期待値1未満）ならモデルDは買う
+        r = self.sel(plan(race(verdict="skipEv", ev=0.9), race(kind="D", ticket="2=4=9", same=True)), c=cfg(hot9_use_ev=True))
+        self.assertEqual([b.kind for b in r.bets], ["D"])
+        # 前の周で🔥を「見送り」と決めただけ（買っていない）ならモデルDは買う
+        r = self.sel(plan(race(kind="D", ticket="2=4=9", same=True)), done=[make_key(DATE, "岐阜", 3)])
+        self.assertEqual([b.kind for b in r.bets], ["D"])
+        # 前の周で🔥を買っていたら重ねない
+        r = selector.select(plan(race(kind="D", ticket="2=4=9", same=True)), {make_key(DATE, "岐阜", 3)}, 0, 0, cfg(), NOW,
+                            bought_keys={make_key(DATE, "岐阜", 3)})
+        self.assertEqual(r.bets, [])
+
+    def test_モデルDを買わない設定と決める時刻(self):
+        r = self.sel(plan(race(kind="D", ticket="3=5=8")), c=cfg(buy_model_d=False))
+        self.assertEqual((r.bets, r.skips, r.quiet), ([], [], []))
+        r = self.sel(plan(race(kind="D", ticket="3=5=8")), c=cfg(decide_at_minutes=2.5))
+        self.assertEqual((r.bets, r.quiet), ([], []))      # 締切5分前なのでまだ決めない
 
     def test_古い設定use_evを引き継ぐ(self):
         c = cfg(use_ev=False)
         self.assertEqual((c.use_ev_9car, c.use_ev_7car), (False, False))
         c = cfg(use_ev=False, use_ev_7car=True)
         self.assertEqual((c.use_ev_9car, c.use_ev_7car), (False, True))
+
+    def test_9車の期待値は新しい設定だけを見る(self):
+        self.assertEqual(cfg(use_ev_9car=True).use_ev_9car, False)      # 古い設定は見ない（既定は絞らない）
+        self.assertEqual(cfg(hot9_use_ev=True).use_ev_9car, True)
         self.assertEqual(cfg().unknown_keys, [])
 
     def test_締切の近い順(self):
@@ -238,7 +281,7 @@ class TestStoreAndConfig(unittest.TestCase):
         self.assertEqual((c.bet_yen, c.max_yen_per_day, c.max_races_per_day), (100, 1000, 10))
 
     def test_おかしな値は止める(self):
-        for bad in ({"bet_yen": 150}, {"max_yen_per_day": 50}, {"close_min_minutes": 7}, {"use_ev_9car": "yes"}, {"payment_method": "card"}):
+        for bad in ({"bet_yen": 150}, {"max_yen_per_day": 50}, {"close_min_minutes": 7}, {"hot9_use_ev": "yes"}, {"payment_method": "card"}):
             with self.assertRaises(config_mod.ConfigError, msg=str(bad)):
                 cfg(**bad)
 

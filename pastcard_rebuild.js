@@ -108,6 +108,17 @@ for (const ym of yms) {
   }
 }
 
+// 4b. furoito に着順が無いレース(2026年5月以降は大半が空欄)は history.json の着順・3連複配当で補う
+try {
+  for (const e of JSON.parse(fs.readFileSync(path.join(K, "history.json"), "utf8")).entries) {
+    if (!e.f || !e.s || !e.t) continue;
+    const o = res[e.id];
+    if (o && o.fin[1] && o.fin[2] && o.fin[3]) continue;
+    const t = [e.f, e.s, e.t].sort((a, b) => a - b).join("=");
+    res[e.id] = { fin: { 1: e.f, 2: e.s, 3: e.t }, p3f: e.p3fpay != null ? [t, e.p3fpay] : null, p3t: null };
+  }
+} catch (e) { console.log("history.json を読めず:", e.message); }
+
 // 5. まとめる
 const out = {};
 let n = 0, ok = 0, withRes = 0, err = 0;

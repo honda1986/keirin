@@ -561,14 +561,39 @@ function evForEntry(dir, e, d, ticket) {
   if (fo) { const v = EV.evOf(delta, ticket, fo.o, fo.cars); if (v != null) return [Math.round(v * 1e4) / 1e4, "f"]; }
   return [null, null];
 }
+// モデルD(evd.js)の買い目。〜2026-09-25 は d-past.json(作り直した出走表・確定オッズで計算したもの)。
+// それより後は history の riders(府県つき)と倍率(締切前の記録があればそれ、無ければ確定オッズ)から毎晩計算する
+const EVD = require("./evd.js");
+let D_PAST = null;
+function dPickOf(dir, e, d) {
+  if (D_PAST == null) { try { D_PAST = JSON.parse(fs.readFileSync(path.join(dir, "d-past.json"), "utf8")).picks || {}; } catch (x) { D_PAST = {}; } }
+  const id = e.id || (d + "_" + e.place + "_" + e.raceNo);
+  if (D_PAST[id]) return [...D_PAST[id], "f"];
+  if (!Array.isArray(e.riders) || e.riders.length < 5 || e.riders.some((r) => !r[7])) return null;
+  const n = e.riders.length;
+  const sn = snapOdds(d, e.place + "_" + e.raceNo);
+  const fo = allOdds(dir, id);
+  const [o, src] = sn && sn.n === n ? [sn.o, "s"] : fo && fo.cars === n ? [fo.o, "f"] : [null, null];
+  if (!o) return null;
+  const p = EVD.pick(EVD.evAll(e.riders, e.lines, e.place, o, n));
+  return p ? [p.ticket, Math.round(p.ev * 1000) / 1000, p.odds, src] : null;
+}
 function writeDaily(dir, byDate, rankedOf) {
   const days = {};
   for (const d of Object.keys(byDate).sort()) {
-    const h = [];
+    const h = [], dd = [];
     let n = 0;
     for (const e of byDate[d]) {
       if (e.f == null || e.s == null) continue;
       n++;
+      // モデルD: [場, R, 車立て, 買い目, 着順, 的中(1/0/-1), 払戻, 倍率, 期待値, 出どころ]
+      const dp = dPickOf(dir, e, d);
+      if (dp) {
+        const done = e.t != null;
+        const dh = done ? ([e.f, e.s, e.t].sort((a, b) => a - b).join("=") === dp[0] ? 1 : 0) : -1;
+        dd.push([e.place, e.raceNo, (e.riders || []).length || null, dp[0], e.f + "-" + e.s + "-" + (done ? e.t : "?"), dh,
+          dh === 1 ? (e.p3fpay != null ? e.p3fpay : null) : 0, dp[2], dp[1], dp[3]]);
+      }
       const rk = rankedOf(e);
       if (rk.length < 4 || !Array.isArray(e.lines)) continue;
       const pl = f3PlanFrom(rk, e.lines);
@@ -583,7 +608,8 @@ function writeDaily(dir, byDate, rankedOf) {
     }
     const rn = (x) => parseInt(x[1], 10) || 0;
     h.sort((a, b) => a[0].localeCompare(b[0]) || rn(a) - rn(b));
-    days[d] = { n, h };
+    dd.sort((a, b) => a[0].localeCompare(b[0]) || rn(a) - rn(b));
+    days[d] = dd.length ? { n, h, d: dd } : { n, h };
   }
   fs.writeFileSync(path.join(dir, "daily.json"), JSON.stringify({ updatedAt: new Date().toISOString(), days }));
   console.log("daily.json:", Object.keys(days).length, "日");
@@ -592,4 +618,4 @@ function writeDaily(dir, byDate, rankedOf) {
 // 直接実行したときだけ走らせる(gitfill.js から require して部品を使い回すため)
 if (require.main === module) main().catch((e) => { console.error(e); process.exit(1); });
 
-module.exports = { get, parseHaraiList, sujiHit, raceDate, normalizeResult, makeEntry };
+module.exports = { get, parseHaraiList, sujiHit, raceDate, normalizeResult, makeEntry, writeDaily };

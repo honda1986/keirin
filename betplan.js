@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================
-// betplan.js — 今日の🔥レースそれぞれについて「いま買いか」をアプリと同じ判定で出す(自動投票 bet/ が読む)
+// betplan.js — 今日の🔥とモデルDについて「いま買いか」をアプリと同じ判定で出す(自動投票 bet/ が読む)
 //
 //   node betplan.js                  … JSON を1つ標準出力に出す
 //   node betplan.js --pretty         … 人が読む形で並べる
@@ -12,6 +12,11 @@
 //     7車立て(needOdds)は、その倍率が帯(bandLo〜bandHi)の中のときだけ
 //     verdict: buy(買い) / skipEv(期待値1未満) / skipBand(帯の外) / thin(票が薄い) / noOdds(倍率なし) / noDelta(選手データ不足)
 //   ★買い目を作り直さない。plan は fetch.js(engine.js の f3PlanFrom)が書いたものをそのまま使う
+//   ★2026-09-27 の見直し(hikitsugi §4-12):
+//     ・🔥の9車立て(8車以上)も帯 5〜15倍の中だけ(needOdds を立てて返す。5年とも100%超えだったのはここだけ)
+//     ・🔥の7車立ては5年とも100%未満。判定はそのまま出すが、買うかは bet/ の buy_7car_hot(既定 false)で決める
+//     ・モデルD(evd.js): 全レースの3連複全組から「期待値1.1以上・10〜30倍」でいちばん期待値の高い1組。kind:"D"
+//       verdict: buy / none(該当なし) / thin(票が薄い) / noOdds / noDelta。🔥と同じ組なら sameAsHot:true
 //
 // ★倍率の取り方(新しいほうを使う)
 //   1. 手元の snapwork/YYYYMMDD.jsonl(PC の snap.js が3分おきに書く)
@@ -28,6 +33,8 @@ const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
 const EV = require("./ev.js");
+const EVD = require("./evd.js");
+const HOT9_BAND = [5, 15];         // 🔥の9車立ての帯(2026-09-27〜)
 
 const argv = process.argv.slice(2);
 const arg = (k) => { const a = argv.find((x) => x.startsWith("--" + k + "=")); return a ? a.slice(k.length + 3) : null; };
@@ -114,6 +121,22 @@ function remoteSnaps(today, notes) {
 }
 
 // ---- 1レースの判定(index.html の evOfRow / evInfo と同じ) ----
+// モデルD: そのレースの買う1組
+function judgeD(r, snap) {
+  if (!snap || !Array.isArray(snap.o)) return { verdict: "noOdds" };
+  const n = snap.n || (r.riders || []).length;
+  if (!Array.isArray(r.riders) || r.riders.length !== n) return { verdict: "noOdds", why: "車立てが合わない" };
+  if (r.riders.some((x) => !x[7])) return { verdict: "noDelta" };
+  const all = EVD.evAll(r.riders, r.lines, r.place, snap.o, n);
+  if (!all) return { verdict: "thin" };
+  const p = EVD.pick(all);
+  if (!p) {
+    const best = all.reduce((a, b) => (b.ev > (a ? a.ev : -1) ? b : a), null);
+    return { verdict: "none", bestEv: best ? Math.round(best.ev * 1000) / 1000 : null };
+  }
+  return { verdict: "buy", ticket: p.ticket, ev: Math.round(p.ev * 1000) / 1000, odds: p.odds };
+}
+
 function judge(plan, delta, snap) {
   if (!snap || !Array.isArray(snap.o)) return { verdict: "noOdds" };
   const n = snap.n || plan.cars;
@@ -139,43 +162,64 @@ function main() {
   const local = localSnaps(today);
   const ageMin = (s) => { const d = s && jstDate(today, s.t); return d ? (now - d) / 60000 : null; };
   const closeOf = (r) => { const s = jstDate(today, r.startTime); return s ? new Date(s.getTime() - CLOSE_BEFORE_START * 60000) : null; };
-  // 締切20分以内なのに手元の倍率が新しくない🔥があるときだけ GitHub(odds-live)も見る
-  const needRemote = hot.some((r) => {
+  // 締切20分以内なのに手元の倍率が新しくないレースがあるときだけ GitHub(odds-live)も見る(モデルDは全レースを見るので全レース)
+  // (全レースを見るのは締切6分前から。PC が動いていればその間は手元に1分おきの記録があるので、ふだんは取りに行かない)
+  const needRemote = races.filter((r) => raceDay8(r) === today).some((r) => {
     const c = closeOf(r); if (!c) return false;
     const m = (c - now) / 60000, a = ageMin(local[r.key]);
-    return m >= -1 && m <= 20 && (a == null || a > FRESH_MIN);
+    const near = r.plan && r.plan.hot ? 20 : 6;
+    return m >= -1 && m <= near && (a == null || a > FRESH_MIN);
   });
   const remote = needRemote || arg("live") ? remoteSnaps(today, notes) : null;
   let oddsFrom = Object.keys(local).length ? "手元" : "";
   if (remote) oddsFrom += (oddsFrom ? "+" : "") + "odds-live(" + (remote.source || "?") + ")";
 
-  const out = hot.map((r) => {
-    const p = r.plan, c = closeOf(r);
+  const snapOf = (r) => {
     let s = local[r.key] || null;
     const rs = remote && remote.races && remote.races[r.key];
     if (rs && (!s || rs.t > s.t)) s = { ...rs, src: "odds-live" };
+    return s;
+  };
+  const base = (r, c, s) => ({
+    key: r.key, date: today, place: r.place, rno: parseInt(r.raceNo, 10) || null, raceNo: r.raceNo,
+    startTime: r.startTime, close: c ? jst(c).slice(11, 16) : null,
+    minutesToClose: c ? Math.round((c - now) / 6000) / 10 : null,
+    snap: s ? { t: s.t, left: s.left, age: Math.round(ageMin(s) * 10) / 10, src: s.src } : null,
+  });
+  const hotOut = hot.map((r) => {
+    const p = { ...r.plan }, c = closeOf(r), s = snapOf(r);
+    if (p.cars >= 8) { p.needOdds = true; p.bandLo = HOT9_BAND[0]; p.bandHi = HOT9_BAND[1]; }
     const delta = EV.deltaFromRiders(r.riders, r.lines, r.place);
     const j = judge(p, delta, s);
-    return {
-      key: r.key, date: today, place: r.place, rno: parseInt(r.raceNo, 10) || null, raceNo: r.raceNo,
-      startTime: r.startTime, close: c ? jst(c).slice(11, 16) : null,
-      minutesToClose: c ? Math.round((c - now) / 6000) / 10 : null,
-      cars: p.cars, ticket: p.ticket, needOdds: !!p.needOdds, bandLo: p.bandLo, bandHi: p.bandHi,
-      snap: s ? { t: s.t, left: s.left, age: Math.round(ageMin(s) * 10) / 10, src: s.src } : null,
-      ...j,
-    };
-  }).sort((a, b) => (a.minutesToClose ?? 9e9) - (b.minutesToClose ?? 9e9));
+    return { kind: "hot", ...base(r, c, s), cars: p.cars, ticket: p.ticket, needOdds: !!p.needOdds, bandLo: p.bandLo, bandHi: p.bandHi, ...j };
+  });
+  const hotTicket = {};
+  for (const x of hotOut) hotTicket[x.key] = x.ticket;
+  // モデルD: 締切20分以内(と締切直後)のレースだけ計算する(全レースを毎回計算しない)
+  const dOut = [];
+  for (const r of races) {
+    if (raceDay8(r) !== today || !Array.isArray(r.riders) || r.riders.length < 5) continue;
+    const c = closeOf(r);
+    const m = c ? (c - now) / 60000 : null;
+    if (m == null || m < -30 || m > 20) continue;
+    const s = snapOf(r);
+    const j = judgeD(r, s);
+    dOut.push({ kind: "D", ...base(r, c, s), cars: r.riders.length, needOdds: false, bandLo: EVD.PICK.oddsLo, bandHi: EVD.PICK.oddsHi,
+      ...j, ticket: j.ticket || null, sameAsHot: !!(j.ticket && hotTicket[r.key] === j.ticket) });
+  }
+  const out = hotOut.concat(dOut).sort((a, b) => (a.minutesToClose ?? 9e9) - (b.minutesToClose ?? 9e9));
 
   const res = { now: now.toISOString(), date: today, racesFrom: from, oddsFrom: oddsFrom || "なし", notes, races: out };
   if (!has("pretty")) { process.stdout.write(JSON.stringify(res) + "\n"); return; }
-  console.log(`${today} 出走表:${from} 倍率:${res.oddsFrom}  勝負レース${out.length}`);
+  console.log(`${today} 出走表:${from} 倍率:${res.oddsFrom}  🔥${hotOut.length} / モデルD(締切20分以内)${dOut.length}`);
   for (const n of notes) console.log("  (" + n + ")");
   for (const x of out) {
-    console.log(`  締切${x.close}(あと${x.minutesToClose}分) ${x.key.padEnd(8, "　")} ${x.ticket} ${x.cars}車 ` +
+    if (x.kind === "D" && x.verdict !== "buy") continue;
+    console.log(`  ${x.kind === "D" ? "Ⓓ" : "🔥"} 締切${x.close}(あと${x.minutesToClose}分) ${x.key.padEnd(8, "　")} ${x.ticket} ${x.cars}車 ` +
       `${x.verdict}${x.ev != null ? " 期待値" + x.ev.toFixed(2) : ""}${x.odds != null ? " " + x.odds + "倍" : ""}` +
       (x.snap ? ` [倍率 締切${x.snap.left}分前・${x.snap.age}分前に取得・${x.snap.src}]` : ""));
   }
 }
 
 if (require.main === module) main();
-module.exports = { judge, jstDate, raceDay8 };
+module.exports = { judge, judgeD, jstDate, raceDay8 };

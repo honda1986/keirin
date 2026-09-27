@@ -37,9 +37,10 @@ ITEMS = [
     ("1点あたりの金額", "bet_yen", YEN),
     ("1日の上限（円）", "max_yen_per_day", LIMIT_YEN),
     ("1日の上限（レース数）", "max_races_per_day", LIMIT_POINTS),
-    ("9車立て: 期待値1以上だけ買う", "use_ev_9car", ONOFF),
-    ("7車立て: 期待値1以上だけ買う", "use_ev_7car", ONOFF),
-    ("7車立て（帯の中だけ）も買う", "buy_7car", YESNO),
+    ("モデルDも買う（期待値1.1以上・10〜30倍）", "buy_model_d", YESNO),
+    ("🔥9車立て: 期待値1以上だけ買う", "hot9_use_ev", ONOFF),
+    ("🔥の7車立ても買う（5年ともマイナス）", "buy_7car_hot", YESNO),
+    ("🔥7車立て: 期待値1以上だけ買う", "use_ev_7car", ONOFF),
     ("支払い方法", "payment_method", PAY),
     ("締切まで何分を切ったら買わないか", "close_min_minutes", MINUTES),
     ("ログイン維持の間隔", "keepalive_minutes", MINUTES),
@@ -78,7 +79,7 @@ def show(d, key, kind):
     if kind == SENDTEST:
         return ""
     v = d.get(key, config_mod.DEFAULTS.get(key))
-    if key in ("use_ev_9car", "use_ev_7car") and key not in d:
+    if key == "use_ev_7car" and key not in d:
         v = d.get("use_ev", True)              # 古い設定（まとめて1つ）を引き継ぐ
     if kind == TERMS:
         return "使える" if v else "使えない（dry まで）"
