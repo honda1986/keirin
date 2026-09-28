@@ -93,6 +93,10 @@ function parseDayIndex(html) {
 function buildEntry(text, item) {
   const p = parseCard(text, TRACK_NAMES);
   if (!p || !Array.isArray(p.entries) || p.entries.length < 5) throw new Error("選手データ不足 " + (p?.entries?.length ?? 0));
+  // 欠車の選手は出走表から消えるが、並び予想には車番が残る。残したままだと予想が止まる(2026-09-28 岐阜9R・12R)
+  const cars = new Set(p.entries.map((e) => e.car));
+  p.lines = (p.lines || []).map((l) => l.filter((c) => cars.has(c))).filter((l) => l.length);
+  for (const e of p.entries) if (!e.seiseki) e.seiseki = { win1: 0, win2: 0, win3: 0, out: 0 };
   applyScoreLog(p, SCORE_LOG);                   // 前回開催の得点から scoreDiff を復元
   if (!p.place) p.place = item.place;
   p.raceNo = item.raceNo;                        // レース番号はURLの値を正とする
