@@ -36,7 +36,7 @@ function parseWinticket(text, trackNames) {
   const body = lines.slice(start + 1, end === -1 ? undefined : end);
 
   const isInt = (s) => /^\d{1,2}$/.test(s);
-  const isProfile = (s) => /[SAL]\d\s*\d+歳\s*\d+期/.test(s.replace(/\s+/g, " "));
+  const isProfile = (s) => /(?:[SAL]\d|SS)\s*\d+歳\s*\d+期/.test(s.replace(/\s+/g, " "));
   const num = (s) => { const v = parseFloat(s); return isNaN(v) ? 0 : v; };
 
   const entries = [];
@@ -51,7 +51,7 @@ function parseWinticket(text, trackNames) {
     // 選手名(次の非数値行)、その次がプロフィール行であること
     if (i + 1 >= body.length || !isProfile(body[i + 1])) { continue; }
     const name = body[i]; i++;
-    const pm = body[i].replace(/\s+/g, " ").match(/(\S+)\s+([SAL]\d)\s+(\d+)歳\s+(\d+)期/);
+    const pm = body[i].replace(/\s+/g, " ").match(/(\S+)\s+([SAL]\d|SS)\s+(\d+)歳\s+(\d+)期/);
     i++;
     if (!pm) continue;
     // 数値列: 得点,S,H,B,(脚),逃,捲,差,マ,1着,2着,3着,着外,勝率,2連,3連,ギヤ,(コメント)
@@ -351,7 +351,7 @@ function parseKdreams(text, trackNames) {
     if (!(car >= 1 && car <= 9) || !name || isNum(name)) continue;
     if (seen.has(car)) break;                       // 2周目(別タブ)に入ったら終了
     const kl = L[i + 1] || "";                      // 級班
-    if (!/^[SAL]\d$/.test(kl)) continue;
+    if (!/^([SAL]\d|SS)$/.test(kl)) continue;   // SS(S級S班)を忘れると脇本・嘉永らが抜ける
     const kyakuRaw = L[i + 2] || "";                // 脚質
     if (!/^(逃|追|両|自|マ)$/.test(kyakuRaw)) continue;
     const nums = [];

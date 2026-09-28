@@ -95,6 +95,8 @@ function buildEntry(text, item) {
   if (!p || !Array.isArray(p.entries) || p.entries.length < 5) throw new Error("選手データ不足 " + (p?.entries?.length ?? 0));
   // 欠車の選手は出走表から消えるが、並び予想には車番が残る。残したままだと予想が止まる(2026-09-28 岐阜9R・12R)
   const cars = new Set(p.entries.map((e) => e.car));
+  const lost = (p.lines || []).flat().filter((c) => !cars.has(c));
+  if (lost.length) console.warn("  ★並びにいて出走表に無い車番:", item.place, item.raceNo, lost.join(","), "(欠車か、選手の読み取り漏れ)");
   p.lines = (p.lines || []).map((l) => l.filter((c) => cars.has(c))).filter((l) => l.length);
   for (const e of p.entries) if (!e.seiseki) e.seiseki = { win1: 0, win2: 0, win3: 0, out: 0 };
   applyScoreLog(p, SCORE_LOG);                   // 前回開催の得点から scoreDiff を復元
