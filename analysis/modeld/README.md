@@ -20,3 +20,13 @@ python3 hold26.py d26.npz                      # 2026年で最終確認 / sens.p
 - 条件付きロジット（レースごとに全組で割り戻す）。`evd.js` と `evdcheck.js` の突き合わせは誤差 1e-14
 - numpy / scipy が要る
 - `hold26.py` が読む `cf_2026_D.npy`（2025年までで学習した係数）は、`fit2.py` の `fit(VARIANTS["D …"], rowYR <= 2025)` を保存したもの
+
+## 2026-09-28 SS の読み漏れを直した作り直し（hikitsugi §4-13）
+
+```
+node pastcard_rebuild.js /tmp/pc <furoito> /tmp/rbss.json          # 2022〜2026年9月を全部。2026年と分けて export → build
+node -e '…pcraw の中で "\nSS\n" を含む id を ss_ids.json に…'
+python3 redo.py <npz のディレクトリ> --save      # 前の年までで作って次の年で試す(2023〜2026) → cf_{年}_D.npy・modelD_final.json
+python3 dpicks.py --write ../../d-past.json      # その年より前のモデルでの買い目(2025〜2026-09-25 を d-past.json に)。SS あり/なし別の成績も出す
+python3 hotss.py                                 # 🔥9車5〜15倍を SS あり/なし別に
+```

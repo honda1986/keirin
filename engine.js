@@ -460,7 +460,7 @@ function parseCard(text, trackNames) {
 // ---- 買い目の判定(三連複・本命ラインの先頭3人) ----
 // ★index.html にも同じ関数がある。片方だけ直すと表示と保存がズレるので必ず両方直すこと。
 //   fetch.js がこれを呼んで races.json の plan に書き、アプリと自動投票が同じ判定を使う。
-function f3PlanFrom(ranked, lines) {
+function f3PlanFrom(ranked, lines, opt) {
   if (!Array.isArray(ranked) || !ranked.length || !Array.isArray(lines)) return null;
   const cars = ranked.length;
   const l = lines.find((x) => Array.isArray(x) && x.includes(ranked[0]));
@@ -499,6 +499,13 @@ function f3PlanFrom(ranked, lines) {
   } else {
     o.roi = cars === 6 ? 79.1 : 85.7; o.hitRate = cars === 6 ? 34.2 : 29.4;
     o.note = cars + "車立て。実測 回収" + o.roi + "%で長期はマイナス。";
+  }
+  // S級S班(SS)がいるレース(ほぼG級)の🔥9車は5年で約68%(444R・的中9.1%。2022 101% / 2023 42% / 2024 30% / 2025 82% / 2026 99%)。
+  //   🔥の5年の成績(103/103/103/132/103%)は、SS の選手を読み飛ばしていたためこれらを含まずに測ったもの。同じ条件に揃えて見送る(hikitsugi §4-13)
+  if (opt && opt.ss && o.hot && cars >= 8) {
+    o.hot = false; o.roi = 67.7; o.hitRate = 9.1;
+    o.oddsHint = ""; o.bandNote = "";
+    o.note = "S級S班がいるレース。🔥の成績が悪い(5年で約68%・444R)ので見送り。";
   }
   return o;
 }

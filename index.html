@@ -1587,7 +1587,7 @@ $("addRace").addEventListener("click", () => {
     const sx = sujiExpect(p, r, bank ? bank[10] : null);
     const gap = r.scores && r.scores[1] ? +(r.scores[0].total - r.scores[1].total).toFixed(1) : null;
     const key = (p.place || "?") + (p.raceNo || "?");
-    const item = { key, startTime: p.startTime || "", label: (p.place || "?") + " " + (p.raceNo || ""), sub: (r.fLabel || "") + " " + patLabel(r.linePattern), klass: r.klass, sx, gap, shoubu: isShoubu(sx, gap, r.klass, r.scores.map((sc) => sc.car), p.lines, p.grade || "", r.linePattern || ""), raw: text };
+    const item = { key, startTime: p.startTime || "", label: (p.place || "?") + " " + (p.raceNo || ""), sub: (r.fLabel || "") + " " + patLabel(r.linePattern), klass: r.klass, sx, gap, shoubu: isShoubu(sx, gap, r.klass, r.scores.map((sc) => sc.car), p.lines, p.grade || "", r.linePattern || "", (p.entries || []).some((e) => e.grade === "SS")), raw: text };
     const i = raceList.findIndex((x) => x.key === key);
     if (i >= 0) raceList[i] = item; else raceList.push(item);
     renderSearch();
@@ -1619,7 +1619,7 @@ function rankedOfRow(x) {
   }
   return (x && x.marksCars) || [];
 }
-function f3PlanFrom(ranked, lines) {
+function f3PlanFrom(ranked, lines, opt) {
   if (!Array.isArray(ranked) || !ranked.length || !Array.isArray(lines)) return null;
   const cars = ranked.length;
   const l = lines.find((x) => Array.isArray(x) && x.includes(ranked[0]));
@@ -1659,11 +1659,18 @@ function f3PlanFrom(ranked, lines) {
     o.roi = cars === 6 ? 79.1 : 85.7; o.hitRate = cars === 6 ? 34.2 : 29.4;
     o.note = cars + "車立て。実測 回収" + o.roi + "%で長期はマイナス。";
   }
+  // S級S班(SS)がいるレース(ほぼG級)の🔥9車は5年で約68%(444R・的中9.1%。2022 101% / 2023 42% / 2024 30% / 2025 82% / 2026 99%)。
+  //   🔥の5年の成績(103/103/103/132/103%)は、SS の選手を読み飛ばしていたためこれらを含まずに測ったもの。同じ条件に揃えて見送る(hikitsugi §4-13)
+  if (opt && opt.ss && o.hot && cars >= 8) {
+    o.hot = false; o.roi = 67.7; o.hitRate = 9.1;
+    o.oddsHint = ""; o.bandNote = "";
+    o.note = "S級S班がいるレース。🔥の成績が悪い(5年で約68%・444R)ので見送り。";
+  }
   return o;
 }
 function f3Plan(p, r) {
   if (!p || !r || !r.scores) return null;
-  return f3PlanFrom(r.scores.map((sc) => sc.car), p.lines || []);
+  return f3PlanFrom(r.scores.map((sc) => sc.car), p.lines || [], { ss: (p.entries || []).some((e) => e.grade === "SS") });
 }
 
 // 買う前のオッズ確認を促す帯。🔥カードと個別レース表示の両方で使う。
@@ -1778,10 +1785,10 @@ function oddsGate(x) {
 }
 
 // 勝負レース判定: バックテストで回収率100%超だった勝ちパターンのいずれかに合致するか
-function isShoubu(sx, gap, klass, ranked, lines, grade, pattern) {
+function isShoubu(sx, gap, klass, ranked, lines, grade, pattern, ss) {
   // 判定は3連複「本命ライン3人」の実測成績のみ(sim.jsonの総当たり構成は
   // 未使用データで再現しなかったため使わない)。
-  const pl = f3PlanFrom(ranked || [], lines || []);
+  const pl = f3PlanFrom(ranked || [], lines || [], { ss });
   return !!(pl && pl.hot);
 }
 function renderShoubu() {
@@ -1927,7 +1934,7 @@ $("loadToday").addEventListener("click", async () => {
       const gap = x.gap != null ? x.gap : null;
       const item = { key: x.key, startTime: x.startTime || "", label: (x.place || "?") + " " + (x.raceNo || ""),
         sub: (x.fLabel || "") + " " + patLabel(x.pattern), klass: x.klass,
-        sx, gap, shoubu: isShoubu(sx, gap, x.klass, rankedOfRow(x), x.lines || [], x.grade || "", x.pattern || ""),
+        sx, gap, shoubu: isShoubu(sx, gap, x.klass, rankedOfRow(x), x.lines || [], x.grade || "", x.pattern || "", !!x.ss),
         raw: x.raw || "", riders: x.riders || null, lines: x.lines || [], place: x.place || "", raceNo: x.raceNo || "" };
       const i = raceList.findIndex((y) => y.key === item.key);
       if (i >= 0) raceList[i] = item; else raceList.push(item);
@@ -2695,7 +2702,7 @@ function renderCal() {
   box.innerHTML =
     '<div class="seg" id="calKind">' + [["all", "🔥全部"], ["9", "🔥9車"], ["7", "🔥7車"], ["D", "Ⓓ モデルD"]].map(([k, t]) =>
       '<button data-k="' + k + '" class="' + (CAL.kind === k ? "on" : "") + '">' + t + "</button>").join("") + "</div>" +
-    (CAL.kind === "D" ? '<div class="note" style="font-size:10px;margin:4px 0">全レースから期待値1.1以上・10〜30倍の1組を100円ずつ。〜2026/9/25 はさかのぼり計算（その年より前のデータだけで作ったモデル・確定オッズ）。年ごと: 2023 131% / 2024 119% / 2025 130% / 2026 105%（カレンダーは2025年から）</div>' :
+    (CAL.kind === "D" ? '<div class="note" style="font-size:10px;margin:4px 0">全レースから期待値1.1以上・10〜30倍の1組を100円ずつ。〜2026/9/25 はさかのぼり計算（その年より前のデータだけで作ったモデル・確定オッズ）。年ごと: 2023 129% / 2024 113% / 2025 134% / 2026 109%（カレンダーは2025年から）</div>' :
     '<label class="bandsw"><input type="checkbox" id="calBand"' + (CAL.band ? " checked" : "") + ">オッズの帯のレースだけ数える(9車" + BAND9_LO + "〜" + BAND9_HI + "倍・7車" + BAND_LO + "〜" + BAND_HI + "倍)</label>" +
     '<label class="bandsw"><input type="checkbox" id="calEv"' + (CAL.ev ? " checked" : "") + ">期待値1以上のレースだけ数える(期待値予想)</label>") +
     '<div class="calnav"><button id="calPrev"' + (mi <= 0 ? " disabled" : "") + '>◀</button><b>' + y + "年" + mo + "月</b>" +
