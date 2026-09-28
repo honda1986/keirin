@@ -131,6 +131,7 @@ function makeEntry(x, r, d8) {
     n3cnt: (x.sanrentan || []).length, n3hit: (x.sanrentan || []).includes(f + "-" + s + "-" + t),
     ranks: x.marksCars || [], gap: x.gap != null ? x.gap : null,
     riders: x.riders || null, lines: x.lines || null,
+    ss: x.ss ? 1 : undefined,          // S級S班がいる(🔥の判定で使う)。2026-09-28 より前の記録には無い
   };
 }
 
@@ -369,7 +370,7 @@ async function main() {
     if (e.p3fpay == null || e.f == null || e.s == null || e.t == null) return null;
     const rk = rankedOf(e);
     if (rk.length < 4 || !Array.isArray(e.lines)) return null;
-    const pl = f3PlanFrom(rk, e.lines);
+    const pl = f3PlanFrom(rk, e.lines, { ss: !!e.ss });
     if (!pl || !pl.trio) return null;
     const hit = [e.f, e.s, e.t].sort((a, b) => a - b).join("=") === pl.ticket;
     return { hot: !!pl.hot, cars: pl.cars, needOdds: !!pl.needOdds, hit, pay: hit ? e.p3fpay : 0 };
@@ -477,7 +478,7 @@ async function main() {
         if (e.f == null || e.s == null) continue;
         const rk = rankedOf(e);
         if (rk.length < 4 || !Array.isArray(e.lines)) continue;
-        const pl = f3PlanFrom(rk, e.lines);
+        const pl = f3PlanFrom(rk, e.lines, { ss: !!e.ss });
         if (!pl || !pl.hot || !pl.trio) continue;
         const done = e.t != null;
         const hit = done && [e.f, e.s, e.t].sort((a, b) => a - b).join("=") === pl.ticket;
@@ -596,7 +597,7 @@ function writeDaily(dir, byDate, rankedOf) {
       }
       const rk = rankedOf(e);
       if (rk.length < 4 || !Array.isArray(e.lines)) continue;
-      const pl = f3PlanFrom(rk, e.lines);
+      const pl = f3PlanFrom(rk, e.lines, { ss: !!e.ss });
       if (!pl || !pl.hot || !pl.trio) continue;
       const done = e.t != null;
       const hit = done ? ([e.f, e.s, e.t].sort((a, b) => a - b).join("=") === pl.ticket ? 1 : 0) : -1;

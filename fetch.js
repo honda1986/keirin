@@ -150,7 +150,9 @@ function buildEntry(text, item) {
     // コピーを持たずに済むよう、ここで確定させて書き出す。
     // ★needOdds が true(7車立て)のときは、買う前にオッズが bandLo〜bandHi に
     //   入っているか確認すること。帯を外すと実測87.7%でマイナスになる。
-    plan: f3PlanFrom((r.scores || []).map((sc) => sc.car), p.lines || []),
+    // ss: S級S班の選手がいるか(🔥の9車は見送り。engine.js の f3PlanFrom)
+    ss: p.entries.some((e) => e.grade === "SS"),
+    plan: f3PlanFrom((r.scores || []).map((sc) => sc.car), p.lines || [], { ss: p.entries.some((e) => e.grade === "SS") }),
     gap: r.scores && r.scores[1] ? Number((r.scores[0].total - r.scores[1].total).toFixed(1)) : null,
     nishatan: r.bets?.nishatan, sanrentan: r.bets?.sanrentan,
     raw: compactCard(text, p.place, p.raceNo), url: item.url,

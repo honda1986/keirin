@@ -30,17 +30,23 @@ for (const ym of months) {
 console.log("月", months.length, months[0], "〜", months[months.length - 1], "レース", Object.keys(races).length, "テキスト", Object.keys(raws).length);
 
 // 2. 得点の記録(scores.json と同じ形 riders[名前|期] = [[YYYYMMDD, 得点], ...])
+//   ★pc-*.json の names からではなく、ページのテキストを読み直して作る。
+//     2026-09-28 まで級班 SS(S級S班)の選手を読み飛ばしていたので、pc-*.json には SS の選手がいない(engine.js で修正済み)
 const log = { riders: {} };
+let parseErr = 0;
 for (const id of Object.keys(races).sort()) {
-  const r = races[id], d8 = id.slice(0, 8);
-  r.names.forEach((nk, i) => {
-    const sc = r.riders[i] && r.riders[i][6];
-    if (!(sc > 0) || !nk || nk.startsWith("|")) return;
+  const raw = raws[id]; if (!raw) continue;
+  let p; try { p = parseCard(raw, TRACK_NAMES); } catch (e) { parseErr++; continue; }
+  const d8 = id.slice(0, 8);
+  for (const en of (p && p.entries) || []) {
+    if (!(en.score > 0) || !en.name || !en.ki) continue;
+    const nk = en.name + "|" + String(en.ki).replace(/期$/, "");
     const a = (log.riders[nk] = log.riders[nk] || []);
-    if (!a.length || a[a.length - 1][0] !== d8) a.push([d8, sc]);
-  });
+    if (!a.length || a[a.length - 1][0] !== d8) a.push([d8, en.score]);
+  }
 }
 for (const k in log.riders) log.riders[k].sort((a, b) => (a[0] < b[0] ? -1 : 1));
+console.log("得点の記録", Object.keys(log.riders).length, "人", parseErr ? "(読めないページ " + parseErr + ")" : "");
 
 // 3. 予想し直す(pastcard.js の build と同じ + applyScoreLog + 得点の変化)
 function repredict(id, raw) {
