@@ -36,7 +36,7 @@ ITEMS = [
     ("live を使う（規約を読んだ記録）", "i_have_read_the_terms", TERMS),
     ("1点あたりの金額", "bet_yen", YEN),
     ("1日の上限（円）", "max_yen_per_day", LIMIT_YEN),
-    ("1日の上限（レース数）", "max_races_per_day", LIMIT_POINTS),
+    ("1日の上限（点数）", "max_races_per_day", LIMIT_POINTS),
     ("モデルDも買う（期待値1.1以上・10〜30倍）", "buy_model_d", YESNO),
     ("🔥9車立て: 期待値1以上だけ買う", "hot9_use_ev", ONOFF),
     ("🔥の7車立ても買う（5年ともマイナス）", "buy_7car_hot", YESNO),

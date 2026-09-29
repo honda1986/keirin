@@ -17,8 +17,8 @@ from dataclasses import dataclass, field
 DEFAULTS = {
     "i_have_read_the_terms": False,
     "bet_yen": 100,
-    "max_yen_per_day": 1000,
-    "max_races_per_day": 10,
+    "max_yen_per_day": 2500,
+    "max_races_per_day": 25,
     "use_ev_9car": True,       # 古い設定（使っていない。2026-09-27 に hot9_use_ev へ）
     "hot9_use_ev": False,      # 🔥9車立て（5〜15倍）を期待値1以上に絞る。5年とも帯の中を全部買うほうが安定していたので既定は絞らない
     "use_ev_7car": True,
@@ -60,8 +60,8 @@ class Config:
     base_dir: str = "."
     i_have_read_the_terms: bool = False
     bet_yen: int = 100
-    max_yen_per_day: "int | None" = 1000
-    max_races_per_day: "int | None" = 10
+    max_yen_per_day: "int | None" = 2500
+    max_races_per_day: "int | None" = 25
     use_ev_9car: bool = True
     use_ev_7car: bool = True
     buy_7car_hot: bool = False

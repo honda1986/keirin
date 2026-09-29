@@ -30,11 +30,16 @@ def cfg(**over):
 
 
 def race(close="15:05", verdict="buy", left=4.5, age=0.5, ev=1.2, odds=9.0, need=False, cars=9,
-         place="岐阜", rno=3, ticket="2=4=9", snap=True, kind="hot", same=False, bandlo=4, bandhi=15):
-    return {"kind": kind, "key": f"{place}_{rno}R", "date": DATE, "place": place, "rno": rno, "raceNo": f"{rno}R",
+         place="岐阜", rno=3, ticket="2=4=9", snap=True, kind="hot", same=False, bandlo=4, bandhi=15, tickets=None):
+    x = {"kind": kind, "key": f"{place}_{rno}R", "date": DATE, "place": place, "rno": rno, "raceNo": f"{rno}R",
             "close": close, "cars": cars, "ticket": ticket, "needOdds": need, "bandLo": bandlo if need else None,
             "bandHi": bandhi if need else None, "verdict": verdict, "ev": ev, "odds": odds, "sameAsHot": same,
             "snap": {"t": "14:59:30", "left": left, "age": age, "src": "PC"} if snap else None}
+    if tickets is not None:           # モデルDの複数点 [(組, 期待値, 倍率, 🔥と同じ?), ...]
+        x["tickets"] = [{"ticket": t, "ev": e, "odds": o, "sameAsHot": sa} for t, e, o, sa in tickets]
+        if tickets:
+            x["ticket"], x["ev"], x["odds"] = tickets[0][0], tickets[0][1], tickets[0][2]
+    return x
 
 
 def plan(*races):
@@ -114,9 +119,9 @@ class TestSelector(unittest.TestCase):
         r = self.sel(p, spent=900, c=cfg(max_yen_per_day=1000))
         self.assertEqual(len(r.bets), 1)
         self.assertTrue(any("上限 1000円" in w for w in r.warnings))
-        r = self.sel(p, bought=10)
+        r = self.sel(p, bought=10, c=cfg(max_races_per_day=10))
         self.assertEqual(r.bets, [])
-        self.assertTrue(any("10レース" in w for w in r.warnings))
+        self.assertTrue(any("10点" in w for w in r.warnings))
 
     def test_期待値を使わない設定でも帯は見る(self):
         r = self.sel(plan(race(verdict="noOdds", snap=False)), c=cfg(hot9_use_ev=False))
@@ -149,7 +154,7 @@ class TestSelector(unittest.TestCase):
 
     def test_モデルDで買う組が無ければ黙って決める(self):
         r = self.sel(plan(race(kind="D", verdict="none", ticket=None)))
-        self.assertEqual((r.bets, r.skips, r.quiet), ([], [], [make_key(DATE, "岐阜", 3, "D")]))
+        self.assertEqual((r.bets, r.skips, r.quiet), ([], [], [make_key(DATE, "岐阜", 3, "D", i) for i in range(1, 5)]))
         r = self.sel(plan(race(kind="D", snap=False, verdict="noOdds", ticket=None)))
         self.assertEqual((r.bets, r.skips), ([], []))
 
@@ -167,6 +172,36 @@ class TestSelector(unittest.TestCase):
         r = selector.select(plan(race(kind="D", ticket="2=4=9", same=True)), {make_key(DATE, "岐阜", 3)}, 0, 0, cfg(), NOW,
                             bought_keys={make_key(DATE, "岐阜", 3)})
         self.assertEqual(r.bets, [])
+
+    def test_モデルDは条件に合う組を全部買う(self):
+        T = [("3=5=8", 1.2, 18.0, False), ("1=3=5", 1.08, 6.5, False)]
+        r = self.sel(plan(race(kind="D", tickets=T)))
+        self.assertEqual([(b.key, b.ticket, b.odds, b.label) for b in r.bets],
+                         [(make_key(DATE, "岐阜", 3, "D"), "3=5=8", 18.0, "岐阜3R(モデルD)"),
+                          (make_key(DATE, "岐阜", 3, "D", 2), "1=3=5", 6.5, "岐阜3R(モデルD 2点目)")])
+        self.assertEqual(r.bets[1].key, "20260926_岐阜_3R_D2")
+        # 使わなかった番号(3点目・4点目)は黙って決めておく
+        self.assertEqual(r.quiet, [make_key(DATE, "岐阜", 3, "D", 3), make_key(DATE, "岐阜", 3, "D", 4)])
+
+    def test_モデルDは決めた後に組が増えても買わない(self):
+        done = {make_key(DATE, "岐阜", 3, "D", i) for i in range(1, 5)}      # 1点で決めた(2〜4点目は黙って決めた)
+        r = self.sel(plan(race(kind="D", tickets=[("3=5=8", 1.2, 18.0, False), ("1=3=5", 1.08, 6.5, False)])), done=done)
+        self.assertEqual((r.bets, r.quiet), ([], []))
+
+    def test_モデルDの2点目が失敗したら次の周に2点目だけ買い直す(self):
+        done = {make_key(DATE, "岐阜", 3, "D"), make_key(DATE, "岐阜", 3, "D", 3), make_key(DATE, "岐阜", 3, "D", 4)}
+        r = self.sel(plan(race(kind="D", tickets=[("3=5=8", 1.2, 18.0, False), ("1=3=5", 1.08, 6.5, False)])), done=done)
+        self.assertEqual([(b.key, b.ticket) for b in r.bets], [(make_key(DATE, "岐阜", 3, "D", 2), "1=3=5")])
+
+    def test_モデルDの2点目が本命ラインと同じ組なら2点目だけ重ねない(self):
+        r = self.sel(plan(race(), race(kind="D", tickets=[("3=5=8", 1.2, 18.0, False), ("2=4=9", 1.06, 9.0, True)])))
+        self.assertEqual(sorted(b.key for b in r.bets), [make_key(DATE, "岐阜", 3), make_key(DATE, "岐阜", 3, "D")])
+        self.assertEqual([b.key for b, _ in r.skips], [make_key(DATE, "岐阜", 3, "D", 2)])
+
+    def test_モデルDは多くて4点(self):
+        T = [(f"1=2={c}", 1.1, 10.0, False) for c in range(3, 9)]
+        r = self.sel(plan(race(kind="D", tickets=T)))
+        self.assertEqual(len(r.bets), 4)
 
     def test_モデルDを買わない設定と決める時刻(self):
         r = self.sel(plan(race(kind="D", ticket="3=5=8")), c=cfg(buy_model_d=False))
@@ -278,7 +313,7 @@ class TestStoreAndConfig(unittest.TestCase):
         with open(os.path.join(here, "config.example.json"), encoding="utf-8") as f:
             c = config_mod.from_dict(json.load(f))
         self.assertFalse(c.i_have_read_the_terms)
-        self.assertEqual((c.bet_yen, c.max_yen_per_day, c.max_races_per_day), (100, 1000, 10))
+        self.assertEqual((c.bet_yen, c.max_yen_per_day, c.max_races_per_day), (100, 2500, 25))
 
     def test_おかしな値は止める(self):
         for bad in ({"bet_yen": 150}, {"max_yen_per_day": 50}, {"close_min_minutes": 7}, {"hot9_use_ev": "yes"}, {"payment_method": "card"}):
