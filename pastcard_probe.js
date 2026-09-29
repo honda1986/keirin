@@ -1,20 +1,26 @@
-// 一時的な点検(probe-formation ブランチだけ)
+// 一時的な点検(probe-formation ブランチだけ): 結果の表(着順・S/B)の HTML の形。新しいレースと2022年のレース
 "use strict";
-const { htmlToText } = require("./cardtext.js");
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
-const get = async (u) => { try { const r = await fetch(u, { headers: { "User-Agent": UA, "Accept-Language": "ja" }, redirect: "follow" }); return [r.status, await r.text(), r.url]; } catch (e) { return [0, "", String(e)]; } };
-const lines = (h) => htmlToText(h).split("\n").map((s) => s.replace(/\s+/g, " ").trim()).filter(Boolean);
-(async () => {
-  const url = "https://keirin.kdreams.jp/gifu/racedetail/4320260926030012/";
+const get = async (u) => { const r = await fetch(u, { headers: { "User-Agent": UA, "Accept-Language": "ja" } }); return [r.status, await r.text()]; };
+const strip = (s) => s.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+async function show(url) {
   const [st, html] = await get(url);
-  const L = lines(html);
-  console.log("----- 結果の周り", L.slice(4960, 5260).join(" ¦ "));
-  const hrefs = [...new Set([...html.matchAll(/href="([^"#]+)"/g)].map((m) => m[1]))];
-  console.log("aokei系 " + hrefs.filter((h) => /aokei|kisha|yosou|detailresult|kekka/i.test(h)).join(" "));
-  const k = html.indexOf("詳細結果"); console.log("詳細結果 HTML", html.slice(Math.max(0, k - 400), k + 100).replace(/\s+/g, " "));
-  // ほかのサイト(つながるか・周回があるか)
-  for (const u of ["https://keirin.jp/", "https://keirin.netkeiba.com/", "https://www.winticket.jp/keirin", "https://www.oddspark.com/keirin/", "https://www.chariloto.com/keirin"]) {
-    const [s, h, fu] = await get(u);
-    console.log("SITE", u, s, h.length, fu, (h.match(/周回/g) || []).length);
+  const i = html.indexOf("勝敗因");
+  console.log("=====", url, st, "勝敗因の位置", i);
+  if (i < 0) return;
+  const t0 = html.lastIndexOf("<table", i), t1 = html.indexOf("</table>", i);
+  const tb = html.slice(t0, t1);
+  console.log("TABLE-OPEN", tb.slice(0, 300).replace(/\s+/g, " "));
+  const rows = [...tb.matchAll(/<tr[\s\S]*?<\/tr>/g)].map((m) => m[0]);
+  for (const r of rows.slice(0, 4)) console.log("ROW-HTML", r.replace(/\s+/g, " ").slice(0, 1500));
+  for (const r of rows) console.log("ROW", [...r.matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/g)].map((m) => strip(m[1])).join(" | "));
+  const j = html.indexOf("戦い終わって"); console.log("戦い終わって", j);
+}
+(async () => {
+  await show("https://keirin.kdreams.jp/gifu/racedetail/4320260926030012/");
+  for (const d of ["2022/03/15", "2024/06/15"]) {
+    const [, idx] = await get("https://keirin.kdreams.jp/odds/" + d + "/");
+    const u = [...idx.matchAll(/https?:\/\/keirin\.kdreams\.jp\/[a-z]+\/racedetail\/\d{16}\/|\/[a-z]+\/racedetail\/\d{16}\//g)].map((m) => m[0])[3];
+    if (u) await show(u.startsWith("http") ? u : "https://keirin.kdreams.jp" + u); else console.log("no url", d);
   }
 })();
