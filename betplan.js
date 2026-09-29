@@ -15,7 +15,7 @@
 //   ★2026-09-27 の見直し(hikitsugi §4-12):
 //     ・🔥の9車立て(8車以上)も帯 5〜15倍の中だけ(needOdds を立てて返す。5年とも100%超えだったのはここだけ)
 //     ・🔥の7車立ては5年とも100%未満。判定はそのまま出すが、買うかは bet/ の buy_7car_hot(既定 false)で決める
-//     ・モデルD(evd.js): 全レースの3連複全組から「期待値1.1以上・10〜30倍」でいちばん期待値の高い1組。kind:"D"
+//     ・モデルD(evd.js): 全レースの3連複全組から「期待値1.05以上・20倍以下」の組を全部(ふつう1点)。kind:"D"・tickets に全部、ticket は1点目
 //       verdict: buy / none(該当なし) / thin(票が薄い) / noOdds / noDelta。🔥と同じ組なら sameAsHot:true
 //
 // ★倍率の取り方(新しいほうを使う)
@@ -121,7 +121,7 @@ function remoteSnaps(today, notes) {
 }
 
 // ---- 1レースの判定(index.html の evOfRow / evInfo と同じ) ----
-// モデルD: そのレースの買う1組
+// モデルD: そのレースの買う組(全部)
 function judgeD(r, snap) {
   if (!snap || !Array.isArray(snap.o)) return { verdict: "noOdds" };
   const n = snap.n || (r.riders || []).length;
@@ -129,12 +129,14 @@ function judgeD(r, snap) {
   if (r.riders.some((x) => !x[7])) return { verdict: "noDelta" };
   const all = EVD.evAll(r.riders, r.lines, r.place, snap.o, n);
   if (!all) return { verdict: "thin" };
-  const p = EVD.pick(all);
-  if (!p) {
+  // 買うのは条件(期待値≥1.05・20倍以下)を満たす組を全部(期待値の高い順)。ticket・ev・odds は1点目
+  const ps = EVD.picks(all);
+  if (!ps.length) {
     const best = all.reduce((a, b) => (b.ev > (a ? a.ev : -1) ? b : a), null);
     return { verdict: "none", bestEv: best ? Math.round(best.ev * 1000) / 1000 : null };
   }
-  return { verdict: "buy", ticket: p.ticket, ev: Math.round(p.ev * 1000) / 1000, odds: p.odds };
+  const tickets = ps.map((p) => ({ ticket: p.ticket, ev: Math.round(p.ev * 1000) / 1000, odds: p.odds }));
+  return { verdict: "buy", ticket: tickets[0].ticket, ev: tickets[0].ev, odds: tickets[0].odds, tickets };
 }
 
 function judge(plan, delta, snap) {
@@ -205,7 +207,8 @@ function main() {
     const s = snapOf(r);
     const j = judgeD(r, s);
     dOut.push({ kind: "D", ...base(r, c, s), cars: r.riders.length, needOdds: false, bandLo: EVD.PICK.oddsLo, bandHi: EVD.PICK.oddsHi,
-      ...j, ticket: j.ticket || null, sameAsHot: !!(j.ticket && hotTicket[r.key] === j.ticket) });
+      ...j, ticket: j.ticket || null, sameAsHot: !!(j.ticket && hotTicket[r.key] === j.ticket),
+      tickets: (j.tickets || []).map((t) => ({ ...t, sameAsHot: hotTicket[r.key] === t.ticket })) });
   }
   const out = hotOut.concat(dOut).sort((a, b) => (a.minutesToClose ?? 9e9) - (b.minutesToClose ?? 9e9));
 
@@ -215,8 +218,10 @@ function main() {
   for (const n of notes) console.log("  (" + n + ")");
   for (const x of out) {
     if (x.kind === "D" && x.verdict !== "buy") continue;
-    console.log(`  ${x.kind === "D" ? "Ⓓ" : "🔥"} 締切${x.close}(あと${x.minutesToClose}分) ${x.key.padEnd(8, "　")} ${x.ticket} ${x.cars}車 ` +
-      `${x.verdict}${x.ev != null ? " 期待値" + x.ev.toFixed(2) : ""}${x.odds != null ? " " + x.odds + "倍" : ""}` +
+    const tk = x.kind === "D" && x.tickets && x.tickets.length > 1
+      ? x.tickets.map((t) => `${t.ticket}(期待値${t.ev.toFixed(2)} ${t.odds}倍)`).join(" ") + ` ${x.cars}車 ${x.verdict}`
+      : `${x.ticket} ${x.cars}車 ${x.verdict}${x.ev != null ? " 期待値" + x.ev.toFixed(2) : ""}${x.odds != null ? " " + x.odds + "倍" : ""}`;
+    console.log(`  ${x.kind === "D" ? "Ⓓ" : "🔥"} 締切${x.close}(あと${x.minutesToClose}分) ${x.key.padEnd(8, "　")} ${tk}` +
       (x.snap ? ` [倍率 締切${x.snap.left}分前・${x.snap.age}分前に取得・${x.snap.src}]` : ""));
   }
 }

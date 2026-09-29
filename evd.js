@@ -4,17 +4,18 @@
 //   組の確率 p ∝ exp( K·x + lo2·(x−LO_MEAN)² + lo3·(x−LO_MEAN)³ + lo9·x·[8車以上] + Σ(3人の特徴·係数) )、x = log(1/オッズ)
 //   を有効な全組で割り戻し、期待値 = p × オッズ。
 //   ev.js(v2)との違い: オッズの曲がり(大穴ほど期待値を割り引く)・競走得点の順位と偏差・ラインの先頭 を足した。
-//   2022〜2026年9月の作り直した出走表(pastcard)12.3万レースで学習。前の年までで学習→次の年で試すと、
-//   「期待値1.1以上・10〜30倍」は 2023 127% / 2024 120% / 2025 123% / 2026 121%(確定オッズ)
+//   2022〜2026年9月の作り直した出走表(pastcard)12.5万レースで学習。
 //
-//   ★買うのは PICK の条件(期待値≥1.1・10〜30倍)を満たす組のうち、期待値がいちばん高い1組(1レース1点)
+//   ★買うのは PICK の条件(期待値≥1.05・20倍以下)を満たす組を全部(2026-09-29 から。hikitsugi §4-14)。ふつう1点、多くて4点
+//     前の年までで学習→次の年で試すと 的中 11〜12%・回収 2023 103% / 2024 102% / 2025 123% / 2026 115%(確定オッズ)
+//     それまでの「期待値≥1.1・10〜30倍の1組」は 的中6〜8%・129/113/134/109%。はむさんの「的中率が高いモデル」の依頼で切り替えた
 //   ★係数を変えたら pastcard_eval.js などの分析(Python)と突き合わせること(node evdcheck.js)
 // ============================================================
 (function (root) {
   "use strict";
   const MODEL = { version: "D-2026-09b", LO_MEAN: -4.264394023053231, R120_MEAN: 0.42665,
     b: { K: 1.391487, er: 0.038258, single: -0.040133, banme: 0.009734, age50: 0.074828, home: 0.019843, young: 0.102161, samepref: 0.005997, dsc: -0.019869, has_dsc: -0.061401, r120: -0.013435, has_r: -4.4e-05, lo2: -0.146743, lo3: 0.019943, lo9: -0.021965, scz: 0.074352, head: 0.030399, srk: 0.037567 } };
-  const PICK = { minEv: 1.1, oddsLo: 10, oddsHi: 30 };
+  const PICK = { minEv: 1.05, oddsLo: 0, oddsHi: 20 };
   const VENUE_PREF = { "函館": "北海道", "青森": "青森", "いわき平": "福島", "弥彦": "新潟", "前橋": "群馬", "取手": "茨城", "宇都宮": "栃木",
     "大宮": "埼玉", "西武園": "埼玉", "京王閣": "東京", "立川": "東京", "松戸": "千葉", "千葉": "千葉", "川崎": "神奈川", "平塚": "神奈川",
     "小田原": "神奈川", "伊東": "静岡", "静岡": "静岡", "名古屋": "愛知", "岐阜": "岐阜", "大垣": "岐阜", "豊橋": "愛知", "富山": "富山",
@@ -79,14 +80,14 @@
     let tot = 0; for (const r of rows) { r.w = Math.exp(r.u - mx); tot += r.w; }
     return rows.map((r) => ({ ticket: r.ticket, odds: r.odds, ev: (r.w / tot) * r.odds }));
   }
-  // 買う1組(期待値≥1.1・10〜30倍の中で期待値がいちばん高い組)。無ければ null
-  function pick(all) {
-    if (!all) return null;
-    let best = null;
-    for (const r of all) if (r.ev >= PICK.minEv && r.odds >= PICK.oddsLo && r.odds <= PICK.oddsHi && (!best || r.ev > best.ev)) best = r;
-    return best;
+  // 買う組を全部(PICK の条件を満たす組。期待値の高い順)。無ければ []
+  function picks(all) {
+    if (!all) return [];
+    return all.filter((r) => r.ev >= PICK.minEv && r.odds >= PICK.oddsLo && r.odds <= PICK.oddsHi).sort((a, b) => b.ev - a.ev);
   }
-  const api = { MODEL, PICK, riderFeats, evAll, pick, trioCombos };
+  // そのうち期待値がいちばん高い1組。無ければ null
+  function pick(all) { return picks(all)[0] || null; }
+  const api = { MODEL, PICK, riderFeats, evAll, pick, picks, trioCombos };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.EVD = api;
 })(typeof window !== "undefined" ? window : this);

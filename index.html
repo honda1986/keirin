@@ -231,14 +231,14 @@
       <div id="shoubuList"></div>
     </div>
     <div id="dSection" class="hidden">
-      <div class="sec-h" style="color:#7CC4FF">Ⓓ モデルD<span class="sub">全レース・期待値1.1以上・10〜30倍の1組（締切20分前から）</span></div>
+      <div class="sec-h" style="color:#7CC4FF">Ⓓ モデルD<span class="sub">全レース・期待値1.05以上・20倍以下の組を全部（締切20分前から）</span></div>
       <div id="dList"></div>
     </div>
     <div id="shoubuEmpty" class="empty">今日のレースを読み込んでいます…</div>
     <details class="more" style="margin:10px 4px 0"><summary>この画面の見方</summary>
       <p class="note" style="margin:6px 0 0">3連複「本命ライン3人」で実測回収率100%超だったレースだけを、発走時刻の順に並べています。9車立ては単騎1人以下、7車立ては評価順位の合計12以上が対象。<b style="color:#F2C230">7車立ては買う前に必ずオッズ帯を確認</b>してください。カードを押すと、そのレースの詳しい予想(🔎分析)を開きます。<b>大きい時刻は発売の締切(発走の5分前)</b>で、「締切まで○分」も締切までを数えています。</p>
       <p class="note" style="margin:6px 0 0"><b>的中率の推定</b>=競走得点・3連対率・先頭の脚質・評価点・別線の強さから、そのレースで本命ライン3人が当たる確率を計算したもの(過去の2期間で推定と実際が合うことを確認済み)。棒の縦線はこの条件の平均。当たりやすさの目安で、買う/見送るは今まで通りオッズ帯で判断(推定×オッズで選んでも成績は上がらなかった)。</p>
-      <p class="note" style="margin:6px 0 0"><b>Ⓓ モデルD</b>=全レースの3連複の全組について、締切前のオッズと出走表から期待値を出し、「期待値1.1以上・10〜30倍」の中で期待値がいちばん高い1組。前の年までのデータで作って次の年で試すと 2023〜2026年とも回収120%前後（確定オッズで測定）。当たるのは7%前後なので月ごとの波は大きい。締切20分前から、PC が1分おきに送る倍率で計算します。</p>
+      <p class="note" style="margin:6px 0 0"><b>Ⓓ モデルD</b>=全レースの3連複の全組について、締切前のオッズと出走表から期待値を出し、「期待値1.05以上・20倍以下」の組を全部（ふつう1点、多くて4点）。前の年までのデータで作って次の年で試すと 2023 103% / 2024 102% / 2025 123% / 2026 115%（確定オッズで測定）。当たるのは11〜12%（9レースに1回くらい）なので月ごとの波はあります。締切20分前から、PC が1分おきに送る倍率で計算します。</p>
       <p class="note" style="margin:6px 0 0"><b>並び</b>=予想の並び。金の枠が本命ライン、色の濃い3車が買う3人。<b>結果</b>は日中おおむね1時間おきに更新(GitHubの都合で遅れることがあります)。</p>
     </details>
   </section>
@@ -2477,7 +2477,7 @@ function renderHero(rows, next) {
       : rows.length && done.length === rows.length ? '<div class="nextup" style="cursor:default">🏁 今日の🔥はすべて確定しました</div>' : "") +
     '<div style="font-size:10px;color:var(--dim);margin-top:6px">収支は🔥を全部100円ずつ買った場合(オッズ帯で見送ったレースも含む)' + (unknown ? "。※配当確認中の的中を含む" : "") + "</div>";
 }
-// ---- モデルD(evd.js): 全レースから「期待値1.1以上・10〜30倍」でいちばん期待値の高い1組 ----
+// ---- モデルD(evd.js): 全レースから「期待値1.05以上・20倍以下」の組を全部(1行=1点) ----
 function dRows() {
   if (typeof EVD === "undefined" || !LIVE_ODDS || !LIVE_ODDS.races) return [];
   const out = [];
@@ -2485,10 +2485,9 @@ function dRows() {
     if (!Array.isArray(x.riders) || x.riders.length < 5) continue;
     const snap = LIVE_ODDS.races[x.key];
     if (!snap || !Array.isArray(snap.o) || (snap.n && snap.n !== x.riders.length)) continue;
-    const p = EVD.pick(EVD.evAll(x.riders, x.lines, x.place, snap.o, x.riders.length));
-    if (!p) continue;
-    out.push({ key: x.key, place: x.place, raceNo: x.raceNo, startTime: x.startTime, cars: x.riders.length, ticket: p.ticket, ev: p.ev, odds: p.odds, snap,
-      sameAsHot: SHOUBU_ROWS.some((h) => h.key === x.key && h.ticket === p.ticket) });
+    const ps = EVD.picks(EVD.evAll(x.riders, x.lines, x.place, snap.o, x.riders.length));
+    ps.forEach((p, i) => out.push({ key: x.key, place: x.place, raceNo: x.raceNo, startTime: x.startTime, cars: x.riders.length, ticket: p.ticket, ev: p.ev, odds: p.odds, snap,
+      nth: i + 1, of: ps.length, sameAsHot: SHOUBU_ROWS.some((h) => h.key === x.key && h.ticket === p.ticket) }));
   }
   return out;
 }
@@ -2500,10 +2499,10 @@ function dCard(row) {
   return '<div class="rc' + cls + '" onclick="loadRace(\'' + esc2(row.key).replace(/'/g, "\\'") + '\')">' +
     '<div class="top"><span class="time"><small>締切</small>' + (closeTimeOf(row.startTime) || "--:--") + '</span><span class="where">' + esc(row.place) + " " + esc(row.raceNo) +
       '<small class="start">発走 ' + (row.startTime || "--:--") + "</small></span>" + (st.txt ? '<span class="st ' + st.cls + '">' + st.txt + "</span>" : "") + "</div>" +
-    '<div class="meta">' + row.cars + "車立て ／ モデルD" + (row.sameAsHot ? "（🔥と同じ組）" : "") + "</div>" +
+    '<div class="meta">' + row.cars + "車立て ／ モデルD" + (row.of > 1 ? "（このレース" + row.of + "点のうち" + row.nth + "点目）" : "") + (row.sameAsHot ? "（🔥と同じ組）" : "") + "</div>" +
     '<div class="ticket">' + ticketBalls(row.ticket, "l") + '<span class="kind">3連複<br>1点</span></div>' +
     (res && !res.pending ? "" : '<div class="evbox buy"><div class="evtop"><span>期待値 <b>' + row.ev.toFixed(2) + '</b></span><span class="evv">✓ 買い</span></div>' +
-      '<div class="evsub">今の倍率 <b>' + row.odds + '倍</b>（10〜30倍） ／ ' + when + "</div></div>") + resBlock(res) + "</div>";
+      '<div class="evsub">今の倍率 <b>' + row.odds + '倍</b>（20倍以下） ／ ' + when + "</div></div>") + resBlock(res) + "</div>";
 }
 function paintD() {
   const sec = $("dSection"), list = $("dList");
@@ -2702,7 +2701,7 @@ function renderCal() {
   box.innerHTML =
     '<div class="seg" id="calKind">' + [["all", "🔥全部"], ["9", "🔥9車"], ["7", "🔥7車"], ["D", "Ⓓ モデルD"]].map(([k, t]) =>
       '<button data-k="' + k + '" class="' + (CAL.kind === k ? "on" : "") + '">' + t + "</button>").join("") + "</div>" +
-    (CAL.kind === "D" ? '<div class="note" style="font-size:10px;margin:4px 0">全レースから期待値1.1以上・10〜30倍の1組を100円ずつ。〜2026/9/25 はさかのぼり計算（その年より前のデータだけで作ったモデル・確定オッズ）。年ごと: 2023 129% / 2024 113% / 2025 134% / 2026 109%（カレンダーは2025年から）</div>' :
+    (CAL.kind === "D" ? '<div class="note" style="font-size:10px;margin:4px 0">全レースから期待値1.05以上・20倍以下の組を全部100円ずつ（1行=1点）。〜2026/9/25 はさかのぼり計算（その年より前のデータだけで作ったモデル・確定オッズ）。年ごと: 2023 103% / 2024 102% / 2025 123% / 2026 115%（カレンダーは2025年から）</div>' :
     '<label class="bandsw"><input type="checkbox" id="calBand"' + (CAL.band ? " checked" : "") + ">オッズの帯のレースだけ数える(9車" + BAND9_LO + "〜" + BAND9_HI + "倍・7車" + BAND_LO + "〜" + BAND_HI + "倍)</label>" +
     '<label class="bandsw"><input type="checkbox" id="calEv"' + (CAL.ev ? " checked" : "") + ">期待値1以上のレースだけ数える(期待値予想)</label>") +
     '<div class="calnav"><button id="calPrev"' + (mi <= 0 ? " disabled" : "") + '>◀</button><b>' + y + "年" + mo + "月</b>" +
@@ -2730,7 +2729,7 @@ function calDetail(d8, day) {
   const list = all.filter((x) => calPick(x));
   const g = calSum(all);
   const head = '<div class="dayh"><span>' + d8Label(d8) + (day.live ? ' <span style="color:var(--blue);font-size:10px">速報</span>' : "") +
-    (isD ? "　Ⓓ" : "　🔥") + list.length + "R" + (g.n ? " 的中" + g.hit : "") + "</span>" +
+    (isD ? "　Ⓓ" : "　🔥") + list.length + (isD ? "点" : "R") + (g.n ? " 的中" + g.hit : "") + "</span>" +
     (g.n ? '<span class="' + (g.pl >= 0 ? "pos" : "neg") + '">' + yen(g.pl) + "円" + (g.roi != null ? ' <small style="color:var(--muted);font-weight:500">回収' + g.roi + "%</small>" : "") + "</span>" : "<span></span>") + "</div>";
   if (!list.length) return head + '<div class="empty" style="padding:10px">この日は該当する' + (isD ? "モデルDの買い目" : "🔥") + "がありません</div>";
   const rows = list.map((x) => {
@@ -2750,7 +2749,7 @@ function calDetail(d8, day) {
       od + (order ? '<span class="arrow">→</span>' + order : "") + right + "</div>";
   }).join("");
   return head + rows +
-    '<div style="font-size:10px;color:var(--dim);margin-top:6px">' + (isD ? "モデルD(期待値1.1以上・10〜30倍の1組)を100円ずつ。" : "3連複「本命ライン3人」を100円ずつ。") +
+    '<div style="font-size:10px;color:var(--dim);margin-top:6px">' + (isD ? "モデルD(期待値1.05以上・20倍以下の組を全部)を100円ずつ。1行=1点。" : "3連複「本命ライン3人」を100円ずつ。") +
     (day.live ? "今日の分は10分おきの速報で、夜に確定集計します。" : "いまの買い方をその日の予想に当てはめたさかのぼり計算を含みます。") +
     (list.some((x) => x[2] === 7 && x[7] != null) ? "倍率は確定オッズ" + (day.live ? "ではなく今の倍率。" : "。") : "") +
     (list.some((x) => x[9] != null) ? "期待値は" + (day.live ? "今の倍率" : list.some((x) => x[10] === "s") ? "締切前の倍率(記録があるレース)か確定オッズ" : "確定オッズ") + "で計算" +
@@ -2771,7 +2770,7 @@ function renderMonths(days, months) {
     '<div class="tbl-scroll"><table class="mtbl"><thead><tr><th class="l">月</th><th>R数</th><th>的中率</th><th>回収率</th><th class="l">収支(円)</th></tr></thead><tbody>' +
     rows.map((r) => tr(+r.ym.slice(0, 4) + "年" + +r.ym.slice(4, 6) + "月", r.g, r.ym)).join("") + tr("<b>全期間</b>", all, null) + "</tbody></table></div>" +
     '<div style="font-size:10px;color:var(--dim);margin-top:4px">' + (CAL.kind === "D"
-      ? "モデルD(期待値1.1以上・10〜30倍の1組)の成績。〜2026/9/25 はその年より前のデータだけで作ったモデルと確定オッズでのさかのぼり計算。"
+      ? "モデルD(期待値1.05以上・20倍以下の組を全部)の成績。R数・的中率は1点ごと(1レースに2点以上のこともある)。〜2026/9/25 はその年より前のデータだけで作ったモデルと確定オッズでのさかのぼり計算。"
       : "上の「🔥全部/9車/7車」と帯・期待値の設定がそのまま反映されます。期待値予想は2025年のデータで係数を作ったので、2025年の数字は良く見えやすい(2026年からが本当の成績)。期待値を出せないレースは買った扱い。") + (DAILY_AT ? "集計 " + new Date(DAILY_AT).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "") + "</div>";
   box.querySelectorAll("tr[data-ym]").forEach((t) => t.addEventListener("click", () => { CAL.ym = t.dataset.ym; CAL.sel = null; renderCal(); $("calBox").scrollIntoView({ behavior: "smooth", block: "start" }); }));
 }

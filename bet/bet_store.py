@@ -3,7 +3,8 @@
 """bet_store.py -- 投票の記録（bet_done.json）。二重投票を防ぐ、いちばん大事なファイル
 
 - キーは 日付_場_レース（例 20260926_岐阜_3R）。三連複1点なので1レース1件。
-  モデルDは末尾に _D（例 20260926_岐阜_3R_D）。🔥とモデルDは同じレースで別々に1件ずつ持てる
+  モデルDは末尾に _D（例 20260926_岐阜_3R_D）。🔥とモデルDは同じレースで別々に持てる
+  モデルDは1レースに複数点のことがある（期待値の高い順に _D, _D2, _D3, _D4）
 - ★キーがあれば、何があってもそのレースは買わない
 - ★live では「購入する」を押す**直前**に書く。書けなければ押さない。
   押した後に落ちても、次の周で買い直すことが無い（買えていなければ1レース買い逃すだけ）
@@ -24,8 +25,11 @@ class BetDoneCorrupt(Exception):
     """bet_done.json が読めない。空で続行してはいけない"""
 
 
-def make_key(date, place, rno, kind="hot"):
-    return f"{date}_{place}_{rno}R" + ("_D" if kind == "D" else "")
+def make_key(date, place, rno, kind="hot", n=1):
+    """n: モデルDの何点目か（1点目は _D のまま。これまでの記録と同じ）"""
+    if kind != "D":
+        return f"{date}_{place}_{rno}R"
+    return f"{date}_{place}_{rno}R_D" + (str(n) if n > 1 else "")
 
 
 class BetStore:

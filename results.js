@@ -566,18 +566,19 @@ function evForEntry(dir, e, d, ticket) {
 // それより後は history の riders(府県つき)と倍率(締切前の記録があればそれ、無ければ確定オッズ)から毎晩計算する
 const EVD = require("./evd.js");
 let D_PAST = null;
-function dPickOf(dir, e, d) {
+// → [[買い目, 期待値, 倍率, 出どころ], ...](条件に合う組を全部。期待値の高い順)。無ければ []
+function dPicksOf(dir, e, d) {
   if (D_PAST == null) { try { D_PAST = JSON.parse(fs.readFileSync(path.join(dir, "d-past.json"), "utf8")).picks || {}; } catch (x) { D_PAST = {}; } }
   const id = e.id || (d + "_" + e.place + "_" + e.raceNo);
-  if (D_PAST[id]) return [...D_PAST[id], "f"];
-  if (!Array.isArray(e.riders) || e.riders.length < 5 || e.riders.some((r) => !r[7])) return null;
+  const past = D_PAST[id];
+  if (past) return (typeof past[0] === "string" ? [past] : past).map((p) => [...p, "f"]);   // 古い形(1組)も読む
+  if (!Array.isArray(e.riders) || e.riders.length < 5 || e.riders.some((r) => !r[7])) return [];
   const n = e.riders.length;
   const sn = snapOdds(d, e.place + "_" + e.raceNo);
   const fo = allOdds(dir, id);
   const [o, src] = sn && sn.n === n ? [sn.o, "s"] : fo && fo.cars === n ? [fo.o, "f"] : [null, null];
-  if (!o) return null;
-  const p = EVD.pick(EVD.evAll(e.riders, e.lines, e.place, o, n));
-  return p ? [p.ticket, Math.round(p.ev * 1000) / 1000, p.odds, src] : null;
+  if (!o) return [];
+  return EVD.picks(EVD.evAll(e.riders, e.lines, e.place, o, n)).map((p) => [p.ticket, Math.round(p.ev * 1000) / 1000, p.odds, src]);
 }
 function writeDaily(dir, byDate, rankedOf) {
   const days = {};
@@ -587,9 +588,8 @@ function writeDaily(dir, byDate, rankedOf) {
     for (const e of byDate[d]) {
       if (e.f == null || e.s == null) continue;
       n++;
-      // モデルD: [場, R, 車立て, 買い目, 着順, 的中(1/0/-1), 払戻, 倍率, 期待値, 出どころ]
-      const dp = dPickOf(dir, e, d);
-      if (dp) {
+      // モデルD: [場, R, 車立て, 買い目, 着順, 的中(1/0/-1), 払戻, 倍率, 期待値, 出どころ]。1行=1点(1レースに複数点のことがある)
+      for (const dp of dPicksOf(dir, e, d)) {
         const done = e.t != null;
         const dh = done ? ([e.f, e.s, e.t].sort((a, b) => a - b).join("=") === dp[0] ? 1 : 0) : -1;
         dd.push([e.place, e.raceNo, (e.riders || []).length || null, dp[0], e.f + "-" + e.s + "-" + (done ? e.t : "?"), dh,

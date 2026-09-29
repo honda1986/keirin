@@ -21,6 +21,7 @@ from jst import minutes_to_close
 
 LATE_WINDOW = 30          # 締切を何分過ぎたぶんまで「間に合わなかった」と報せるか
 LOOK_MINUTES = 16         # 締切まで何分以内のレースを見るか（snap.js は15分前から）
+MAX_D_POINTS = 4          # モデルDを1レースで何点まで買うか（5年で4点を超えたレースは無い）
 
 
 @dataclass(frozen=True)
@@ -42,10 +43,13 @@ class Bet:
     snap_age: "float | None" = None
     note: str = ""
     kind: str = "hot"          # "hot"=🔥（本命ライン3人） / "D"=モデルD
+    n: int = 1                 # モデルDの何点目か
 
     @property
     def label(self):
-        return f"{self.place}{self.rno}R" + ("(モデルD)" if self.kind == "D" else "")
+        if self.kind != "D":
+            return f"{self.place}{self.rno}R"
+        return f"{self.place}{self.rno}R(モデルD" + (f" {self.n}点目" if self.n > 1 else "") + ")"
 
 
 @dataclass
@@ -72,16 +76,26 @@ def skip_reason(r):
     return f"判定 {v}"
 
 
-def _bet(r, cfg, minutes, note=""):
+def _bet(r, cfg, minutes, note="", t=None, n=1):
+    """t: モデルDの1点（{ticket, ev, odds}）。無ければレースの ticket・ev・odds"""
     snap = r.get("snap") or {}
     kind = "D" if r.get("kind") == "D" else "hot"
+    t = t or {"ticket": r.get("ticket"), "ev": r.get("ev"), "odds": r.get("odds")}
     return Bet(
-        kind=kind,
-        date=r["date"], place=r["place"], rno=r["rno"], key=make_key(r["date"], r["place"], r["rno"], kind),
-        ticket=r["ticket"], close=r["close"], cars=int(r.get("cars") or 0), need_odds=bool(r.get("needOdds")),
-        yen=cfg.bet_yen, minutes=round(minutes, 1), ev=r.get("ev"), odds=r.get("odds"),
+        kind=kind, n=n,
+        date=r["date"], place=r["place"], rno=r["rno"], key=make_key(r["date"], r["place"], r["rno"], kind, n),
+        ticket=t["ticket"], close=r["close"], cars=int(r.get("cars") or 0), need_odds=bool(r.get("needOdds")),
+        yen=cfg.bet_yen, minutes=round(minutes, 1), ev=t.get("ev"), odds=t.get("odds"),
         verdict=r.get("verdict") or "", snap_left=snap.get("left"), snap_age=snap.get("age"), note=note,
     )
+
+
+def _d_tickets(r):
+    """モデルDの買う組（期待値の高い順・最大 MAX_D_POINTS 点）。古い betplan（tickets 無し）なら ticket の1点"""
+    ts = r.get("tickets")
+    if not isinstance(ts, list):
+        ts = [{"ticket": r.get("ticket"), "ev": r.get("ev"), "odds": r.get("odds"), "sameAsHot": r.get("sameAsHot")}] if r.get("ticket") else []
+    return [t for t in ts if isinstance(t, dict) and isinstance(t.get("ticket"), str)][:MAX_D_POINTS]
 
 
 def _snap_ok(r, cfg):
@@ -118,7 +132,8 @@ def select(plan, done_keys, spent_yen, races_bought, cfg, at, bought_keys=()):
         if kind == "hot" and not isinstance(ticket, str):
             continue
         key = make_key(date, place, rno, kind)
-        if key in done_keys:
+        d_keys = [make_key(date, place, rno, "D", i) for i in range(1, MAX_D_POINTS + 1)] if kind == "D" else []
+        if (kind == "hot" and key in done_keys) or (kind == "D" and all(k in done_keys for k in d_keys)):
             continue
         minutes = minutes_to_close(date, close, at)
         if minutes is None:
@@ -138,14 +153,28 @@ def select(plan, done_keys, spent_yen, races_bought, cfg, at, bought_keys=()):
             if minutes > cfg.decide_at_minutes:
                 continue
             ok, note, why = _snap_ok(r, cfg)
-            if not ok or r.get("verdict") != "buy" or not isinstance(ticket, str):
-                res.quiet.append(key)          # 買う組が無い・倍率が無い: 全レースなので記録もログもしない
+            tks = list(enumerate(_d_tickets(r), 1))          # [(何点目, 組)]
+            buy_now = ok and r.get("verdict") == "buy" and tks
+            if key in done_keys:
+                # もう決めたレース。2点目以降で買えていないもの（失敗して次の周に回ったもの）だけ買い直す
+                tks = [(i, t) for i, t in tks if i > 1 and d_keys[i - 1] not in done_keys]
+                if not buy_now or not tks:
+                    continue
+            elif not buy_now:
+                res.quiet.extend(d_keys)       # 買う組が無い・倍率が無い: 全レースなので記録もログもしない
                 continue
+            else:
+                # 決めるのはこの1回だけ。このとき無かった番号は黙って決めておく（あとで倍率が動いて組が増えても買わない）
+                res.quiet.extend(d_keys[len(tks):])
             hot_key = make_key(date, place, rno, "hot")
-            if r.get("sameAsHot") and (hot_key in hot_now or hot_key in bought_keys):
-                res.skips.append((_bet(r, cfg, minutes, note), "🔥と同じ組を買ったので重ねない"))
-                continue
-            res.bets.append(_bet(r, cfg, minutes, note))
+            for i, t in tks:
+                b = _bet(r, cfg, minutes, note, t, i)
+                if b.key in done_keys:
+                    continue
+                if t.get("sameAsHot") and (hot_key in hot_now or hot_key in bought_keys):
+                    res.skips.append((b, "🔥と同じ組を買ったので重ねない"))
+                    continue
+                res.bets.append(b)
             continue
 
         is7 = int(r.get("cars") or 0) < 8
@@ -176,7 +205,7 @@ def select(plan, done_keys, spent_yen, races_bought, cfg, at, bought_keys=()):
             res.warnings.append(f"1日の上限 {cfg.max_yen_per_day}円 に達したので {b.label} は見送り（使用済み {spent}円）")
             continue
         if cfg.max_races_per_day is not None and n + 1 > cfg.max_races_per_day:
-            res.warnings.append(f"1日の上限 {cfg.max_races_per_day}レース に達したので {b.label} は見送り。★多すぎます。何かおかしくないか確かめてください")
+            res.warnings.append(f"1日の上限 {cfg.max_races_per_day}点 に達したので {b.label} は見送り。★多すぎます。何かおかしくないか確かめてください")
             continue
         kept.append(b)
         spent += b.yen

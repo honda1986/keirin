@@ -291,7 +291,7 @@ class Runner:
 
     def loop(self, once=False):
         self.log.event("開始", f"{self.mode} / {self.cfg.poll_seconds}秒おき / 1日の上限 "
-                               f"{self.cfg.max_yen_per_day or '無制限'}円・{self.cfg.max_races_per_day or '無制限'}レース / "
+                               f"{self.cfg.max_yen_per_day or '無制限'}円・{self.cfg.max_races_per_day or '無制限'}点 / "
                                f"止めるには {self.stop_path} を作るか Ctrl+C")
         while True:
             state = self.cycle()
@@ -379,6 +379,11 @@ def main(argv=None):
         if _raw.get("buy_7car") and "buy_7car_hot" not in _raw:
             print("（2026-09-27 の見直しで、🔥の7車立ては買わなくしました（5年とも回収100%未満）。"
                   "買うなら run.bat の 7) で「🔥の7車立ても買う」を はい にしてください）")
+        if cfg.buy_model_d and ((cfg.max_races_per_day is not None and cfg.max_races_per_day < 20)
+                                or (cfg.max_yen_per_day is not None and cfg.max_yen_per_day < 20 * cfg.bet_yen)):
+            print(f"（2026-09-29 からモデルDは「期待値1.05以上・20倍以下の組を全部」になり、🔥と合わせて1日平均6〜7点・多い日で20点ほど買います。"
+                  f"いまの1日の上限（{cfg.max_yen_per_day or '無制限'}円・{cfg.max_races_per_day or '無制限'}点）だと多い日は後半のレースを買えません。"
+                  "run.bat の 7) で上限を 2500円・25点 くらいにしてください）")
     except Exception:
         pass
     if args.notify_test:
