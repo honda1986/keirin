@@ -100,7 +100,8 @@ class TestFakeSite(unittest.TestCase):
         BOUGHT.clear()
         self.dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.dir, True)
-        self.cfg = config_mod.from_dict({"i_have_read_the_terms": True, "oddspark_url": self.url, "decide_at_minutes": 10}, base_dir=self.dir)
+        self.cfg = config_mod.from_dict({"i_have_read_the_terms": True, "oddspark_url": self.url, "decide_at_minutes": 10,
+                                           "buy_7car_hot": True}, base_dir=self.dir)   # 画面操作を7車立てでも試すため
         self.ctx = self.browser.new_context()
         self.addCleanup(self.ctx.close)
         self.page = self.ctx.new_page()

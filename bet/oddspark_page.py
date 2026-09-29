@@ -94,6 +94,19 @@ def _norm(text):
     return re.sub(r"[\s　]+", "", t)
 
 
+# オッズパークの買い目一覧・確認画面では場名が略されることがある（実物 2026-09-29: いわき平 →「平」）
+PLACE_SHORT = {"いわき平": {"平"}}
+
+
+def place_matches(text, place):
+    """画面の場名（前に「09/29」などの日付が付くことがある）が place か。
+    同じ文字 / PLACE_SHORT の略し方 / 頭の2文字以上（競輪場43場は頭2文字がみな違うので、別の場と取り違えない）"""
+    t = re.sub(r"^\d{1,2}/\d{1,2}", "", _norm(text))
+    if not t:
+        return False
+    return t == place or t in PLACE_SHORT.get(place, ()) or (len(t) >= 2 and place.startswith(t))
+
+
 def _ticket_of(text):
     """"3-4-7" や "3連複フ3-4-7" から昇順の "3=4=7"。読めなければ None"""
     m = re.search(r"(?<!\d)([1-9])[-=]([1-9])[-=]([1-9])(?!\d)", _norm(text))
@@ -116,7 +129,7 @@ def check_slip(rows, sum_count, sum_pay, place, rno, ticket, units, yen):
     else:
         cells = [_norm(c) for c in rows[0]]
         joined = "|".join(cells)
-        if not any(c.endswith(place) or c == place for c in cells):
+        if not any(place_matches(c, place) for c in cells):
             bad.append(f"場「{place}」が見当たらない（{joined}）")
         if str(rno) not in cells:
             bad.append(f"R「{rno}」が見当たらない（{joined}）")
@@ -142,7 +155,7 @@ def check_confirm(rows, page_text, place, rno, ticket, yen):
         bad.append(f"確認画面の表が {len(rows)}行（1行のはず）")
     else:
         c = [_norm(x) for x in rows[0]] + [""] * 7
-        if c[1] != place:
+        if not place_matches(c[1], place):
             bad.append(f"開催場が「{c[1]}」（{place} のはず）")
         if c[2] != str(rno):
             bad.append(f"R が「{c[2]}」（{rno} のはず）")
@@ -171,7 +184,7 @@ def check_done(rows, page_text, place, rno, ticket):
         return "「受け付けました」が無い"
     for r in rows:
         c = [_norm(x) for x in r]
-        if len(c) >= 8 and c[1] == place and c[2] == str(rno) and _ticket_of(c[5]) == ticket:
+        if len(c) >= 8 and place_matches(c[1], place) and c[2] == str(rno) and _ticket_of(c[5]) == ticket:
             return "" if c[7] == "○" else f"受付が「{c[7]}」"
     return "完了画面の表にこのレースが無い"
 
@@ -438,11 +451,25 @@ class Session:
             self._to_matome(vp)
 
     def course_code(self, vp, place):
-        """ul#course の li から場コード。無ければ None / 発売が無ければ ""（inactive）"""
-        items = vp.eval_on_selector_all(SEL["course_li"], "ls => ls.map(l => [l.getAttribute('value') || '', l.innerText])")
-        for value, name in items:
-            if _norm(name) == place:
-                return value
+        """ul#course の li から場コード。無ければ None / 発売が無ければ ""（inactive）
+
+        ★買い目を消した直後などは、画面の切り替わりの途中で一覧が空や途中のことがある（実物 2026-09-29 いわき平）。
+          見つからなければ、まとめ投票を開き直して1回だけ読み直す。それでも一覧が空なら画面がおかしいので失敗にする
+        """
+        names = []
+        for attempt in range(2):
+            items = vp.eval_on_selector_all(SEL["course_li"], "ls => ls.map(l => [l.getAttribute('value') || '', l.innerText])")
+            names = [_norm(n) for _, n in items]
+            for value, name in items:
+                if _norm(name) == place:
+                    return value
+            if attempt == 0:
+                vp.wait_for_timeout(800)
+                self._reload_matome(vp)
+        if not [n for n in names if n]:
+            png = shot(vp, self.shot_dir, "course_empty", html=True)
+            raise RuntimeError("場の一覧が読めない（画面の切り替わりの途中？）" + (f"（{png}）" if png else ""))
+        self.last_course_names = names
         return None
 
     def open_race(self, b):
@@ -450,7 +477,7 @@ class Session:
         self._reload_matome(vp)
         jcd = self.course_code(vp, b.place)
         if jcd is None:
-            raise SkipRace(f"オッズパークの場の一覧に「{b.place}」が無い（今日は売っていない？）")
+            raise SkipRace(f"オッズパークの場の一覧に「{b.place}」が無い（今日は売っていない？ 一覧: {'・'.join(getattr(self, 'last_course_names', []))}）")
         if not jcd:
             raise SkipRace(f"{b.place}は発売が終わっている")
         box = vp.locator(SEL["race_box"].format(date=b.date, jcd=jcd, rno=b.rno))
