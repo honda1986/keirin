@@ -240,6 +240,19 @@ class TestConfirm(unittest.TestCase):
         self.assertTrue(op.check_slip(self.SLIP * 2, "組数：2通り", "合計金額：200円", "岐阜", 2, "3=4=7", "1", 100))
         self.assertTrue(op.check_slip(self.SLIP, "組数：11通り", "合計金額：100円", "岐阜", 2, "3=4=7", "1", 100))
 
+    def test_略した場名(self):
+        # 実物 2026-09-29: 買い目一覧で いわき平 が「平」になっていて照合で止まった
+        slip = [["", "09/29\n平", "3", "3連複フ\n1-4-7", "14.4", "00円"]]
+        self.assertEqual(op.check_slip(slip, "組数：1通り", "合計金額：500円", "いわき平", 3, "1=4=7", "5", 500), [])
+        self.assertTrue(op.check_slip(slip, "組数：1通り", "合計金額：500円", "平塚", 3, "1=4=7", "5", 500))
+        conf = [["2026/9/29", "平", "3", "3連複", "フォーメーション", "1-4-7", "500円"]]
+        self.assertEqual(op.check_confirm(conf, self.CONF_TEXT.replace("100円", "500円"), "いわき平", 3, "1=4=7", 500), [])
+        self.assertTrue(op.check_confirm(conf, self.CONF_TEXT.replace("100円", "500円"), "平塚", 3, "1=4=7", 500))
+        for text, place, ok in [("09/29平", "いわき平", True), ("いわき平", "いわき平", True), ("09/26\n岐 阜", "岐阜", True),
+                                ("小田", "小田原", True), ("平", "平塚", False), ("平塚", "いわき平", False),
+                                ("09/29", "岐阜", False), ("", "岐阜", False), ("松阪", "松山", False), ("小", "小倉", False)]:
+            self.assertEqual(op.place_matches(text, place), ok, (text, place))
+
     def test_確認画面(self):
         self.assertEqual(op.check_confirm(self.CONF, self.CONF_TEXT, "岐阜", 2, "3=4=7", 100), [])
         self.assertTrue(op.check_confirm(self.CONF, self.CONF_TEXT, "岐阜", 2, "3=4=7", 200))
