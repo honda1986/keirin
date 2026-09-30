@@ -467,8 +467,11 @@ function parseCard(text, trackNames) {
 function f3PlanFrom(ranked, lines, opt) {
   if (!Array.isArray(ranked) || !ranked.length || !Array.isArray(lines)) return null;
   const cars = ranked.length;
-  const l = lines.find((x) => Array.isArray(x) && x.includes(ranked[0]));
-  if (!l || l.length < 3) return { cars, trio: null, hot: false, note: "本命ラインが3人未満のため3連複の対象外。" };
+  const l0 = lines.find((x) => Array.isArray(x) && x.includes(ranked[0]));
+  // 競り(並び予想のカッコ): 本命ラインで2人が位置を競るときは、カッコの後の選手を外した「本線」から3人を選ぶ(hikitsugi §4-17)
+  const seriHere = l0 && opt && Array.isArray(opt.seri) ? opt.seri.filter((q) => l0.includes(q[0]) && l0.includes(q[1])) : [];
+  const l = seriHere.length ? l0.filter((c) => !seriHere.some((q) => q[1] === c)) : l0;
+  if (!l || l.length < 3) return { cars, trio: null, hot: false, note: seriHere.length ? "本命ラインで2人が位置を競る(並び予想のカッコ)。本線が3人未満のため3連複の対象外。" : "本命ラインが3人未満のため3連複の対象外。" };
   const trio = [l[0], l[1], l[2]];
   const rankSum = trio.reduce((a, c) => a + (ranked.indexOf(c) + 1), 0);
   const ticket = trio.slice().sort((a, b) => a - b).join("=");
@@ -506,10 +509,14 @@ function f3PlanFrom(ranked, lines, opt) {
   }
   // S級S班(SS)がいるレース(ほぼG級)の🔥9車は5年で約68%(444R・的中9.1%。2022 101% / 2023 42% / 2024 30% / 2025 82% / 2026 99%)。
   //   🔥の5年の成績(103/103/103/132/103%)は、SS の選手を読み飛ばしていたためこれらを含まずに測ったもの。同じ条件に揃えて見送る(hikitsugi §4-13)
-  // 競る2人(並び予想のカッコ)が両方入る3人は、どちらかが位置を失うので揃って来にくい(5年で🔥3R・0的中)。見送る
-  if (opt && Array.isArray(opt.seri) && o.hot && opt.seri.some((p) => p.filter((c) => trio.includes(c)).length >= 2)) {
-    o.hot = false; o.oddsHint = ""; o.bandNote = "";
-    o.note = "本命ラインで2人が番手を競る(並び予想のカッコ)。競る2人が両方入るので見送り。";
+  // 競りのラインの本線3人(先頭-カッコの前-その次)は、競る2人を両方入れる組(的中5%・回収52%)よりずっと当たる。
+  //   2022・2023・2025・2026年(番手を競る形 1,171R・ほぼ7車): 的中24.0%・回収109%。4〜15倍は 561R 的中19.4%・回収133%(163/127/135/80%)。9車は58R 回収22%
+  //   年でばらつき、2024年は未確認のため🔥にはしない(参考表示だけ)
+  if (seriHere.length) {
+    o.hot = false; o.oddsHint = ""; o.bandNote = ""; o.needOdds = false; o.bandLo = o.bandHi = null;
+    o.roi = cars >= 8 ? 22 : 109; o.hitRate = cars >= 8 ? 5.2 : 24.0;
+    o.note = "本命ラインで2人が位置を競る(並び予想のカッコ)。3連複は競る2人の片方(カッコの後)を外した本線の3人。" +
+      (cars >= 8 ? "9車立ては実測 回収22%(58R)。" : "過去の記録で的中24%・回収109%(1,171R)、4〜15倍は的中19%・回収133%。年でばらつくので参考(🔥にはしない)。");
   }
   if (opt && opt.ss && o.hot && cars >= 8) {
     o.hot = false; o.roi = 67.7; o.hitRate = 9.1;
@@ -687,8 +694,10 @@ function predict(parsed, bank, trackName, learnW) {
   const medianScore = sortedPts.length % 2 ? sortedPts[(sortedPts.length - 1) / 2]
     : (sortedPts[sortedPts.length / 2 - 1] + sortedPts[sortedPts.length / 2]) / 2;
   const backProbs = [];
+  // 競り: カッコの後の選手は本線から外れるので、バック取得予測のライン人数に数えない(hikitsugi §4-17)
+  const seriBack = new Set(klass !== "girls" && Array.isArray(parsed.seri) ? parsed.seri.map((q) => q[1]) : []);
   lines.forEach((line) => {
-    const p = backProb(line, byCar, klass, nCars, medianScore);
+    const p = backProb(line.filter((c) => !seriBack.has(c)), byCar, klass, nCars, medianScore);
     if (p != null) backProbs.push({ line, p });
   });
   backProbs.sort((x, y) => y.p - x.p);
@@ -861,6 +870,19 @@ function predict(parsed, bank, trackName, learnW) {
     if (backBalanced) parts.push(`ただし[${backProbs[1].line.join("")}]ラインと確率が均衡(差5%未満)しており、主導権争いで荒れる可能性あり。`);
   } else if (lh) {
     parts.push(`主導権は${lh.car}番${lh.name}のラインが最有力。`);
+  }
+  if (klass !== "girls" && Array.isArray(parsed.seri) && parsed.seri.length) {
+    const done = new Set();
+    parsed.seri.forEach((q) => {
+      const ln = lines.find((l) => l.includes(q[0]));
+      if (!ln || done.has(ln[0]) || !byCar[ln[0]]) return;
+      done.add(ln[0]);
+      const qs = parsed.seri.filter((x) => ln.includes(x[0]));
+      const nm = (c) => c + "番" + (byCar[c] ? byCar[c].name : "");
+      parts.push(`${nm(ln[0])}のラインは${qs.map((x) => nm(x[0]) + "と" + nm(x[1])).join("、")}が位置を競る(並び予想のカッコ)。` +
+        `先行は後ろを気にせず自分のペースで行けるので強く(過去の記録で1着 約6割・3着以内 8〜9割)、競る2人は脚を使うので3着以内が落ちる(カッコの前 約4割・後 約2.5割)。` +
+        `3連複は競る2人の片方を外した本線(${ln.filter((c) => !qs.some((x) => x[1] === c)).slice(0, 3).map(nm).join("・")})で組む。`);
+    });
   }
   if (threat) parts.push(`${threat.car}番${threat.name}(${role[threat.car]})が中団から捲る動きに警戒。`);
   parts.push(`本命は総合力最上位の${marks[0].car}番${marks[0].name}。`);

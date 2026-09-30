@@ -362,11 +362,11 @@
     <div class="narabi-edit">
       <label for="narabiInput" class="note" style="display:block;margin:12px 0 4px">並びの手直し(自動推定が違うとき)</label>
       <div style="display:flex;gap:8px">
-        <input id="narabiInput" type="text" inputmode="numeric" placeholder="例: 312 4 56 7"
+        <input id="narabiInput" type="text" placeholder="例: 312 4 56 7 / 競り 1 3(54)(62) 7"
           style="flex:1;padding:9px 10px;font-size:15px;font-weight:700;letter-spacing:.15em;border-radius:8px;border:1px solid #26363B;background:#1C282C;color:#EAF2EF;font-family:inherit;font-variant-numeric:tabular-nums">
         <button id="reRun" style="padding:9px 14px;font-size:13px;font-weight:900;border-radius:8px;border:1px solid #F2C230;background:transparent;color:#F2C230;font-family:inherit;cursor:pointer;white-space:nowrap">再予想</button>
       </div>
-      <p class="note" style="font-size:10px;color:#5E7573;margin-top:5px">数字の連なりが1本のライン、スペース区切り。「312 4 56 7」=③①②のライン・④単騎・⑤⑥のライン・⑦単騎。全車番を1回ずつ使ってください</p>
+      <p class="note" style="font-size:10px;color:#5E7573;margin-top:5px">数字の連なりが1本のライン、スペース区切り。「312 4 56 7」=③①②のライン・④単騎・⑤⑥のライン・⑦単騎。全車番を1回ずつ使ってください。競りは2人をカッコで囲む「3(54)」=③の番手を⑤と④が競る</p>
       <p class="err hidden" id="narabiErr"></p>
     </div></section>
   <section class="card hidden" id="scoreCard" data-tab="ana"><h2>採点表（スコア内訳）</h2><div class="tbl-scroll"><table><thead><tr>
@@ -1196,8 +1196,10 @@ function predict(parsed, bank, trackName, learnW) {
   const medianScore = sortedPts.length % 2 ? sortedPts[(sortedPts.length - 1) / 2]
     : (sortedPts[sortedPts.length / 2 - 1] + sortedPts[sortedPts.length / 2]) / 2;
   const backProbs = [];
+  // 競り: カッコの後の選手は本線から外れるので、バック取得予測のライン人数に数えない(hikitsugi §4-17)
+  const seriBack = new Set(klass !== "girls" && Array.isArray(parsed.seri) ? parsed.seri.map((q) => q[1]) : []);
   lines.forEach((line) => {
-    const p = backProb(line, byCar, klass, nCars, medianScore);
+    const p = backProb(line.filter((c) => !seriBack.has(c)), byCar, klass, nCars, medianScore);
     if (p != null) backProbs.push({ line, p });
   });
   backProbs.sort((x, y) => y.p - x.p);
@@ -1370,6 +1372,19 @@ function predict(parsed, bank, trackName, learnW) {
     if (backBalanced) parts.push(`ただし[${backProbs[1].line.join("")}]ラインと確率が均衡(差5%未満)しており、主導権争いで荒れる可能性あり。`);
   } else if (lh) {
     parts.push(`主導権は${lh.car}番${lh.name}のラインが最有力。`);
+  }
+  if (klass !== "girls" && Array.isArray(parsed.seri) && parsed.seri.length) {
+    const done = new Set();
+    parsed.seri.forEach((q) => {
+      const ln = lines.find((l) => l.includes(q[0]));
+      if (!ln || done.has(ln[0]) || !byCar[ln[0]]) return;
+      done.add(ln[0]);
+      const qs = parsed.seri.filter((x) => ln.includes(x[0]));
+      const nm = (c) => c + "番" + (byCar[c] ? byCar[c].name : "");
+      parts.push(`${nm(ln[0])}のラインは${qs.map((x) => nm(x[0]) + "と" + nm(x[1])).join("、")}が位置を競る(並び予想のカッコ)。` +
+        `先行は後ろを気にせず自分のペースで行けるので強く(過去の記録で1着 約6割・3着以内 8〜9割)、競る2人は脚を使うので3着以内が落ちる(カッコの前 約4割・後 約2.5割)。` +
+        `3連複は競る2人の片方を外した本線(${ln.filter((c) => !qs.some((x) => x[1] === c)).slice(0, 3).map(nm).join("・")})で組む。`);
+    });
   }
   if (threat) parts.push(`${threat.car}番${threat.name}(${role[threat.car]})が中団から捲る動きに警戒。`);
   parts.push(`本命は総合力最上位の${marks[0].car}番${marks[0].name}。`);
@@ -1732,8 +1747,11 @@ function rankedOfRow(x) {
 function f3PlanFrom(ranked, lines, opt) {
   if (!Array.isArray(ranked) || !ranked.length || !Array.isArray(lines)) return null;
   const cars = ranked.length;
-  const l = lines.find((x) => Array.isArray(x) && x.includes(ranked[0]));
-  if (!l || l.length < 3) return { cars, trio: null, hot: false, note: "本命ラインが3人未満のため3連複の対象外。" };
+  const l0 = lines.find((x) => Array.isArray(x) && x.includes(ranked[0]));
+  // 競り(並び予想のカッコ): 本命ラインで2人が位置を競るときは、カッコの後の選手を外した「本線」から3人を選ぶ(hikitsugi §4-17)
+  const seriHere = l0 && opt && Array.isArray(opt.seri) ? opt.seri.filter((q) => l0.includes(q[0]) && l0.includes(q[1])) : [];
+  const l = seriHere.length ? l0.filter((c) => !seriHere.some((q) => q[1] === c)) : l0;
+  if (!l || l.length < 3) return { cars, trio: null, hot: false, note: seriHere.length ? "本命ラインで2人が位置を競る(並び予想のカッコ)。本線が3人未満のため3連複の対象外。" : "本命ラインが3人未満のため3連複の対象外。" };
   const trio = [l[0], l[1], l[2]];
   const rankSum = trio.reduce((a, c) => a + (ranked.indexOf(c) + 1), 0);
   const ticket = trio.slice().sort((a, b) => a - b).join("=");
@@ -1771,10 +1789,14 @@ function f3PlanFrom(ranked, lines, opt) {
   }
   // S級S班(SS)がいるレース(ほぼG級)の🔥9車は5年で約68%(444R・的中9.1%。2022 101% / 2023 42% / 2024 30% / 2025 82% / 2026 99%)。
   //   🔥の5年の成績(103/103/103/132/103%)は、SS の選手を読み飛ばしていたためこれらを含まずに測ったもの。同じ条件に揃えて見送る(hikitsugi §4-13)
-  // 競る2人(並び予想のカッコ)が両方入る3人は、どちらかが位置を失うので揃って来にくい(5年で🔥3R・0的中)。見送る
-  if (opt && Array.isArray(opt.seri) && o.hot && opt.seri.some((p) => p.filter((c) => trio.includes(c)).length >= 2)) {
-    o.hot = false; o.oddsHint = ""; o.bandNote = "";
-    o.note = "本命ラインで2人が番手を競る(並び予想のカッコ)。競る2人が両方入るので見送り。";
+  // 競りのラインの本線3人(先頭-カッコの前-その次)は、競る2人を両方入れる組(的中5%・回収52%)よりずっと当たる。
+  //   2022・2023・2025・2026年(番手を競る形 1,171R・ほぼ7車): 的中24.0%・回収109%。4〜15倍は 561R 的中19.4%・回収133%(163/127/135/80%)。9車は58R 回収22%
+  //   年でばらつき、2024年は未確認のため🔥にはしない(参考表示だけ)
+  if (seriHere.length) {
+    o.hot = false; o.oddsHint = ""; o.bandNote = ""; o.needOdds = false; o.bandLo = o.bandHi = null;
+    o.roi = cars >= 8 ? 22 : 109; o.hitRate = cars >= 8 ? 5.2 : 24.0;
+    o.note = "本命ラインで2人が位置を競る(並び予想のカッコ)。3連複は競る2人の片方(カッコの後)を外した本線の3人。" +
+      (cars >= 8 ? "9車立ては実測 回収22%(58R)。" : "過去の記録で的中24%・回収109%(1,171R)、4〜15倍は的中19%・回収133%。年でばらつくので参考(🔥にはしない)。");
   }
   if (opt && opt.ss && o.hot && cars >= 8) {
     o.hot = false; o.roi = 67.7; o.hitRate = 9.1;
@@ -2084,25 +2106,36 @@ function flash(btn, msg, ok) {
 }
 
 
-// 並び文字列 ⇔ ライン配列
-const linesToStr = (lines) => lines.map((l) => l.join("")).join(" ");
+// 並び文字列 ⇔ ライン配列。競りはカッコ:「1 3(54)(62) 7」= 3の番手を5と4、3番手を6と2が競る
+const linesToStr = (lines, seri) => lines.map((l) => {
+  const SR = Array.isArray(seri) ? seri : [];
+  let s = "";
+  for (let k = 0; k < l.length; k++) {
+    if (SR.some((q) => q[0] === l[k] && q[1] === l[k + 1])) { s += "(" + l[k] + l[k + 1] + ")"; k++; } else s += l[k];
+  }
+  return s;
+}).join(" ");
 function strToLines(str, cars) {
   const tokens = String(str).trim().split(/[\s/・,、\-]+/).filter(Boolean);
   if (!tokens.length) throw new Error("並びが空です");
-  const lines = [], seen = new Set();
+  const lines = [], seen = new Set(), seri = [];
   for (const t of tokens) {
-    if (!/^[1-9]+$/.test(t)) throw new Error("「" + t + "」は数字のみで入力してください");
+    if (!/^([1-9]|[(（][1-9][1-9][)）])+$/.test(t)) throw new Error("「" + t + "」は数字(競りは2人をカッコで囲む)で入力してください");
     const line = [];
-    for (const ch of t) {
-      const c = parseInt(ch);
-      if (!cars.includes(c)) throw new Error(c + "番は出走していません");
-      if (seen.has(c)) throw new Error(c + "番が2回使われています");
-      seen.add(c); line.push(c);
+    for (const m of t.matchAll(/[(（]([1-9])([1-9])[)）]|([1-9])/g)) {
+      const cs = m[3] ? [parseInt(m[3])] : [parseInt(m[1]), parseInt(m[2])];
+      for (const c of cs) {
+        if (!cars.includes(c)) throw new Error(c + "番は出走していません");
+        if (seen.has(c)) throw new Error(c + "番が2回使われています");
+        seen.add(c); line.push(c);
+      }
+      if (cs.length === 2) seri.push(cs);
     }
     lines.push(line);
   }
   const missing = cars.filter((c) => !seen.has(c));
   if (missing.length) throw new Error(missing.join(",") + "番が並びに含まれていません");
+  lines.seri = seri;
   return lines;
 }
 
@@ -2119,7 +2152,7 @@ $("run").addEventListener("click", () => {
     $("err").textContent = e.message; $("err").classList.remove("hidden"); return;
   }
   lastParsed = p; lastTrack = tName;
-  $("narabiInput").value = linesToStr(p.lines);
+  $("narabiInput").value = linesToStr(p.lines, p.seri);
   render(p, tName);
 });
 
@@ -2129,7 +2162,7 @@ $("reRun").addEventListener("click", () => {
   try {
     const cars = lastParsed.entries.map((e) => e.car);
     const lines = strToLines($("narabiInput").value, cars);
-    render({ ...lastParsed, lines }, lastTrack);
+    render({ ...lastParsed, lines: lines.map((l) => l.slice()), seri: lines.seri }, lastTrack);
   } catch (e) {
     $("narabiErr").textContent = e.message; $("narabiErr").classList.remove("hidden");
   }
