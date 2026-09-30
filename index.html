@@ -242,6 +242,8 @@
   .lineviz .fp { font-size: 10px; color: var(--dim); margin: 0 4px 0 1px; font-variant-numeric: tabular-nums; }
   .lineviz .fp.top { color: var(--green); font-weight: 900; }
   .lineviz .grp.front { box-shadow: 0 0 0 1.5px var(--green) inset; }
+  .lineviz .sr, .rl .sr { display: flex; gap: 2px; padding: 1px; border: 1.5px dashed var(--red, #E5484D); border-radius: 999px; position: relative; }
+  .lineviz .sr::after, .rl .sr::after { content: "競"; position: absolute; top: -7px; right: -4px; font-size: 9px; font-weight: 900; color: var(--red, #E5484D); background: var(--panel, #111); border-radius: 4px; padding: 0 1px; line-height: 1.1; }
   .lineviz .grp.hm.front { box-shadow: 0 0 0 1.5px var(--gold) inset, 0 0 0 3px rgba(95,192,139,.55); }
   /* カード(これから) */
   .rc { padding: 11px 13px; }
@@ -960,6 +962,9 @@ function parseKdreams(text, trackNames) {
   // 保険として「1 / 先行 / 7 / 追込 / …」と1行ずつ並ぶ形にも対応する。
   const ni = L.findIndex((x) => /並び予想/.test(x) && x.length <= 40);
   const linesArr = []; const narabi = [];
+  // 競り: 「3 (5 4) (6 2)」のカッコ = 2人が同じ位置(番手など)を競る。seri = [[5,4],[6,2]](カッコの前が先)。
+  //   ラインは今までどおりカッコを外した 3-5-4-6-2 のまま(2026-09-30。扱い方は hikitsugi §4-17)
+  const seri = [];
   const pushCar = (c, cont) => {
     if (!(c >= 1 && c <= 9) || narabi.indexOf(c) >= 0) return;
     narabi.push(c);
@@ -976,6 +981,7 @@ function parseKdreams(text, trackNames) {
     }
     const ROLE = /(先行|押え先|押さえ先|単騎|追込|番手|マーク)/;
     const FOLLOW = /^(追込|番手|マーク|付)/;
+    for (const m of (raw || "").matchAll(/[(（]\s*([1-9])\s+([1-9])\s*[)）]/g)) seri.push([+m[1], +m[2]]);
     if (raw && !ROLE.test(raw)) {
       // 記号や空白2個だけで区切られている表記
       for (const grp of raw.replace(/^[←→\s]+/, "").split(/ {2,}|[・･／\/|、]|　/)) {
@@ -995,7 +1001,7 @@ function parseKdreams(text, trackNames) {
   }
   const known = new Set(linesArr.flat());
   for (const e of entries) if (!known.has(e.car)) linesArr.push([e.car]);   // 並びに出てこない車は単騎扱い
-  return { ...meta, entries, lines: linesArr, narabi: narabi.length ? narabi : entries.map((e) => e.car) };
+  return { ...meta, entries, lines: linesArr, narabi: narabi.length ? narabi : entries.map((e) => e.car), seri };
 }
 
 // kdreams は「府県/年齢/期別」の行(例: 静　岡/24/121)が選手数ぶん並ぶのが特徴。
@@ -1201,6 +1207,19 @@ function predict(parsed, bank, trackName, learnW) {
   const bankIdx = (b[0] || 400) < 400 ? 0 : (b[0] || 400) > 400 ? 2 : 1;
   const baseWin = 100 / nCars;
 
+  // 競り(並び予想のカッコ。parsed.seri = [[カッコの前, 後], ...])。hikitsugi §4-17
+  //   番手が競り合うので前の先行は自分のペースで行ける: 競りのラインの先頭は1着 60〜67%・3着内 82〜90%(ふつうの先頭は20%・47%)。
+  //   競る2人は3着内 カッコの前 約42%・後 約24%(ふつうの番手 47%)。カッコを外して5人ラインとして採点すると、
+  //   競る選手に番手の加点が付いて◎になり、その◎の1着は15〜18%しかなかった。
+  //   評価点に 先頭 +20・競る2人 -10 を足すと ◎の1着 2022 45→62% / 2025 54→62% / 2026 47→67%(係数は2025年で決めた)
+  const seriAdj = {};
+  if (klass !== "girls" && Array.isArray(parsed.seri)) for (const p of parsed.seri) {
+    const ln = lines.find((l) => l.includes(p[0]));
+    if (!ln) continue;
+    if (!p.includes(ln[0])) seriAdj[ln[0]] = 20;
+    p.forEach((c) => { seriAdj[c] = -10; });
+  }
+
   // 捲り脅威(主導権ライン外の自力)
   let threat = null, threatV = -1;
   es.forEach((e) => {
@@ -1272,6 +1291,7 @@ function predict(parsed, bank, trackName, learnW) {
     if (!dome && isRain && (klass === "a12" || klass === "challenge") && r === "先頭") pos += 0.8;
 
     if (klass === "girls") pos *= 0.75; // 記事048: ガールズは展開寄与が小さい
+    pos += seriAdj[e.car] || 0;   // 競り(上の seriAdj)
     const sB = Math.min(e.S, 9) / 9 * 3;
 
     let gap = 0;
@@ -1677,7 +1697,7 @@ $("addRace").addEventListener("click", () => {
     const sx = sujiExpect(p, r, bank ? bank[10] : null);
     const gap = r.scores && r.scores[1] ? +(r.scores[0].total - r.scores[1].total).toFixed(1) : null;
     const key = (p.place || "?") + (p.raceNo || "?");
-    const item = { key, startTime: p.startTime || "", label: (p.place || "?") + " " + (p.raceNo || ""), sub: (r.fLabel || "") + " " + patLabel(r.linePattern), klass: r.klass, sx, gap, shoubu: isShoubu(sx, gap, r.klass, r.scores.map((sc) => sc.car), p.lines, p.grade || "", r.linePattern || "", (p.entries || []).some((e) => e.grade === "SS")), raw: text };
+    const item = { key, startTime: p.startTime || "", label: (p.place || "?") + " " + (p.raceNo || ""), sub: (r.fLabel || "") + " " + patLabel(r.linePattern), klass: r.klass, sx, gap, shoubu: isShoubu(sx, gap, r.klass, r.scores.map((sc) => sc.car), p.lines, p.grade || "", r.linePattern || "", (p.entries || []).some((e) => e.grade === "SS"), p.seri), raw: text };
     const i = raceList.findIndex((x) => x.key === key);
     if (i >= 0) raceList[i] = item; else raceList.push(item);
     renderSearch();
@@ -1751,6 +1771,11 @@ function f3PlanFrom(ranked, lines, opt) {
   }
   // S級S班(SS)がいるレース(ほぼG級)の🔥9車は5年で約68%(444R・的中9.1%。2022 101% / 2023 42% / 2024 30% / 2025 82% / 2026 99%)。
   //   🔥の5年の成績(103/103/103/132/103%)は、SS の選手を読み飛ばしていたためこれらを含まずに測ったもの。同じ条件に揃えて見送る(hikitsugi §4-13)
+  // 競る2人(並び予想のカッコ)が両方入る3人は、どちらかが位置を失うので揃って来にくい(5年で🔥3R・0的中)。見送る
+  if (opt && Array.isArray(opt.seri) && o.hot && opt.seri.some((p) => p.filter((c) => trio.includes(c)).length >= 2)) {
+    o.hot = false; o.oddsHint = ""; o.bandNote = "";
+    o.note = "本命ラインで2人が番手を競る(並び予想のカッコ)。競る2人が両方入るので見送り。";
+  }
   if (opt && opt.ss && o.hot && cars >= 8) {
     o.hot = false; o.roi = 67.7; o.hitRate = 9.1;
     o.oddsHint = ""; o.bandNote = "";
@@ -1760,7 +1785,7 @@ function f3PlanFrom(ranked, lines, opt) {
 }
 function f3Plan(p, r) {
   if (!p || !r || !r.scores) return null;
-  return f3PlanFrom(r.scores.map((sc) => sc.car), p.lines || [], { ss: (p.entries || []).some((e) => e.grade === "SS") });
+  return f3PlanFrom(r.scores.map((sc) => sc.car), p.lines || [], { ss: (p.entries || []).some((e) => e.grade === "SS"), seri: p.seri });
 }
 
 // 買う前のオッズ確認を促す帯。🔥カードと個別レース表示の両方で使う。
@@ -1875,10 +1900,10 @@ function oddsGate(x) {
 }
 
 // 勝負レース判定: バックテストで回収率100%超だった勝ちパターンのいずれかに合致するか
-function isShoubu(sx, gap, klass, ranked, lines, grade, pattern, ss) {
+function isShoubu(sx, gap, klass, ranked, lines, grade, pattern, ss, seri) {
   // 判定は3連複「本命ライン3人」の実測成績のみ(sim.jsonの総当たり構成は
   // 未使用データで再現しなかったため使わない)。
-  const pl = f3PlanFrom(ranked || [], lines || [], { ss });
+  const pl = f3PlanFrom(ranked || [], lines || [], { ss, seri });
   return !!(pl && pl.hot);
 }
 function renderShoubu() {
@@ -1909,6 +1934,7 @@ function renderShoubu() {
       estHit: f3HitProb(p, r, p.lines || [], pl.trio),
       delta: evDelta(p, r, SCORES),
       front: x.front && x.lines && x.lines.length === (p.lines || []).length ? x.front : null,
+      seri: x.seri || null,
     });
   }
   SHOUBU_ROWS = rows;
@@ -1946,11 +1972,16 @@ function renderSearch() {
   const pass = (x) => searchFilter === "all" || !!x.shoubu;
   document.querySelectorAll(".sfBtn").forEach((b) => b.classList.toggle("on", b.dataset.f === searchFilter));
   const nHot = raceList.filter((x) => x.shoubu).length;
-  $("shoubuHint").textContent = "全" + raceList.length + "レース ・ 🔥 " + nHot + "件 ・ 緑の枠 = 前受けしそうなライン";
+  $("shoubuHint").textContent = "全" + raceList.length + "レース ・ 🔥 " + nHot + "件 ・ 緑の枠 = 前受けしそうなライン ・ 赤の点線 = 競り";
   const mini = (x) => {
     const L = x.lines || [], fr = x.front;
     const top = Array.isArray(fr) && fr.length === L.length ? fr.indexOf(Math.max(...fr)) : -1;
-    return L.map((l, i) => '<span class="g' + (i === top ? " front" : "") + '">' + l.map((c) => ball(c, "s")).join("") + "</span>").join("");
+    const SR = Array.isArray(x.seri) ? x.seri : [];
+    return L.map((l, i) => '<span class="g' + (i === top ? " front" : "") + '">' + l.map((c, k) => {
+      if (SR.some((q) => q[0] === c && q[1] === l[k + 1])) return '<span class="sr">' + ball(c, "s");
+      if (SR.some((q) => q[1] === c && q[0] === l[k - 1])) return ball(c, "s") + "</span>";
+      return ball(c, "s");
+    }).join("") + "</span>").join("");
   };
   let html = "";
   for (const v of venueOrder) {
@@ -1992,9 +2023,10 @@ $("loadToday").addEventListener("click", async () => {
       const gap = x.gap != null ? x.gap : null;
       const item = { key: x.key, startTime: x.startTime || "", label: (x.place || "?") + " " + (x.raceNo || ""),
         sub: (x.fLabel || "") + " " + patLabel(x.pattern), klass: x.klass,
-        sx, gap, shoubu: isShoubu(sx, gap, x.klass, rankedOfRow(x), x.lines || [], x.grade || "", x.pattern || "", !!x.ss),
+        sx, gap, shoubu: isShoubu(sx, gap, x.klass, rankedOfRow(x), x.lines || [], x.grade || "", x.pattern || "", !!x.ss, x.seri),
         raw: x.raw || "", riders: x.riders || null, lines: x.lines || [], place: x.place || "", raceNo: x.raceNo || "",
-        front: Array.isArray(x.front) && Array.isArray(x.lines) && x.front.length === x.lines.length ? x.front : null };
+        front: Array.isArray(x.front) && Array.isArray(x.lines) && x.front.length === x.lines.length ? x.front : null,
+        seri: Array.isArray(x.seri) ? x.seri : null };
       const i = raceList.findIndex((y) => y.key === item.key);
       if (i >= 0) raceList[i] = item; else raceList.push(item);
     });
@@ -2148,6 +2180,12 @@ function render(p, tName) {
       (l.length === 1 ? '<span class="tag">単騎</span>' : "") + (isLead ? '<span class="tag lead">主導権</span>' : "") + "</div>";
   }).join("") ;
   $("lineBox").innerHTML += lpChip;
+  if (Array.isArray(p.seri) && p.seri.length) {
+    const posName = (c) => { const l = p.lines.find((x) => x.includes(c)); const k = l ? l.indexOf(c) : 0; return k <= 1 ? "番手" : k + "番手"; };
+    $("lineBox").innerHTML += '<p class="note" style="margin-top:8px;color:var(--red)"><b>競り</b> ' +
+      p.seri.map((q) => q[0] + "と" + q[1] + "が" + posName(q[0]) + "を競る").join("・") +
+      "。前の先行は後ろを気にせず行けるので強い（過去の記録で1着 約6割）。競る2人は3着以内が落ちる（前 約4割・後 約2.5割）ので、採点で先行 +20・競る2人 -10 にしている</p>";
+  }
   $("parseCard").classList.remove("hidden");
 
   $("scoreBody").innerHTML = r.scores.map((s, i) => {
@@ -2353,14 +2391,23 @@ function raceStatus(row, res) {
   return { cls: "wait", txt: res && res.pending ? "3着確認中" : "結果待ち" };
 }
 // 並び。trio(買う3人)以外は薄く、本命ラインは金の枠。front(ラインごとの前受け確率)があれば、いちばん高いラインを緑の枠にして%を添える
-function lineViz(lines, trio, front, noHm) {
+// seri = [[カッコの前, 後], ...] 競り(2人が同じ位置を競る)は赤い点線で囲む
+function lineViz(lines, trio, front, noHm, seri) {
   if (!Array.isArray(lines) || !lines.length) return "";
+  const SR = Array.isArray(seri) ? seri : [];
   const T3 = new Set(trio || []);
   const fr = Array.isArray(front) && front.length === lines.length ? front : null;
   const top = fr ? fr.indexOf(Math.max(...fr)) : -1;
   return '<div class="lineviz"><span class="dir">並び</span>' + lines.map((l, i) => {
     const hm = !noHm && trio && l.includes(trio[0]);
-    return '<span class="grp' + (hm ? " hm" : "") + (i === top ? " front" : "") + '">' + l.map((c) => ball(c, "s" + (!trio || T3.has(c) ? "" : " dim"))).join("") + "</span>" +
+    const b1 = (c) => ball(c, "s" + (!trio || T3.has(c) ? "" : " dim"));
+    let inner = "";
+    for (let k = 0; k < l.length; k++) {
+      const p = SR.find((q) => q[0] === l[k] && q[1] === l[k + 1]);
+      if (p) { inner += '<span class="sr" title="' + p[0] + "と" + p[1] + 'が位置を競る">' + b1(p[0]) + b1(p[1]) + "</span>"; k++; }
+      else inner += b1(l[k]);
+    }
+    return '<span class="grp' + (hm ? " hm" : "") + (i === top ? " front" : "") + '">' + inner + "</span>" +
       (fr && i === top ? '<span class="fp top">前' + Math.round(fr[i] * 100) + "%</span>" : "");
   }).join("") + "</div>";
 }
@@ -2536,7 +2583,7 @@ function hotCard(row, isNext) {
       '<span class="kb ' + (row.isTop ? "hot" : "ref") + '">🔥' + (row.isTop ? "" : "7車") + "</span>" +
       (st.txt ? '<span class="st ' + st.cls + '">' + st.txt + "</span>" : "") + "</div>" +
     '<div class="ticket">' + ticketBalls(row.ticket, "l") + '<span class="kind">3連複<br>1点</span>' + frontChip(row) + "</div>" +
-    lineViz(row.lines, row.trio, row.front) +
+    lineViz(row.lines, row.trio, row.front, false, row.seri) +
     (res && !res.pending ? "" : (ei ? evBlock(row) : evBlock(row) || gateBlock(row))) + resBlock(res) +
   "</div>";
 }
@@ -2588,7 +2635,7 @@ function dCard(row) {
       '<small class="start">発走 ' + (row.startTime || "--:--") + " ・ " + row.cars + "車</small></span>" +
       '<span class="kb d">Ⓓ' + (row.of > 1 ? " " + row.nth + "/" + row.of : "") + "</span>" + (st.txt ? '<span class="st ' + st.cls + '">' + st.txt + "</span>" : "") + "</div>" +
     '<div class="ticket">' + ticketBalls(row.ticket, "l") + '<span class="kind">3連複<br>1点</span>' + (row.sameAsHot ? '<span class="fchip mid">🔥と同じ組</span>' : "") + "</div>" +
-    lineViz(x.lines, row.ticket.split("=").map(Number), x.front, true) +
+    lineViz(x.lines, row.ticket.split("=").map(Number), x.front, true, x.seri) +
     (res && !res.pending ? "" : '<div class="evline buy"><span>今 <b>' + row.odds + "倍</b></span><span>期待値 <b>" + row.ev.toFixed(2) + '</b></span><span class="v">✓ 買い</span><small>' + when + "</small></div>") +
     resBlock(res) + "</div>";
 }

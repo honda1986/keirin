@@ -158,7 +158,8 @@ function buildEntry(text, item) {
     //   入っているか確認すること。帯を外すと実測87.7%でマイナスになる。
     // ss: S級S班の選手がいるか(🔥の9車は見送り。engine.js の f3PlanFrom)
     ss: p.entries.some((e) => e.grade === "SS"),
-    plan: f3PlanFrom((r.scores || []).map((sc) => sc.car), p.lines || [], { ss: p.entries.some((e) => e.grade === "SS") }),
+    seri: p.seri && p.seri.length ? p.seri.filter((q) => q.every((c) => cars.has(c))) : undefined,   // 競り [[カッコの前, 後], ...]。2026-09-30 から
+    plan: f3PlanFrom((r.scores || []).map((sc) => sc.car), p.lines || [], { ss: p.entries.some((e) => e.grade === "SS"), seri: p.seri }),
     gap: r.scores && r.scores[1] ? Number((r.scores[0].total - r.scores[1].total).toFixed(1)) : null,
     nishatan: r.bets?.nishatan, sanrentan: r.bets?.sanrentan,
     raw: compactCard(text, p.place, p.raceNo), url: item.url,

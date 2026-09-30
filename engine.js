@@ -395,6 +395,9 @@ function parseKdreams(text, trackNames) {
   // 保険として「1 / 先行 / 7 / 追込 / …」と1行ずつ並ぶ形にも対応する。
   const ni = L.findIndex((x) => /並び予想/.test(x) && x.length <= 40);
   const linesArr = []; const narabi = [];
+  // 競り: 「3 (5 4) (6 2)」のカッコ = 2人が同じ位置(番手など)を競る。seri = [[5,4],[6,2]](カッコの前が先)。
+  //   ラインは今までどおりカッコを外した 3-5-4-6-2 のまま(2026-09-30。扱い方は hikitsugi §4-17)
+  const seri = [];
   const pushCar = (c, cont) => {
     if (!(c >= 1 && c <= 9) || narabi.indexOf(c) >= 0) return;
     narabi.push(c);
@@ -411,6 +414,7 @@ function parseKdreams(text, trackNames) {
     }
     const ROLE = /(先行|押え先|押さえ先|単騎|追込|番手|マーク)/;
     const FOLLOW = /^(追込|番手|マーク|付)/;
+    for (const m of (raw || "").matchAll(/[(（]\s*([1-9])\s+([1-9])\s*[)）]/g)) seri.push([+m[1], +m[2]]);
     if (raw && !ROLE.test(raw)) {
       // 記号や空白2個だけで区切られている表記
       for (const grp of raw.replace(/^[←→\s]+/, "").split(/ {2,}|[・･／\/|、]|　/)) {
@@ -430,7 +434,7 @@ function parseKdreams(text, trackNames) {
   }
   const known = new Set(linesArr.flat());
   for (const e of entries) if (!known.has(e.car)) linesArr.push([e.car]);   // 並びに出てこない車は単騎扱い
-  return { ...meta, entries, lines: linesArr, narabi: narabi.length ? narabi : entries.map((e) => e.car) };
+  return { ...meta, entries, lines: linesArr, narabi: narabi.length ? narabi : entries.map((e) => e.car), seri };
 }
 
 // kdreams は「府県/年齢/期別」の行(例: 静　岡/24/121)が選手数ぶん並ぶのが特徴。
@@ -502,6 +506,11 @@ function f3PlanFrom(ranked, lines, opt) {
   }
   // S級S班(SS)がいるレース(ほぼG級)の🔥9車は5年で約68%(444R・的中9.1%。2022 101% / 2023 42% / 2024 30% / 2025 82% / 2026 99%)。
   //   🔥の5年の成績(103/103/103/132/103%)は、SS の選手を読み飛ばしていたためこれらを含まずに測ったもの。同じ条件に揃えて見送る(hikitsugi §4-13)
+  // 競る2人(並び予想のカッコ)が両方入る3人は、どちらかが位置を失うので揃って来にくい(5年で🔥3R・0的中)。見送る
+  if (opt && Array.isArray(opt.seri) && o.hot && opt.seri.some((p) => p.filter((c) => trio.includes(c)).length >= 2)) {
+    o.hot = false; o.oddsHint = ""; o.bandNote = "";
+    o.note = "本命ラインで2人が番手を競る(並び予想のカッコ)。競る2人が両方入るので見送り。";
+  }
   if (opt && opt.ss && o.hot && cars >= 8) {
     o.hot = false; o.roi = 67.7; o.hitRate = 9.1;
     o.oddsHint = ""; o.bandNote = "";
@@ -689,6 +698,19 @@ function predict(parsed, bank, trackName, learnW) {
   const bankIdx = (b[0] || 400) < 400 ? 0 : (b[0] || 400) > 400 ? 2 : 1;
   const baseWin = 100 / nCars;
 
+  // 競り(並び予想のカッコ。parsed.seri = [[カッコの前, 後], ...])。hikitsugi §4-17
+  //   番手が競り合うので前の先行は自分のペースで行ける: 競りのラインの先頭は1着 60〜67%・3着内 82〜90%(ふつうの先頭は20%・47%)。
+  //   競る2人は3着内 カッコの前 約42%・後 約24%(ふつうの番手 47%)。カッコを外して5人ラインとして採点すると、
+  //   競る選手に番手の加点が付いて◎になり、その◎の1着は15〜18%しかなかった。
+  //   評価点に 先頭 +20・競る2人 -10 を足すと ◎の1着 2022 45→62% / 2025 54→62% / 2026 47→67%(係数は2025年で決めた)
+  const seriAdj = {};
+  if (klass !== "girls" && Array.isArray(parsed.seri)) for (const p of parsed.seri) {
+    const ln = lines.find((l) => l.includes(p[0]));
+    if (!ln) continue;
+    if (!p.includes(ln[0])) seriAdj[ln[0]] = 20;
+    p.forEach((c) => { seriAdj[c] = -10; });
+  }
+
   // 捲り脅威(主導権ライン外の自力)
   let threat = null, threatV = -1;
   es.forEach((e) => {
@@ -760,6 +782,7 @@ function predict(parsed, bank, trackName, learnW) {
     if (!dome && isRain && (klass === "a12" || klass === "challenge") && r === "先頭") pos += 0.8;
 
     if (klass === "girls") pos *= 0.75; // 記事048: ガールズは展開寄与が小さい
+    pos += seriAdj[e.car] || 0;   // 競り(上の seriAdj)
     const sB = Math.min(e.S, 9) / 9 * 3;
 
     let gap = 0;
