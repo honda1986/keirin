@@ -23,11 +23,13 @@ function htmlToText(html) {
 //     <span class="icon_p"><span class="p001">1</span><span class="p201">先行</span></span>
 //     <span class="icon_p"><span class="p007">7</span><span class="p105">追込</span></span>
 //     <span class="icon_p space"></span>          ← ★ラインの切れ目(中身が空)
+//     <span class="icon_p bracket_open">(</span> 5 4 <span class="icon_p bracket_close">)</span> ← 競り(2人が同じ位置を競る)
 //     <span class="icon_p"><span class="p008">8</span><span class="p202">押え先</span></span>
 //     ...
 //   </div>
 // 普通にタグを消すと空の span が消えて区切りが失われるので、
 // HTML→テキストに渡す前に「← 1 7 4・8 2・5 6 3」という1行に置き換えておく。
+// 競りのカッコは残す:「← 1・3 (5 4) (6 2)・7」(2026-09-30 まではカッコを捨てていた)
 function narabiFromHtml(html) {
   const m = String(html).match(/<div[^>]*class="[^"]*line_position[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
   if (!m) return null;
@@ -36,12 +38,14 @@ function narabiFromHtml(html) {
   for (let i = 1; i + 1 < parts.length; i += 2) {
     const cls = parts[i] || "", body = parts[i + 1] || "";
     if (/(^|[\s])space([\s]|$)/.test(cls)) { if (cur.length) { groups.push(cur); cur = []; } continue; }
+    if (/bracket_open/.test(cls)) { cur.push("("); continue; }
+    if (/bracket_close/.test(cls)) { cur.push(")"); continue; }
     const d = body.replace(/<[^>]+>/g, " ").match(/[1-9]/);
     if (d) cur.push(d[0]);
   }
   if (cur.length) groups.push(cur);
   if (!groups.length) return null;
-  return "← " + groups.map((g) => g.join(" ")).join("・");
+  return "← " + groups.map((g) => g.join(" ").replace(/\( /g, "(").replace(/ \)/g, ")")).join("・");
 }
 function withNarabiText(html) {
   const s = narabiFromHtml(html);
