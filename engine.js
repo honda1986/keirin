@@ -4,6 +4,9 @@
 // 2) バンク特性×選手データで採点し、印・展開・買い目を生成
 // ============================================================
 
+// 前受けの予想(predict で評価点に足す)。ブラウザ(index.html)では front.js が window.FRONT を作る
+var FRONT = typeof window !== "undefined" && window.FRONT ? window.FRONT : require("./front.js");
+
 // ---------- パーサー ----------
 function parseWinticket(text, trackNames) {
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
@@ -819,6 +822,26 @@ function predict(parsed, bank, trackName, learnW) {
     const total = ptScore + form + wins + fit + pos + sB + gap + lw;
     return { car: e.car, name: e.name, total, br: { 得点: ptScore, 調子: form, 勝ち星: wins, 適性: fit, 位置: pos, S: sB, 乖離: gap, 学習: +lw.toFixed(1) }, role: r };
   }).sort((a, b2) => b2.total - a.total);
+  // 前受け(front.js)を評価点に足す(hikitsugi §4-18)。ラインの全員に「重み × そのラインの前受け確率」。重みは隊形で変える
+  //   2分戦 40・3分戦以上 25(2022〜2024年で決めて 2025〜2026年で確認)。上位3人の3連複の的中 2分戦 14→22%・3分戦 13→15%・4分戦 6→8%、◎の1着はほぼ同じ
+  //   🔥(9車5〜15倍) 5年で回収 108.6→111.2%。前受けの確率は足す前の評価順位で計算する(front.js はその順位で作った)
+  //   rankBase(足す前の順位)は モデルD(evd.js の er)にそのまま使う(足した順位で作り直すと D は悪くなった)
+  const rankBase = {}; scores.forEach((s, i) => { rankBase[s.car] = i + 1; s.totalBase = s.total; });
+  let front = null;
+  if (klass !== "girls" && typeof FRONT !== "undefined" && FRONT) {
+    try { front = FRONT.probs(lines, FRONT.fromEntries(es, rankBase)); } catch (e) { front = null; }
+  }
+  if (front) {
+    const nMulti = lines.filter((l) => l.length >= 2).length;
+    const wF = nMulti === 2 ? 40 : nMulti >= 3 ? 25 : 0;
+    if (wF) {
+      lines.forEach((l, i) => l.forEach((c) => {
+        const s = scores.find((x) => x.car === c);
+        if (s) { const v = wF * front[i]; s.total += v; s.br.位置 += v; }
+      }));
+      scores.sort((a, b2) => b2.total - a.total);
+    }
+  }
   const totalOf = {}; scores.forEach((s) => (totalOf[s.car] = s.total));
 
   // ---- レース形態(二分戦/三分戦/四分戦)とライン人気順(スコア代用) ----
@@ -969,7 +992,7 @@ function predict(parsed, bank, trackName, learnW) {
 
   return { scores, marks, tenkai, bets: { nishatan, sanrentan }, bankFit, caution, confidence, leadLine, threat: threat ? threat.car : null, klass, formation, fLabel, group, sujiPlan, topIsTanki,
     effK: eff, linePattern: patStr, lpInfo: lp || null, oddsGuide, backProbs, backBalanced, bkStats: { key: bkKey(klass, nCars), head: bkT.head[bankIdx], second: bkT.second[bankIdx], baseWin },
-    mainLine, planNote, strongTanki, inTankis, betFirst: first, betSecond: second, betThird: third };
+    mainLine, planNote, strongTanki, inTankis, betFirst: first, betSecond: second, betThird: third, rankBase, front };
 }
 
 // ---------- スジ決着期待度(1・2着がラインで決まりそうか) ----------

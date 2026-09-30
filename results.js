@@ -364,7 +364,8 @@ async function main() {
   // ranks は上位6人しか入っておらず車立てを誤るため、riders から並べ直す。
   const rankedOf = (e) => {
     if (Array.isArray(e.riders) && e.riders.length) {
-      return [...e.riders].sort((a, b) => (a[4] || 99) - (b[4] || 99)).map((r) => r[0]);
+      const k = e.riders.every((r) => r[11] != null) ? 11 : 4;   // 11 = 前受けを足した評価順位(2026-10-01 から)
+      return [...e.riders].sort((a, b) => (a[k] || 99) - (b[k] || 99)).map((r) => r[0]);
     }
     return Array.isArray(e.ranks) ? e.ranks : [];
   };
