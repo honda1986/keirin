@@ -20,6 +20,7 @@ const path = require("path");
 const { parseCard, predict, sujiExpect, applyScoreLog, f3PlanFrom } = require("./engine.js");
 const { T, TRACK_NAMES } = require("./bankdata.js");
 const EV = require("./ev.js");
+const FRONT = require("./front.js");
 
 // 競走得点の日次ログ。Kドリームスには前得点が無いので、ここから scoreDiff を復元する。
 // この実行で書き足すより前の状態を読む(当日ぶんは prevMeetScore が見ないので順序は問わない)。
@@ -115,6 +116,10 @@ function buildEntry(text, item) {
   }
   const rankOf = {};
   (r.scores || []).forEach((s, i) => { rankOf[s.car] = i + 1; });
+  // 初手の前受けの予想(front.js)。lines と同じ順のライン別の確率
+  let front = null;
+  try { const fp = FRONT.probs(p.lines || [], FRONT.fromEntries(p.entries, rankOf)); if (fp) front = fp.map((v) => Math.round(v * 1000) / 1000); }
+  catch (e) { console.error("  前受けの予想:", e.message); }
   // riders = [車番, 年齢, 期, ライン内位置, 評価順位, 評価点, 競走得点, 府県, 3連対率, 着度数の合計, 得点の変化]
   // 8番目(府県)は 2026-09-26 に追加(期待値の「地元」「同県の番手」に使う。ev.js)。それより前のデータには無い
   // 9〜11番目も 2026-09-26 に追加(期待値 v2)。得点の変化 = 今の得点 − 90〜365日前の最後の得点(scores.json から。無ければ null)
@@ -145,6 +150,7 @@ function buildEntry(text, item) {
     reasons: sx ? sx.reasons : ["ガールズ(ライン無し)"],
     marks: (r.marks || []).slice(0, 3).map((mk) => `${mk.mark}${mk.car} ${mk.name}`).join(" / "),
     lines: p.lines || [], marksCars: (r.marks || []).map((mk) => mk.car), riders,
+    front,          // ラインごとの前受け確率(lines と同じ順・front.js)。2026-09-30 から
     // 買い目の判定。これまではアプリ(index.html)がブラウザ側で計算するだけで
     // ファイルに残っていなかった。自動投票クライアントが f3PlanFrom の3つ目の
     // コピーを持たずに済むよう、ここで確定させて書き出す。

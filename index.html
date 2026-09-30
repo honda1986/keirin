@@ -211,6 +211,89 @@
   .reschip { display: inline-flex; align-items: center; gap: 2px; font-size: 10px; margin-top: 3px; color: var(--muted); }
   header.appbar { padding: 0; }
   .lineviz .cb.dim { opacity: .45; }
+
+  /* ===== 2026-09-30 作り直し(見やすく): 今日 / レース / 成績 / 詳細 ===== */
+  main { padding: 10px 12px 24px; }
+  .sec-h { margin: 16px 2px 8px; font-size: 14px; }
+  .sec-h .sub { margin-left: auto; font-size: 11px; }
+  details.fold { margin: 14px 0 0; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; }
+  details.fold > summary { list-style: none; cursor: pointer; padding: 11px 0; font-size: 12px; font-weight: 700; color: var(--muted); display: flex; align-items: baseline; gap: 6px; }
+  details.fold > summary::-webkit-details-marker { display: none; }
+  details.fold > summary::before { content: "▸"; color: var(--dim); }
+  details.fold[open] > summary::before { content: "▾"; }
+  details.fold > summary small { margin-left: auto; font-weight: 500; color: var(--dim); font-size: 10px; }
+  details.fold[open] { padding-bottom: 10px; }
+  .howto p { margin: 0 0 8px; font-size: 12px; line-height: 1.7; color: var(--muted); }
+  .howto b { color: var(--text); }
+  .subnote { margin: 8px 2px 0; font-size: 11px; color: var(--dim); }
+  .toolbar { display: flex; gap: 8px; align-items: center; margin: 2px 0 6px; }
+  .toolbar .seg { flex: 1; }
+  .chipbtn { border: 1px solid var(--line); background: var(--panel2); color: var(--muted); border-radius: 10px; padding: 8px 10px; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  /* 種類のしるし */
+  .kb { font-size: 11px; font-weight: 900; padding: 2px 7px; border-radius: 6px; white-space: nowrap; }
+  .kb.hot { background: rgba(242,194,48,.16); color: var(--gold); }
+  .kb.d { background: rgba(124,196,255,.16); color: #7CC4FF; }
+  .kb.ref { background: var(--panel2); color: var(--dim); }
+  /* 前受けのしるし */
+  .fchip { margin-left: auto; font-size: 11px; font-weight: 900; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+  .fchip.good { background: rgba(95,192,139,.18); color: var(--green); }
+  .fchip.mid { background: var(--panel2); color: var(--muted); }
+  .fchip.low { background: rgba(228,114,107,.13); color: var(--red); }
+  .lineviz .fp { font-size: 10px; color: var(--dim); margin: 0 4px 0 1px; font-variant-numeric: tabular-nums; }
+  .lineviz .fp.top { color: var(--green); font-weight: 900; }
+  .lineviz .grp.front { box-shadow: 0 0 0 1.5px var(--green) inset; }
+  .lineviz .grp.hm.front { box-shadow: 0 0 0 1.5px var(--gold) inset, 0 0 0 3px rgba(95,192,139,.55); }
+  /* カード(これから) */
+  .rc { padding: 11px 13px; }
+  .rc .top { gap: 7px; }
+  .rc .time { font-size: 22px; }
+  .ticket { margin: 8px 0 4px; flex-wrap: wrap; }
+  .ticket .kind { margin-right: 6px; }
+  .evline { margin-top: 8px; font-size: 12px; padding: 7px 10px; border-radius: 10px; background: var(--panel2); display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .evline b { font-variant-numeric: tabular-nums; }
+  .evline .v { margin-left: auto; font-weight: 900; }
+  .evline.buy { background: rgba(95,192,139,.12); } .evline.buy .v { color: var(--green); }
+  .evline.skip { background: rgba(228,114,107,.10); } .evline.skip .v { color: var(--red); }
+  .evline.wait { color: var(--muted); font-size: 11px; }
+  .evline small { color: var(--dim); font-size: 10px; width: 100%; }
+  /* 1行の一覧(終わったレース・参考) */
+  .plist { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  details.fold .plist { border: none; background: none; }
+  .pr { display: flex; align-items: center; gap: 6px; padding: 9px 11px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 12px; }
+  .pr:last-child { border-bottom: none; }
+  .pr .tm { width: 38px; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 11px; }
+  .pr .nm { font-weight: 900; white-space: nowrap; min-width: 62px; }
+  .pr .tk { display: inline-flex; align-items: center; }
+  .pr .tk .eq { font-size: 11px; margin: 0; }
+  .pr .rs { margin-left: auto; font-weight: 900; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .pr.hit { background: rgba(95,192,139,.08); }
+  .pr.skip { opacity: .5; }
+  /* レース一覧 */
+  .vhead { display: flex; align-items: baseline; gap: 6px; padding: 12px 4px 6px; font-size: 13px; font-weight: 900; color: var(--gold); cursor: pointer; }
+  .vhead small { color: var(--dim); font-weight: 500; font-size: 11px; }
+  .vbox { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .rrow { display: flex; align-items: center; gap: 8px; padding: 9px 11px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .rrow:last-child { border-bottom: none; }
+  .rrow.hot { background: rgba(242,194,48,.06); }
+  .rrow .rno { font-weight: 900; font-size: 14px; width: 30px; }
+  .rrow .rt { font-size: 11px; color: var(--muted); width: 36px; font-variant-numeric: tabular-nums; }
+  .rrow .rl { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; flex: 1; min-width: 0; }
+  .rrow .rl .g { display: inline-flex; gap: 1px; padding: 2px; border-radius: 999px; background: var(--panel2); }
+  .rrow .rl .g.front { box-shadow: 0 0 0 1.5px var(--green) inset; }
+  .rrow .rl .cb.s { width: 18px; height: 18px; font-size: 10px; }
+  .rrow .rr { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+  .rrow .reschip { margin: 0; }
+  /* 詳細の見出し */
+  .racehead { padding: 4px 4px 10px; }
+  .racehead .t { font-size: 20px; font-weight: 900; }
+  .racehead .m { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .frow { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+  .frow:last-child { border-bottom: none; }
+  .frow .g { display: inline-flex; gap: 2px; min-width: 96px; }
+  .frow .bar { flex: 1; height: 8px; border-radius: 4px; background: var(--panel2); overflow: hidden; }
+  .frow .bar i { display: block; height: 100%; background: var(--green); border-radius: 4px; }
+  .frow .pc { width: 40px; text-align: right; font-weight: 900; font-variant-numeric: tabular-nums; }
+  .frow .tg { font-size: 10px; color: var(--dim); width: 58px; }
 </style>
 </head>
 <body>
@@ -220,64 +303,58 @@
   <button class="iconbtn" id="reloadAll" title="最新に更新" aria-label="最新に更新">↻</button>
 </div></header>
 <main>
+  <!-- ===== 今日(勝負): これから買うレース → 終わったレース → 参考(🔥7車) ===== -->
   <section class="hero" id="heroBox" data-tab="hot"></section>
   <section id="shoubuCard" data-tab="hot">
-    <div id="topSection" class="hidden">
-      <div class="sec-h">🔥 9車立て<span class="sub">単騎1人以下・オッズ5〜15倍のときだけ買う</span></div>
-      <div id="topList"></div>
+    <div id="nowSection" class="hidden">
+      <div class="sec-h">これから<span class="sub" id="nowSub"></span></div>
+      <div id="nowList"></div>
     </div>
-    <div id="otherSection" class="hidden">
-      <div class="sec-h" style="color:var(--gold)">🔥 7車立て<span class="sub">5年とも回収100%未満のため見送り（参考に表示）</span></div>
-      <div id="shoubuList"></div>
-    </div>
-    <div id="dSection" class="hidden">
-      <div class="sec-h" style="color:#7CC4FF">Ⓓ モデルD<span class="sub">全レース・期待値1.05以上・20倍以下の組を全部（締切20分前から）</span></div>
-      <div id="dList"></div>
+    <div id="doneSection" class="hidden">
+      <div class="sec-h">終わったレース<span class="sub" id="doneSub"></span></div>
+      <div class="plist" id="doneList"></div>
     </div>
     <div id="shoubuEmpty" class="empty">今日のレースを読み込んでいます…</div>
-    <details class="more" style="margin:10px 4px 0"><summary>この画面の見方</summary>
-      <p class="note" style="margin:6px 0 0">3連複「本命ライン3人」で実測回収率100%超だったレースだけを、発走時刻の順に並べています。9車立ては単騎1人以下、7車立ては評価順位の合計12以上が対象。<b style="color:#F2C230">7車立ては買う前に必ずオッズ帯を確認</b>してください。カードを押すと、そのレースの詳しい予想(🔎分析)を開きます。<b>大きい時刻は発売の締切(発走の5分前)</b>で、「締切まで○分」も締切までを数えています。</p>
-      <p class="note" style="margin:6px 0 0"><b>的中率の推定</b>=競走得点・3連対率・先頭の脚質・評価点・別線の強さから、そのレースで本命ライン3人が当たる確率を計算したもの(過去の2期間で推定と実際が合うことを確認済み)。棒の縦線はこの条件の平均。当たりやすさの目安で、買う/見送るは今まで通りオッズ帯で判断(推定×オッズで選んでも成績は上がらなかった)。</p>
-      <p class="note" style="margin:6px 0 0"><b>Ⓓ モデルD</b>=全レースの3連複の全組について、締切前のオッズと出走表から期待値を出し、「期待値1.05以上・20倍以下」の組を全部（ふつう1点、多くて4点）。前の年までのデータで作って次の年で試すと 2023 103% / 2024 102% / 2025 123% / 2026 115%（確定オッズで測定）。当たるのは11〜12%（9レースに1回くらい）なので月ごとの波はあります。締切20分前から、PC が1分おきに送る倍率で計算します。</p>
-      <p class="note" style="margin:6px 0 0"><b>並び</b>=予想の並び。金の枠が本命ライン、色の濃い3車が買う3人。<b>結果</b>は日中おおむね1時間おきに更新(GitHubの都合で遅れることがあります)。</p>
+    <details class="fold" id="ref7" style="display:none"><summary>参考: 🔥7車立て <span id="ref7n"></span><small>買わない（5年とも回収100%未満）</small></summary>
+      <div class="plist" id="shoubuList"></div>
+    </details>
+    <details class="fold"><summary>この画面の見方</summary>
+      <div class="howto">
+        <p><b>🔥</b> 9車立て・単騎1人以下の「本命ライン3人」の3連複。締切前のオッズが <b>5〜15倍</b> のときだけ買う（5年とも回収100%超え）。S級S班がいるレースは見送り。</p>
+        <p><b>Ⓓ モデルD</b> 全レースの3連複の全組から「期待値1.05以上・20倍以下」の組を全部。締切20分前から、PC が1分おきに送る倍率で計算して出ます。</p>
+        <p><b>前受け</b> 初手でどのラインが前を取るかの予想（ラインの選手のスタート率などから）。並び予想の先頭ラインのままだと61〜64%、この予想は64〜67%当たる。本命ラインが前受けしそう（50%以上）な🔥は5年で的中15.9%・回収119%。</p>
+        <p>大きい時刻は<b>発売の締切</b>（発走の5分前）。カードを押すと、そのレースの詳しい予想を開きます。</p>
+      </div>
     </details>
   </section>
-  <section class="card" id="searchCard" data-tab="all">
-    <h2>📋 今日の全レース</h2>
-    <p class="note" style="margin:0 0 8px">期待度=1・2着がライン通りに決まりそうな度合い。確定したレースには着順が付きます(🔥は的中/不的中と配当)。レース名の「読込」で詳しい予想を開きます。</p>
-    <!-- 今日のレースは開いたときに自動で読み込む(右上の↻でも更新)。ボタンは処理の入口として残す -->
+
+  <!-- ===== レース: 今日の全レース(場ごと) ===== -->
+  <section id="searchCard" data-tab="all">
+    <div class="toolbar">
+      <div class="seg" id="searchFilters">
+        <button class="sfBtn" data-f="all">すべて</button>
+        <button class="sfBtn" data-f="shoubu">🔥 だけ</button>
+      </div>
+      <button class="chipbtn" id="foldAll">場を全部たたむ</button>
+    </div>
+    <p class="err hidden" id="searchErr"></p>
+    <p class="subnote" id="shoubuHint"></p>
+    <div id="raceListBox"><div class="empty">まだレースがありません</div></div>
+    <p class="subnote hidden" id="todayMeta"></p>
     <div class="io-row hidden"><button class="io-btn" id="loadToday">📅 本日の全レースを読み込む</button></div>
-    <details class="more" style="margin:0 0 6px"><summary>出走表を手で足す</summary>
+    <details class="fold"><summary>出走表を手で足す</summary>
       <div class="io-row">
-        <button class="io-btn" id="addRace">＋ 🔎分析の欄の出走表をリストに追加</button>
+        <button class="io-btn" id="addRace">＋ 詳細の欄の出走表をリストに追加</button>
         <button class="io-btn" id="clearList">リスト消去</button>
       </div>
     </details>
-    <p class="note hidden" id="todayMeta" style="font-size:10px;color:#5E7573;margin-top:4px"></p>
-    <p class="err hidden" id="searchErr"></p>
-    <p id="shoubuHint" style="font-size:12px;font-weight:700;margin:10px 0 4px;color:#5E7573"></p>
-    <div id="searchFilters" style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 2px">
-      <button class="io-btn sfBtn" data-f="shoubu" style="padding:5px 10px;font-size:11px">🔥 勝負のみ</button>
-      <button class="io-btn sfBtn" data-f="high" style="padding:5px 10px;font-size:11px">期待度60%以上</button>
-      <button class="io-btn sfBtn" data-f="all" style="padding:5px 10px;font-size:11px">すべて</button>
-      <button class="io-btn" id="foldAll" style="padding:5px 10px;font-size:11px;margin-left:auto">場を全部たたむ</button>
-    </div>
-    <div class="tbl-scroll" style="margin-top:4px"><table><thead><tr>
-      <th class="l">レース</th><th class="l">クラス/隊形</th><th>期待度</th><th class="l">判定</th><th></th>
-    </tr></thead><tbody id="searchBody"><tr><td colspan="5" class="l" style="color:#5E7573">まだレースがありません</td></tr></tbody></table></div>
-    <p class="note" id="searchNote" style="font-size:10px;color:#5E7573;margin-top:8px">期待度 = 場のスジ率を基準に、隊形別実測スジ率(研究所029)・クラス(020)・主導権の明確さ(027)・単騎数で加減点。◎60%以上/○54%以上/△48%以上/×はスジ崩れ警戒。</p>
   </section>
-  <section class="card" id="pasteCard" data-tab="ana">
-    <h2>🔎 出走表を貼って予想する</h2>
-    <textarea id="src" placeholder="Gamboo「基本出走データ」またはWINTICKETの出走表ページを全選択コピーして貼り付け…&#10;推奨: Gamboo基本出走データ(現/前得点・上がりタイム・並びが揃い、研究所048の補正が効きます)"></textarea>
-    <div class="io-row">
-      <button class="io-btn" id="paste">📋 貼り付け</button>
-      <button class="io-btn" id="clear">✕ クリア</button>
-    </div>
-    <select id="track"><option value="">競輪場(自動検出)</option></select>
-    <button class="run" id="run">予想する(即時)</button>
-    <p class="err hidden" id="err"></p>
-  </section>
+
+  <!-- ===== 詳細: 1レースの詳しい予想 ===== -->
+  <section class="racehead hidden" id="raceHead" data-tab="ana"></section>
+  <div id="anaEmpty" class="empty" data-tab="ana">「今日」や「レース」でレースを押すと、ここに詳しい予想が出ます。</div>
+  <section class="card hidden" id="frontCard" data-tab="ana"><h2>初手の予想（前受け）</h2><div id="frontBox"></div>
+    <p class="note" style="font-size:10px;color:var(--dim)">スタートで前を取る（前受け）ラインの確率。並び予想のラインの中身は本番も同じだが、ラインの前後は本番で入れ替わることがある（並び予想の先頭のままは61〜64%、この予想は64〜67%）。ラインの選手のスタート率・人数・単騎・脚質などから計算。</p></section>
   <section class="card hidden" id="bankCard" data-tab="ana"><h2 id="bankTitle"></h2><div class="chips" id="bankChips"></div><p class="note" id="bankNote"></p></section>
   <section class="card hidden" id="parseCard" data-tab="ana"><h2 id="parseTitle"></h2><p class="note" id="parseMeta" style="margin-top:0"></p><div class="lines" id="lineBox"></div>
     <div class="narabi-edit">
@@ -290,13 +367,13 @@
       <p class="note" style="font-size:10px;color:#5E7573;margin-top:5px">数字の連なりが1本のライン、スペース区切り。「312 4 56 7」=③①②のライン・④単騎・⑤⑥のライン・⑦単騎。全車番を1回ずつ使ってください</p>
       <p class="err hidden" id="narabiErr"></p>
     </div></section>
-  <section class="card hidden" id="scoreCard" data-tab="ana"><h2>④ 採点表(スコア内訳)</h2><div class="tbl-scroll"><table><thead><tr>
+  <section class="card hidden" id="scoreCard" data-tab="ana"><h2>採点表（スコア内訳）</h2><div class="tbl-scroll"><table><thead><tr>
     <th>車</th><th class="l">選手</th><th>位置</th><th>総合</th><th>得点</th><th>調子</th><th>勝星</th><th>適性</th><th>展開</th>
   </tr></thead><tbody id="scoreBody"></tbody></table></div>
   <p class="note" style="font-size:10px;color:#5E7573">展開=ライン位置+スタート+得点と成績の乖離補正。マイナス表示は「得点上位だが直近勝てていない」減点を含む</p></section>
-  <section class="card hl hidden" id="tenkaiCard" data-tab="ana"><h2>⑤ 展開予想</h2><p class="tenkai" id="tenkai"></p><p class="bankfit" id="bankFit"></p></section>
-  <section class="card hidden" id="markCard" data-tab="ana"><h2>⑥ 予想印</h2><div id="markBox"></div></section>
-  <section class="card hidden" id="betCard" data-tab="ana"><h2>⑦ 買い目</h2>
+  <section class="card hl hidden" id="tenkaiCard" data-tab="ana"><h2>展開予想</h2><p class="tenkai" id="tenkai"></p><p class="bankfit" id="bankFit"></p></section>
+  <section class="card hidden" id="markCard" data-tab="ana"><h2>予想印</h2><div id="markBox"></div></section>
+  <section class="card hidden" id="betCard" data-tab="ana"><h2>買い目</h2>
     <div id="f3Box" style="display:none;margin:0 0 12px;padding:10px 12px;border-radius:8px"></div>
     <details class="more" style="margin:0 0 10px"><summary>参考: 旧方式の買い目(2車単・3連単の学習構成)</summary>
       <p class="note" style="margin:6px 0 8px;font-size:10px;color:#5E7573">いまの買い方は上の3連複「本命ライン3人」。ここは以前の sim.json の学習構成で、2026-09 の検証では採用していない。3連単の成績は、荒れたレースほど配当データが欠けていた影響で上振れしている可能性がある。</p>
@@ -308,38 +385,51 @@
     <div class="caution"><span class="conf" id="conf"></span><span id="caution"></span></div>
     <p class="note" id="oddsGuide" style="font-size:10px;color:#5E7573"></p>
   </section>
-  <section class="card hidden" id="backCard" data-tab="ana"><h2>⑨ バック取得予測(研究所ロジスティック回帰式)</h2>
+  <section class="card hidden" id="backCard" data-tab="ana"><h2>バック取得予測</h2>
     <div id="backBars"></div>
     <p class="note" id="backNote" style="font-size:10px;color:#5E7573"></p></section>
-  <section class="card hidden" id="sujiCard" data-tab="ana"><h2>⑧ スジ戦略(遠山競輪研究所・実測データ)</h2>
+  <section class="card hidden" id="sujiCard" data-tab="ana"><h2>スジ戦略（研究所の実測）</h2>
     <div class="chips" id="sujiChips" style="margin-bottom:10px"></div>
     <div class="tbl-scroll"><table><thead><tr>
       <th class="l">ライン</th><th class="l">先→二</th><th>的中率</th><th>回収率</th><th class="l">判定</th>
     </tr></thead><tbody id="sujiBody"></tbody></table></div>
     <p class="note" id="sujiNote" style="font-size:10px;color:#5E7573"></p></section>
+  <details class="fold" id="pasteFold" data-tab="ana"><summary>出走表を貼って予想する</summary>
+  <section class="card" id="pasteCard" style="margin-top:8px">
+    <textarea id="src" placeholder="Kドリームス・Gamboo「基本出走データ」・WINTICKET の出走表ページを全選択コピーして貼り付け…"></textarea>
+    <div class="io-row">
+      <button class="io-btn" id="paste">📋 貼り付け</button>
+      <button class="io-btn" id="clear">✕ クリア</button>
+    </div>
+    <select id="track"><option value="">競輪場(自動検出)</option></select>
+    <button class="run" id="run">予想する(即時)</button>
+    <p class="err hidden" id="err"></p>
+  </section></details>
   <section class="card" id="statsCard" data-tab="stats">
-    <h2>📈 予想成績(自動答え合わせ)</h2>
-    <p class="note" style="margin:0 0 8px">今日の分は10分おきの結果で、その日の夜(1時ごろ)に確定集計します。日付をタップするとその日の🔥が1レースずつ出ます。</p>
-    <div class="io-row" style="margin-top:0"><button class="io-btn" id="loadStats">成績を読み込む</button></div>
-    <div id="statsBody" class="hidden" style="margin-top:10px">
+    <h2>成績（自動答え合わせ）</h2>
+    <p class="note" style="margin:0 0 4px">今日の分は10分おきの結果で、夜（1時ごろ）に確定集計します。日付をタップすると1レースずつ出ます。</p>
+    <div class="io-row hidden" style="margin-top:0"><button class="io-btn" id="loadStats">成績を読み込む</button></div>
+    <div id="statsBody" class="hidden" style="margin-top:6px">
       <div id="calBox" style="margin-bottom:16px"></div>
-      <div id="monthBox" style="margin-bottom:16px"></div>
-      <div style="font-size:11px;font-weight:700;color:#8CA3A0;margin-bottom:6px">累計成績</div>
-      <div class="chips" id="statsChips" style="margin-bottom:10px"></div>
-      <div class="tbl-scroll"><table><thead><tr><th class="l">スジ判定</th><th>件数</th><th>実測スジ決着率</th></tr></thead><tbody id="statsBuckets"></tbody></table></div>
-      <p class="note" id="statsNote" style="font-size:10px;color:#5E7573;margin-top:8px"></p>
+      <div id="monthBox" style="margin-bottom:12px"></div>
+      <details class="fold"><summary>累計・古い指標（スジ判定など）</summary>
+        <div class="chips" id="statsChips" style="margin:8px 0 10px"></div>
+        <div class="tbl-scroll"><table><thead><tr><th class="l">スジ判定</th><th>件数</th><th>実測スジ決着率</th></tr></thead><tbody id="statsBuckets"></tbody></table></div>
+        <p class="note" id="statsNote" style="font-size:10px;color:#5E7573;margin-top:8px"></p>
+      </details>
     </div>
     <p class="err hidden" id="statsErr"></p>
   </section>
-  <footer data-tab="hot all stats ana">バンク特性データ:遠山競輪研究所(gamboo.jp)。予想は端末内の採点モデルによる参考情報であり的中を保証するものではありません。車券の購入は20歳から、余裕資金の範囲でお楽しみください。</footer>
+  <footer data-tab="hot all stats ana">予想は参考情報で、的中を保証するものではありません。車券の購入は20歳から、余裕資金の範囲で。バンク特性データ: 遠山競輪研究所。</footer>
 </main>
 <nav class="tabbar" id="tabbar">
-  <button data-t="hot"><span class="ic">🔥</span>勝負<span class="bdg hidden" id="tabBdg"></span></button>
-  <button data-t="all"><span class="ic">📋</span>全レース</button>
+  <button data-t="hot"><span class="ic">🔥</span>今日<span class="bdg hidden" id="tabBdg"></span></button>
+  <button data-t="all"><span class="ic">📋</span>レース</button>
   <button data-t="stats"><span class="ic">📈</span>成績</button>
-  <button data-t="ana"><span class="ic">🔎</span>分析</button>
+  <button data-t="ana"><span class="ic">🔎</span>詳細</button>
 </nav>
 <script src="evd.js"></script>
+<script src="front.js"></script>
 <script>
 const T = {
   "函館": [400, 51.3, 30.61, 0, 9.8, 16.2, 25.4, 26.2, 48.3, 40.9, 52.8, 26.3, 53.9, 39.1, 9.4, 4.2, 13006, "カント緩め直線短め。海陸風あり。捲りやや不発"],
@@ -1818,6 +1908,7 @@ function renderShoubu() {
       hs: headStyleOf(p, pl.trio), headStyle: headStyleBox(p, pl.trio),
       estHit: f3HitProb(p, r, p.lines || [], pl.trio),
       delta: evDelta(p, r, SCORES),
+      front: x.front && x.lines && x.lines.length === (p.lines || []).length ? x.front : null,
     });
   }
   SHOUBU_ROWS = rows;
@@ -1826,7 +1917,7 @@ function renderShoubu() {
   if (!LIVE_ODDS) loadLiveOdds(true);
 }
 
-let searchFilter = "shoubu";      // 既定は勝負レースのみ表示(一覧が長くなりすぎるため)
+let searchFilter = "all";          // 既定はすべて(場ごとにたためる)
 document.addEventListener("DOMContentLoaded", () => {
   const lt2 = document.getElementById("loadTodayTop");
   if (lt2) lt2.addEventListener("click", () => { const b = document.getElementById("loadToday"); if (b) b.click(); });
@@ -1844,67 +1935,35 @@ window.toggleVenue = (v) => { if (foldedVenues.has(v)) foldedVenues.delete(v); e
 
 function renderSearch() {
   renderShoubu();
-  const body = $("searchBody");
-  if (!raceList.length) { body.innerHTML = '<tr><td colspan="5" class="l" style="color:#5E7573">まだレースがありません</td></tr>'; return; }
-  // 開催場ごとにまとめ、場内はレース番号の若い順。場の並びは「勝負レースがある場→期待度が高い場」を優先
+  const box = $("raceListBox"); if (!box) return;
+  if (!raceList.length) { box.innerHTML = '<div class="empty">まだレースがありません</div>'; return; }
   const venueOf = (x) => (x.label || "").split(" ")[0] || "?";
   const rnoOf = (x) => { const m = (x.label || "").match(/(\d{1,2})R/); return m ? parseInt(m[1]) : 99; };
   const venues = {};
   for (const x of raceList) { const v = venueOf(x); (venues[v] = venues[v] || []).push(x); }
-  const venueOrder = Object.keys(venues).sort((a, b) => {
-    const sa = venues[a], sb = venues[b];
-    const shA = sa.some((x) => x.shoubu) ? 1 : 0, shB = sb.some((x) => x.shoubu) ? 1 : 0;
-    if (shA !== shB) return shB - shA;                       // 勝負レースがある場を先に
-    const mx = (g) => Math.max(...g.map((x) => (x.sx ? x.sx.score : 0)));
-    return mx(sb) - mx(sa);                                  // 次に最高期待度が高い場
-  });
-  const passFilter = (x) => searchFilter === "all" ? true
-    : searchFilter === "shoubu" ? !!x.shoubu
-    : !!(x.sx && x.sx.score >= 60);
-  const sorted = [];
-  for (const v of venueOrder) sorted.push(...venues[v].filter(passFilter).sort((a, b) => rnoOf(a) - rnoOf(b)));
-  // 絞り込みボタンの見た目を更新
-  document.querySelectorAll(".sfBtn").forEach((b) => {
-    const on = b.dataset.f === searchFilter;
-    b.style.borderColor = on ? "#F2C230" : "";
-    b.style.color = on ? "#F2C230" : "";
-    b.style.fontWeight = on ? "900" : "";
-  });
-  if (!sorted.length) {
-    body.innerHTML = '<tr><td colspan="5" class="l" style="color:#5E7573">' +
-      (searchFilter === "shoubu" ? "条件に合う勝負レースは今のところありません(「すべて」で全レース表示)" : "該当なし") + "</td></tr>";
-    $("shoubuHint").textContent = "🔥 勝負レース " + raceList.filter((x) => x.shoubu).length + "件";
-    $("shoubuHint").style.color = "#F2C230";
-    return;
+  const first = (g) => g.map((x) => x.startTime || "99:99").sort()[0];
+  const venueOrder = Object.keys(venues).sort((a, b) => first(venues[a]).localeCompare(first(venues[b])));
+  const pass = (x) => searchFilter === "all" || !!x.shoubu;
+  document.querySelectorAll(".sfBtn").forEach((b) => b.classList.toggle("on", b.dataset.f === searchFilter));
+  const nHot = raceList.filter((x) => x.shoubu).length;
+  $("shoubuHint").textContent = "全" + raceList.length + "レース ・ 🔥 " + nHot + "件 ・ 緑の枠 = 前受けしそうなライン";
+  const mini = (x) => {
+    const L = x.lines || [], fr = x.front;
+    const top = Array.isArray(fr) && fr.length === L.length ? fr.indexOf(Math.max(...fr)) : -1;
+    return L.map((l, i) => '<span class="g' + (i === top ? " front" : "") + '">' + l.map((c) => ball(c, "s")).join("") + "</span>").join("");
+  };
+  let html = "";
+  for (const v of venueOrder) {
+    const rs = venues[v].filter(pass).sort((a, b) => rnoOf(a) - rnoOf(b));
+    if (!rs.length) continue;
+    const folded = foldedVenues.has(v);
+    html += '<div class="vhead" onclick="toggleVenue(\'' + esc2(v).replace(/'/g, "\\'") + '\')">' + (folded ? "▸ " : "▾ ") + esc2(v) + " <small>" + rs.length + "R ・ " + (rs[0].startTime || "") + "〜</small></div>";
+    if (folded) continue;
+    html += '<div class="vbox">' + rs.map((x) => '<div class="rrow' + (x.shoubu ? " hot" : "") + '" onclick="loadRace(\'' + esc2(x.key).replace(/'/g, "\\'") + '\')">' +
+      '<span class="rno">' + rnoOf(x) + 'R</span><span class="rt">' + (x.startTime || "") + '</span><span class="rl">' + mini(x) + "</span>" +
+      '<span class="rr">' + (x.shoubu ? '<span class="kb hot">🔥</span>' : "") + resultChip(x) + "</span></div>").join("") + "</div>";
   }
-
-  const shoubuCount = raceList.filter((x) => x.shoubu).length;
-  $("shoubuHint").textContent = shoubuCount ? "🔥 勝負レース " + shoubuCount + "件(3連複 本命ライン3人・実測100%超)" : "本日は勝負レース(9車立て / 7車・順位合計12以上)に該当するレースはありません";
-  $("shoubuHint").style.color = shoubuCount ? "#F2C230" : "#5E7573";
-  let lastVenue = null;
-  body.innerHTML = sorted.map((x) => {
-    const col = !x.sx ? "#5E7573" : x.sx.score >= 60 ? "#5FC08B" : x.sx.score >= 54 ? "#F2C230" : x.sx.score >= 48 ? "#EAF2EF" : "#E4726B";
-    const bar = x.sx ? '<div style="height:6px;background:#26363B;border-radius:3px;overflow:hidden;min-width:70px"><div style="height:100%;width:' + Math.min(100, (x.sx.score - 20) / 58 * 100) + "%;background:" + col + '"></div></div><span style="font-size:11px;color:' + col + ';font-variant-numeric:tabular-nums">' + x.sx.score + "%</span>" : '<span style="font-size:11px;color:#5E7573">—</span>';
-    const badge = x.shoubu ? '<span style="display:inline-block;background:#F2C230;color:#10181A;font-size:10px;font-weight:900;padding:1px 6px;border-radius:4px;margin-right:4px">🔥</span>' : "";
-    const rowBg = x.shoubu ? ' style="background:rgba(242,194,48,.08)"' : "";
-    const gapStr = x.gap != null ? "点差" + x.gap : "";
-    const v = venueOf(x);
-    let head = "";
-    if (v !== lastVenue) { // 場が変わったら見出し行を挿入(タップで開閉)
-      lastVenue = v;
-      const cnt = sorted.filter((y) => venueOf(y) === v).length;
-      const folded = foldedVenues.has(v);
-      head = '<tr><td colspan="5" class="l" onclick="toggleVenue(\'' + esc2(v).replace(/'/g, "\\'") + '\')" style="cursor:pointer;background:#1C282C;font-weight:900;color:#F2C230;font-size:11px;padding:6px 8px">' +
-        (folded ? "▶ " : "▼ ") + esc2(v) + ' <span style="color:#8CA3A0;font-weight:400">(' + cnt + "R)</span></td></tr>";
-    }
-    if (foldedVenues.has(v)) return head; // たたんでいる場はレース行を出さない
-    return head + '<tr' + rowBg + ' title="' + esc2((x.sx ? x.sx.reasons.join(" / ") : "ガールズはライン無しのため対象外") + (gapStr ? " / " + gapStr : "")) + '">' +
-      '<td class="l" style="font-weight:700;white-space:nowrap">' + badge + esc2((x.label || "").split(" ").slice(1).join(" ") || x.label) + resultChip(x) + "</td>" +
-      '<td class="l" style="color:#8CA3A0;white-space:nowrap;font-size:10px">' + esc2(x.sub) + "</td>" +
-      "<td>" + bar + "</td>" +
-      '<td class="l" style="color:' + col + ';white-space:nowrap">' + (x.sx ? x.sx.verdict : "対象外") + "</td>" +
-      '<td><button class="io-btn" style="padding:4px 10px;font-size:11px" onclick="loadRace(\'' + esc2(x.key).replace(/'/g, "\\'") + '\')">読込</button></td></tr>';
-  }).join("");
+  box.innerHTML = html || '<div class="empty">' + (searchFilter === "shoubu" ? "🔥 のレースは今のところありません（「すべて」で全レース）" : "該当なし") + "</div>";
 }
 window.loadRace = (key) => {
   const x = raceList.find((y) => y.key === key);
@@ -1915,8 +1974,7 @@ window.loadRace = (key) => {
   $("run").click();
   // 予想結果の先頭(②バンク特性)へスクロール
   setTimeout(() => {
-    const target = $("bankCard") && !$("bankCard").classList.contains("hidden") ? $("bankCard") : $("parseCard");
-    if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, 60);
 };
 
@@ -1935,7 +1993,8 @@ $("loadToday").addEventListener("click", async () => {
       const item = { key: x.key, startTime: x.startTime || "", label: (x.place || "?") + " " + (x.raceNo || ""),
         sub: (x.fLabel || "") + " " + patLabel(x.pattern), klass: x.klass,
         sx, gap, shoubu: isShoubu(sx, gap, x.klass, rankedOfRow(x), x.lines || [], x.grade || "", x.pattern || "", !!x.ss),
-        raw: x.raw || "", riders: x.riders || null, lines: x.lines || [], place: x.place || "", raceNo: x.raceNo || "" };
+        raw: x.raw || "", riders: x.riders || null, lines: x.lines || [], place: x.place || "", raceNo: x.raceNo || "",
+        front: Array.isArray(x.front) && Array.isArray(x.lines) && x.front.length === x.lines.length ? x.front : null };
       const i = raceList.findIndex((y) => y.key === item.key);
       if (i >= 0) raceList[i] = item; else raceList.push(item);
     });
@@ -2049,7 +2108,7 @@ function render(p, tName) {
   const r = predict(p, T[tName], tName || p.place, LEARN_W);
   const b = T[tName];
   if (b) {
-    $("bankTitle").textContent = "② " + tName + "のバンク特性(採点に反映)";
+    $("bankTitle").textContent = tName + "のバンク特性（採点に反映）";
     $("bankChips").innerHTML =
       '<span class="chip">' + b[0] + "m / 直線" + b[1] + "m / カント" + b[2] + "°" + (b[3] ? " / ドーム" : "") + "</span>" +
       '<span class="chip">逃<b style="color:#E4572E">' + b[6] + "</b> 捲<b style=\"color:#F2C230\">" + b[7] + "</b> 差<b style=\"color:#58A6E8\">" + b[8] + "</b>%</span>" +
@@ -2058,7 +2117,26 @@ function render(p, tName) {
     $("bankNote").textContent = b[17];
     $("bankCard").classList.remove("hidden");
   }
-  $("parseTitle").textContent = "③ 解析結果 — " + [p.place, p.raceNo, p.grade].filter(Boolean).join(" ");
+  $("parseTitle").textContent = "並び";
+  // 見出し(場・R・グレード・発走)と、初手の前受けの予想(front.js)
+  const rh = $("raceHead");
+  if (rh) {
+    rh.innerHTML = '<div class="t">' + esc([p.place, p.raceNo].filter(Boolean).join(" ")) + "</div>" +
+      '<div class="m">' + esc([p.grade, p.startTime ? "発走 " + p.startTime + "（締切 " + closeTimeOf(p.startTime) + "）" : "", p.date].filter(Boolean).join(" ・ ")) + "</div>";
+    rh.classList.remove("hidden");
+  }
+  if ($("anaEmpty")) $("anaEmpty").style.display = "none";
+  try {
+    const rk = {}; (r.scores || []).forEach((sc, i) => { rk[sc.car] = i + 1; });
+    const fp = typeof FRONT !== "undefined" ? FRONT.probs(p.lines || [], FRONT.fromEntries(p.entries, rk)) : null;
+    if (fp) {
+      const ord = fp.map((v, i) => [v, i]).sort((a, b) => b[0] - a[0]);
+      $("frontBox").innerHTML = ord.map(([v, i]) => '<div class="frow"><span class="g">' + p.lines[i].map((c) => ball(c, "s")).join("") + "</span>" +
+        '<span class="bar"><i style="width:' + Math.round(v * 100) + '%"></i></span><span class="pc">' + Math.round(v * 100) + "%</span>" +
+        '<span class="tg">' + (i === 0 ? "並び予想の先頭" : p.lines[i].length === 1 ? "単騎" : "") + "</span></div>").join("");
+      $("frontCard").classList.remove("hidden");
+    } else $("frontCard").classList.add("hidden");
+  } catch (e) { $("frontCard").classList.add("hidden"); }
   $("parseMeta").textContent = [p.date, p.weather || "天候情報なし"].filter(Boolean).join(" / ");
   const lpChip = r.lpInfo
     ? '<p class="note" style="margin-top:10px">隊形 <b style="color:#F2C230">' + r.linePattern + "型・" + r.lpInfo.kind + "戦</b>(" + (r.lpInfo.kind === "2分" ? "先行有利" : "捲り有利") + "・S級7車での出現率" + r.lpInfo.freq + "%・スジ率" + r.lpInfo.suji + "%/研究所029)</p>"
@@ -2274,13 +2352,26 @@ function raceStatus(row, res) {
   if (s >= 0) return { cls: "wait", txt: "締切済み・発走待ち" };
   return { cls: "wait", txt: res && res.pending ? "3着確認中" : "結果待ち" };
 }
-function lineViz(lines, trio) {
+// 並び。trio(買う3人)以外は薄く、本命ラインは金の枠。front(ラインごとの前受け確率)があれば、いちばん高いラインを緑の枠にして%を添える
+function lineViz(lines, trio, front, noHm) {
   if (!Array.isArray(lines) || !lines.length) return "";
   const T3 = new Set(trio || []);
-  return '<div class="lineviz"><span class="dir">並び</span>' + lines.map((l) => {
-    const hm = trio && l.includes(trio[0]);
-    return '<span class="grp' + (hm ? " hm" : "") + '">' + l.map((c) => ball(c, "s" + (T3.has(c) ? "" : " dim"))).join("") + "</span>";
+  const fr = Array.isArray(front) && front.length === lines.length ? front : null;
+  const top = fr ? fr.indexOf(Math.max(...fr)) : -1;
+  return '<div class="lineviz"><span class="dir">並び</span>' + lines.map((l, i) => {
+    const hm = !noHm && trio && l.includes(trio[0]);
+    return '<span class="grp' + (hm ? " hm" : "") + (i === top ? " front" : "") + '">' + l.map((c) => ball(c, "s" + (!trio || T3.has(c) ? "" : " dim"))).join("") + "</span>" +
+      (fr && i === top ? '<span class="fp top">前' + Math.round(fr[i] * 100) + "%</span>" : "");
   }).join("") + "</div>";
+}
+// 本命ライン(trio[0] のライン)が前受けする確率のしるし
+function frontChip(row) {
+  const fr = row.front, L = row.lines;
+  if (!Array.isArray(fr) || !Array.isArray(L) || fr.length !== L.length || !row.trio) return "";
+  const i = L.findIndex((l) => l.includes(row.trio[0]));
+  if (i < 0) return "";
+  const v = fr[i], cls = v >= 0.5 ? "good" : v >= 0.3 ? "mid" : "low", lab = v >= 0.5 ? "前受け◎" : v >= 0.3 ? "前受け△" : "前受け×";
+  return '<span class="fchip ' + cls + '" title="本命ラインがスタートで前を取る確率">' + lab + " " + Math.round(v * 100) + "%</span>";
 }
 function hitBlock(row) {
   const avg = row.hitRate;
@@ -2291,12 +2382,8 @@ function hitBlock(row) {
     '<div class="avg" style="left:' + Math.min(100, avg / mx * 100) + '%"></div></div>';
 }
 function gateBlock(row) {
-  if (row.needOdds) {
-    return '<div class="gate need">⚠ 三連複 <b>' + esc(row.ticket) + '</b> が <b class="band">' + row.bandLo + "〜" + row.bandHi + "倍</b> のときだけ買う" +
-      (row.bandNote ? '<details class="more"' + stop + "><summary>根拠</summary>" + esc(row.bandNote) + "</details>" : "") + "</div>";
-  }
-  return '<div class="gate ok">✓ オッズ確認なしで買える <span style="color:var(--muted);font-size:11px">(損益分岐 ' + row.beOdds + "倍)</span>" +
-    (row.bandNote ? '<details class="more"' + stop + "><summary>根拠</summary>" + esc(row.bandNote) + "</details>" : "") + "</div>";
+  if (row.needOdds) return '<div class="evline wait">締切前のオッズが <b>' + row.bandLo + "〜" + row.bandHi + "倍</b> なら買う（締切15分前から倍率を見ます）</div>";
+  return "";
 }
 // ===================================================================
 // 期待値(締切前オッズ × 市場の見落とし)  — hikitsugi §4-3
@@ -2401,30 +2488,25 @@ function evInfo(row) {
   const e = evOfRow(row, snap);
   if (!e) return null;
   const inBand = row.needOdds ? (e.odds != null && e.odds >= row.bandLo && e.odds <= row.bandHi) : true;
-  let verdict = null;   // "buy" | "skipEv" | "skipBand" | "skip7" | null(判定できない)
-  if (e.thin) verdict = null;
-  else if (row.skip7) verdict = "skip7";
-  else if (!inBand) verdict = "skipBand";
-  else verdict = e.ev >= 1 ? "buy" : "skipEv";
+  // 買うかは自動購入と同じ: 9車は帯(5〜15倍)の中なら買う(期待値では絞らない・hikitsugi §4-12)。7車は買わない
+  let verdict = null;   // "buy" | "skipBand" | "skip7" | null(判定できない)
+  if (row.skip7) verdict = "skip7";
+  else if (e.odds != null) verdict = inBand ? "buy" : "skipBand";
   return { ...e, inBand, verdict };
 }
 function evBlock(row) {
   const m = minsToClose(row.startTime);
   const info = evInfo(row);
   if (!info) {
-    if (m != null && m >= 0 && m <= 20) return '<div class="evbox wait">期待値: 締切前のオッズを待っています' + (LIVE_ERR ? '<small>(' + esc(LIVE_ERR) + ')</small>' : "") + "</div>";
-    if (m != null && m > 20) return '<div class="evbox wait">期待値: 締切15分前から計算します</div>';
+    if (m != null && m >= 0 && m <= 20) return '<div class="evline wait">締切前のオッズを待っています' + (LIVE_ERR ? "（" + esc(LIVE_ERR) + "）" : "") + "</div>";
     return "";
   }
   const s = info.snap;
-  const when = (s.upd ? s.upd + "現在" : s.t.slice(0, 5) + "取得") + "・締切" + Math.max(0, Math.round(s.left)) + "分前の倍率";
-  if (info.thin) return '<div class="evbox wait">期待値: まだ票が少なく計算できません <small>(' + when + ")</small></div>";
-  const ev = info.ev, cls = info.verdict === "buy" ? "buy" : "skip";
-  const label = info.verdict === "buy" ? "✓ 買い" : info.verdict === "skipBand" ? "✗ 見送り(帯の外)" : info.verdict === "skip7" ? "✗ 見送り(7車は5年ともマイナス)" : "✗ 見送り(期待値1未満)";
-  return '<div class="evbox ' + cls + '"><div class="evtop"><span>期待値 <b>' + ev.toFixed(2) + '</b></span><span class="evv">' + label + "</span></div>" +
-    '<div class="evsub">今の倍率 <b>' + info.odds + "倍</b>" + (row.needOdds ? "（帯 " + row.bandLo + "〜" + row.bandHi + "倍: " + (info.inBand ? "内" : "外") + "）" : "") +
-      " ／ 推定確率 " + (info.prob * 100).toFixed(1) + "%</div>" +
-    '<div class="evsub" style="color:var(--dim)">' + when + "。期待値は検証中の方法（2026年の確定オッズで 1以上 約121% / 1未満 約89%）</div></div>";
+  const when = (s.upd ? s.upd + "現在" : String(s.t || "").slice(0, 5) + "取得") + "・締切" + Math.max(0, Math.round(s.left)) + "分前の倍率";
+  const cls = info.verdict === "buy" ? "buy" : info.verdict ? "skip" : "wait";
+  const label = info.verdict === "buy" ? "✓ 買い" : info.verdict === "skipBand" ? "✗ 見送り（帯の外）" : info.verdict === "skip7" ? "見送り（7車）" : "—";
+  return '<div class="evline ' + cls + '"><span>今 <b>' + info.odds + "倍</b>" + (row.needOdds ? "（" + row.bandLo + "〜" + row.bandHi + "倍）" : "") + "</span>" +
+    (info.thin ? "" : "<span>期待値 <b>" + info.ev.toFixed(2) + "</b></span>") + '<span class="v">' + label + "</span><small>" + when + "</small></div>";
 }
 function hsChip(row) {
   if (!row.hs) return "";
@@ -2445,37 +2527,41 @@ function hotCard(row, isNext) {
   const res = f3ResultOf(row.place, row.raceNo, row.ticket);
   let st = raceStatus(row, res);
   const ei = res ? null : evInfo(row);
-  const evSkip = EV_FILTER && ((ei && (ei.verdict === "skipEv" || ei.verdict === "skipBand" || ei.verdict === "skip7")) || (!res && row.skip7));
-  if (evSkip && minsToClose(row.startTime) >= 0) st = { cls: "evskip", txt: row.skip7 ? "見送り(7車)" : "期待値で見送り" };
-  const cls = (res && !res.pending ? (res.hit ? " hit" : " miss") : isNext ? " next" : "") + (evSkip ? " evskipped" : "");
+  const skip = ei && (ei.verdict === "skipBand" || ei.verdict === "skip7");
+  if (skip && minsToClose(row.startTime) >= 0) st = { cls: "evskip", txt: ei.verdict === "skip7" ? "見送り(7車)" : "見送り(帯の外)" };
+  const cls = (res && !res.pending ? (res.hit ? " hit" : " miss") : isNext ? " next" : "") + (skip ? " evskipped" : "");
   return '<div class="rc' + cls + '" id="rc-' + esc(row.key) + '" onclick="loadRace(\'' + esc2(row.key).replace(/'/g, "\\'") + '\')">' +
-    '<div class="top"><span class="time"><small>締切</small>' + (closeTimeOf(row.startTime) || "--:--") + '</span><span class="where">' + esc(row.place) + " " + esc(row.raceNo) +
-      '<small class="start">発走 ' + (row.startTime || "--:--") + "</small></span>" +
+    '<div class="top"><span class="time">' + (closeTimeOf(row.startTime) || "--:--") + '</span><span class="where">' + esc(row.place) + " " + esc(row.raceNo) +
+      '<small class="start">発走 ' + (row.startTime || "--:--") + " ・ " + row.cars + "車</small></span>" +
+      '<span class="kb ' + (row.isTop ? "hot" : "ref") + '">🔥' + (row.isTop ? "" : "7車") + "</span>" +
       (st.txt ? '<span class="st ' + st.cls + '">' + st.txt + "</span>" : "") + "</div>" +
-    '<div class="meta">' + (row.cars >= 8 ? row.cars + "車立て" : row.cars + "車立て・順位合計" + row.rankSum) + " ／ 実測回収率 " + row.roi + "%</div>" +
-    '<div class="ticket">' + ticketBalls(row.ticket, "l") + '<span class="kind">3連複<br>1点</span></div>' +
-    hitBlock(row) + lineViz(row.lines, row.trio) + (res && !res.pending ? "" : evBlock(row) + (ei && !ei.thin ? "" : gateBlock(row))) + hsChip(row) + resBlock(res) +
+    '<div class="ticket">' + ticketBalls(row.ticket, "l") + '<span class="kind">3連複<br>1点</span>' + frontChip(row) + "</div>" +
+    lineViz(row.lines, row.trio, row.front) +
+    (res && !res.pending ? "" : (ei ? evBlock(row) : evBlock(row) || gateBlock(row))) + resBlock(res) +
   "</div>";
 }
 function kpi(v, k, cls) { return '<div class="kpi"><div class="v ' + (cls || "") + '">' + v + '</div><div class="k">' + k + "</div></div>"; }
-function renderHero(rows, next) {
+// 今日のまとめ。items = [{k:"hot"|"D", r:行}]。見送り(帯の外)は数えない
+function renderHero(items, done, next) {
   const box = $("heroBox"); if (!box) return;
   if (!RACE_DAY) { box.innerHTML = '<div class="ttl"><span>読み込み中…</span></div>'; return; }
-  const done = rows.map((x) => f3ResultOf(x.place, x.raceNo, x.ticket)).filter((r) => r && !r.pending);
-  const hit = done.filter((r) => r.hit).length;
-  const ret = done.reduce((a, r) => a + (r.hit ? (r.pay || 0) : 0), 0), pl = ret - done.length * 100;
-  const unknown = done.some((r) => r.hit && r.pay == null);
+  const buyOf = (it) => { if (it.k === "D") return true; const ei = evInfo(it.r); return !(ei && (ei.verdict === "skipBand" || ei.verdict === "skip7")); };
+  const bought = done.filter(buyOf);
+  const rs = bought.map((it) => f3ResultOf(it.r.place, it.r.raceNo, it.r.ticket));
+  const hit = rs.filter((r) => r.hit).length;
+  const ret = rs.reduce((a, r) => a + (r.hit ? (r.pay || 0) : 0), 0), pl = ret - rs.length * 100;
+  const unknown = rs.some((r) => r.hit && r.pay == null);
+  const nHot = items.filter((it) => it.k === "hot").length, nD = items.filter((it) => it.k === "D").length;
   box.innerHTML =
-    '<div class="ttl"><span>' + dayLabel(RACE_DAY) + " の🔥</span><span>" + (RESULTS_AT ? "結果 " + RESULTS_AT + " 時点" : "") + "</span></div>" +
-    '<label class="evsw" onclick="event.stopPropagation()"><input type="checkbox"' + (EV_FILTER ? " checked" : "") + ' onchange="setEvFilter(this.checked)">期待値で絞る（1未満・帯の外は「見送り」と出す）' +
-      (LIVE_ODDS ? '<small>倍率 ' + new Date(LIVE_ODDS.updatedAt).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) + (LIVE_ODDS.source === "GitHub" ? "・予備" : "") + "</small>" : "") + "</label>" +
-    '<div class="kpis">' + kpi(rows.length, "🔥 レース") + kpi(done.length, "確定") + kpi(hit, "的中", hit ? "pos" : "") +
-      kpi(done.length ? yen(pl) : "—", "収支(円)" + (unknown ? "※" : ""), done.length ? (pl >= 0 ? "pos" : "neg") : "") + "</div>" +
+    '<div class="ttl"><span>' + dayLabel(RACE_DAY) + "</span><span>" + [RESULTS_AT ? "結果 " + RESULTS_AT + " 時点" : "",
+      LIVE_ODDS ? "倍率 " + new Date(LIVE_ODDS.updatedAt).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) + (LIVE_ODDS.source === "GitHub" ? "(予備)" : "") : ""].filter(Boolean).join(" ・") + "</span></div>" +
+    '<div class="kpis">' + kpi(nHot + (nD ? '<small style="font-size:12px;color:#7CC4FF"> +Ⓓ' + nD + "</small>" : ""), "🔥 レース") + kpi(rs.length, "確定") + kpi(hit, "的中", hit ? "pos" : "") +
+      kpi(rs.length ? yen(pl) : "—", "収支(円)" + (unknown ? "※" : ""), rs.length ? (pl >= 0 ? "pos" : "neg") : "") + "</div>" +
     (next
-      ? '<div class="nextup" onclick="loadRace(\'' + esc2(next.key).replace(/'/g, "\\'") + '\')"><span class="lbl">⏱ 次 締切</span><b>' + closeTimeOf(next.startTime) + " " + esc(next.place) + esc(next.raceNo) + "</b>" +
-          '<span class="bl">' + ticketBalls(next.ticket, "s") + '</span><span class="rest">' + raceStatus(next, null).txt + "</span></div>"
-      : rows.length && done.length === rows.length ? '<div class="nextup" style="cursor:default">🏁 今日の🔥はすべて確定しました</div>' : "") +
-    '<div style="font-size:10px;color:var(--dim);margin-top:6px">収支は🔥を全部100円ずつ買った場合(オッズ帯で見送ったレースも含む)' + (unknown ? "。※配当確認中の的中を含む" : "") + "</div>";
+      ? '<div class="nextup" onclick="loadRace(\'' + esc2(next.r.key).replace(/'/g, "\\'") + '\')"><span class="lbl">次</span><b>' + closeTimeOf(next.r.startTime) + " " + esc(next.r.place) + esc(next.r.raceNo) + "</b>" +
+          '<span class="bl">' + ticketBalls(next.r.ticket, "s") + '</span><span class="rest">' + raceStatus(next.r, null).txt.replace("締切まで", "あと") + "</span></div>"
+      : items.length && done.length === items.length ? '<div class="nextup" style="cursor:default">🏁 今日の分はすべて確定しました</div>' : "") +
+    '<div style="font-size:10px;color:var(--dim);margin-top:6px">収支は🔥（帯の外は除く）とⒹを100円ずつ買った場合' + (unknown ? "。※配当確認中の的中を含む" : "") + "。Ⓓは締切20分前から出ます</div>";
 }
 // ---- モデルD(evd.js): 全レースから「期待値1.05以上・20倍以下」の組を全部(1行=1点) ----
 function dRows() {
@@ -2496,42 +2582,63 @@ function dCard(row) {
   const st = raceStatus(row, res), s = row.snap;
   const when = (s.upd ? s.upd + "現在" : String(s.t || "").slice(0, 5) + "取得") + "・締切" + Math.max(0, Math.round(s.left)) + "分前の倍率";
   const cls = res && !res.pending ? (res.hit ? " hit" : " miss") : "";
+  const x = raceList.find((y) => y.key === row.key) || {};
   return '<div class="rc' + cls + '" onclick="loadRace(\'' + esc2(row.key).replace(/'/g, "\\'") + '\')">' +
-    '<div class="top"><span class="time"><small>締切</small>' + (closeTimeOf(row.startTime) || "--:--") + '</span><span class="where">' + esc(row.place) + " " + esc(row.raceNo) +
-      '<small class="start">発走 ' + (row.startTime || "--:--") + "</small></span>" + (st.txt ? '<span class="st ' + st.cls + '">' + st.txt + "</span>" : "") + "</div>" +
-    '<div class="meta">' + row.cars + "車立て ／ モデルD" + (row.of > 1 ? "（このレース" + row.of + "点のうち" + row.nth + "点目）" : "") + (row.sameAsHot ? "（🔥と同じ組）" : "") + "</div>" +
-    '<div class="ticket">' + ticketBalls(row.ticket, "l") + '<span class="kind">3連複<br>1点</span></div>' +
-    (res && !res.pending ? "" : '<div class="evbox buy"><div class="evtop"><span>期待値 <b>' + row.ev.toFixed(2) + '</b></span><span class="evv">✓ 買い</span></div>' +
-      '<div class="evsub">今の倍率 <b>' + row.odds + '倍</b>（20倍以下） ／ ' + when + "</div></div>") + resBlock(res) + "</div>";
+    '<div class="top"><span class="time">' + (closeTimeOf(row.startTime) || "--:--") + '</span><span class="where">' + esc(row.place) + " " + esc(row.raceNo) +
+      '<small class="start">発走 ' + (row.startTime || "--:--") + " ・ " + row.cars + "車</small></span>" +
+      '<span class="kb d">Ⓓ' + (row.of > 1 ? " " + row.nth + "/" + row.of : "") + "</span>" + (st.txt ? '<span class="st ' + st.cls + '">' + st.txt + "</span>" : "") + "</div>" +
+    '<div class="ticket">' + ticketBalls(row.ticket, "l") + '<span class="kind">3連複<br>1点</span>' + (row.sameAsHot ? '<span class="fchip mid">🔥と同じ組</span>' : "") + "</div>" +
+    lineViz(x.lines, row.ticket.split("=").map(Number), x.front, true) +
+    (res && !res.pending ? "" : '<div class="evline buy"><span>今 <b>' + row.odds + "倍</b></span><span>期待値 <b>" + row.ev.toFixed(2) + '</b></span><span class="v">✓ 買い</span><small>' + when + "</small></div>") +
+    resBlock(res) + "</div>";
 }
-function paintD() {
-  const sec = $("dSection"), list = $("dList");
-  if (!sec || !list) return;
-  const byTime = (a, b) => (a.startTime || "99:99").localeCompare(b.startTime || "99:99");
-  const rows = dRows().filter((x) => { const m = minsToClose(x.startTime); return m != null && m <= 20; }).sort(byTime);
-  sec.classList.toggle("hidden", !rows.length);
-  list.innerHTML = rows.map(dCard).join("");
+// 終わったレースの1行
+function doneRow(it) {
+  const r = it.r, res = f3ResultOf(r.place, r.raceNo, r.ticket);
+  const ei = it.k === "hot" ? evInfo(r) : null;
+  const skip = ei && (ei.verdict === "skipBand" || ei.verdict === "skip7");
+  const order = res ? res.order.split("-").map((c) => (c === "?" ? "?" : ball(+c, "s"))).join("") : "";
+  const right = skip ? '<span class="rs" style="color:var(--dim);font-size:11px">見送り</span>'
+    : res.hit ? '<span class="rs pos">' + (res.pay != null ? res.pay.toLocaleString() + "円" : "的中") + "</span>" : '<span class="rs neg">✗</span>';
+  return '<div class="pr' + (res && res.hit && !skip ? " hit" : "") + (skip ? " skip" : "") + '" onclick="loadRace(\'' + esc2(r.key).replace(/'/g, "\\'") + '\')">' +
+    '<span class="tm">' + (closeTimeOf(r.startTime) || "") + '</span><span class="nm">' + esc(r.place) + " " + esc(r.raceNo) + "</span>" +
+    '<span class="kb ' + (it.k === "D" ? "d" : r.isTop ? "hot" : "ref") + '">' + (it.k === "D" ? "Ⓓ" : "🔥") + "</span>" +
+    '<span class="tk">' + ticketBalls(r.ticket, "s") + "</span>" + (order ? '<span style="color:var(--dim)">→</span><span class="tk">' + order + "</span>" : "") + right + "</div>";
 }
 function paintShoubu() {
-  paintD();
-  const listA = $("topList"), listB = $("shoubuList"), secA = $("topSection"), secB = $("otherSection"), empty = $("shoubuEmpty");
-  if (!listA || !listB) return;
-  const rows = SHOUBU_ROWS;
+  const nowL = $("nowList"), doneL = $("doneList"), empty = $("shoubuEmpty");
+  if (!nowL || !doneL) return;
   const byTime = (a, b) => (a.startTime || "99:99").localeCompare(b.startTime || "99:99");
-  const upcoming = rows.filter((x) => { const m = minsToClose(x.startTime); return !f3ResultOf(x.place, x.raceNo, x.ticket) && m != null && m >= 0; }).sort(byTime);
-  const next = upcoming[0] || null;
-  renderHero(rows, next);
+  const rows9 = SHOUBU_ROWS.filter((x) => x.isTop), rows7 = SHOUBU_ROWS.filter((x) => !x.isTop).sort(byTime);
+  const drows = dRows().filter((x) => { const m = minsToClose(x.startTime); return m != null && m <= 20; });
+  const items = rows9.map((r) => ({ k: "hot", r })).concat(drows.map((r) => ({ k: "D", r })))
+    .sort((a, b) => byTime(a.r, b.r) || (a.k === "hot" ? -1 : 1));
+  const fin = (it) => { const x = f3ResultOf(it.r.place, it.r.raceNo, it.r.ticket); return !!(x && !x.pending); };
+  const done = items.filter(fin), now = items.filter((it) => !fin(it));
+  const next = now.find((it) => { const m = minsToClose(it.r.startTime); return m != null && m >= 0; }) || null;
+  renderHero(items, done, next);
   const bdg = $("tabBdg");
-  if (bdg) { bdg.textContent = upcoming.length; bdg.classList.toggle("hidden", !upcoming.length); }
-  if (!rows.length) {
-    secA.classList.add("hidden"); secB.classList.add("hidden"); empty.style.display = "";
-    empty.textContent = raceList.length ? "今日は🔥(買う条件)に当てはまるレースはありません。" : "今日のレースを読み込んでいます…";
-    return;
-  }
-  empty.style.display = "none";
-  const tops = rows.filter((x) => x.isTop).sort(byTime), others = rows.filter((x) => !x.isTop).sort(byTime);
-  secA.classList.toggle("hidden", !tops.length); listA.innerHTML = tops.map((x) => hotCard(x, next && x.key === next.key)).join("");
-  secB.classList.toggle("hidden", !others.length); listB.innerHTML = others.map((x) => hotCard(x, next && x.key === next.key)).join("");
+  const upc = now.filter((it) => { const m = minsToClose(it.r.startTime); return m != null && m >= 0; }).length;
+  if (bdg) { bdg.textContent = upc; bdg.classList.toggle("hidden", !upc); }
+  $("nowSection").classList.toggle("hidden", !now.length);
+  $("nowSub").textContent = now.length ? now.length + "件" : "";
+  nowL.innerHTML = now.map((it) => (it.k === "hot" ? hotCard(it.r, next === it) : dCard(it.r))).join("");
+  $("doneSection").classList.toggle("hidden", !done.length);
+  $("doneSub").textContent = done.length ? done.length + "件" : "";
+  doneL.innerHTML = done.slice().reverse().map(doneRow).join("");
+  const ref = $("ref7");
+  if (ref) { ref.style.display = rows7.length ? "" : "none"; $("ref7n").textContent = rows7.length + "件"; $("shoubuList").innerHTML = rows7.map((r) => doneRowRef(r)).join(""); }
+  empty.style.display = items.length ? "none" : "";
+  if (!items.length) empty.textContent = raceList.length ? "今日は🔥（9車・単騎1人以下）に当てはまるレースがありません。Ⓓ モデルDは締切20分前から出ます。" : "今日のレースを読み込んでいます…";
+}
+// 参考(🔥7車)の1行
+function doneRowRef(r) {
+  const res = f3ResultOf(r.place, r.raceNo, r.ticket);
+  const order = res ? res.order.split("-").map((c) => (c === "?" ? "?" : ball(+c, "s"))).join("") : "";
+  const right = !res || res.pending ? '<span class="rs" style="color:var(--dim);font-size:11px">' + (raceStatus(r, res).txt || "") + "</span>"
+    : res.hit ? '<span class="rs pos">' + (res.pay != null ? res.pay.toLocaleString() + "円" : "的中") + "</span>" : '<span class="rs neg">✗</span>';
+  return '<div class="pr" onclick="loadRace(\'' + esc2(r.key).replace(/'/g, "\\'") + '\')"><span class="tm">' + (closeTimeOf(r.startTime) || "") + '</span><span class="nm">' + esc(r.place) + " " + esc(r.raceNo) + "</span>" +
+    '<span class="tk">' + ticketBalls(r.ticket, "s") + "</span>" + (order ? '<span style="color:var(--dim)">→</span><span class="tk">' + order + "</span>" : "") + right + "</div>";
 }
 // 結果の読み込み。レース日が合わないものは使わない(前日の結果を今日の結果として出さないため)
 async function loadResults() {
@@ -2784,7 +2891,7 @@ function showTab(t) {
 document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll("#tabbar button").forEach((b) => b.addEventListener("click", () => { showTab(b.dataset.t); window.scrollTo(0, 0); }));
   let first = "hot"; try { first = localStorage.getItem("keirinTab") || "hot"; } catch (e) {}
-  if (first === "ana") first = "hot";   // 分析はレースを開いたときだけ意味があるので、起動時は🔥から
+  if (first === "ana") first = "hot";   // 詳細はレースを開いたときだけ意味があるので、起動時は「今日」から
   showTab(first);
   const rb = $("reloadAll");
   if (rb) rb.addEventListener("click", async () => { rb.classList.add("spin"); try { $("loadToday").click(); await loadResults(); } finally { setTimeout(() => rb.classList.remove("spin"), 600); } });
