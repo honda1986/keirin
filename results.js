@@ -132,6 +132,7 @@ function makeEntry(x, r, d8) {
     ranks: x.marksCars || [], gap: x.gap != null ? x.gap : null,
     riders: x.riders || null, lines: x.lines || null,
     ss: x.ss ? 1 : undefined,          // S級S班がいる(🔥の判定で使う)。2026-09-28 より前の記録には無い
+    front: Array.isArray(x.front) ? x.front : undefined,   // ラインごとの前受け確率(front.js)。2026-09-30 から
   };
 }
 
