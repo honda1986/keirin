@@ -116,11 +116,16 @@ function buildEntry(text, item) {
   }
   const rankOf = {};
   (r.scores || []).forEach((s, i) => { rankOf[s.car] = i + 1; });
-  // 初手の前受けの予想(front.js)。lines と同じ順のライン別の確率
+  // 初手の前受けの予想(front.js)。lines と同じ順のライン別の確率。predict が評価点に足す前の順位で計算したもの
   let front = null;
-  try { const fp = FRONT.probs(p.lines || [], FRONT.fromEntries(p.entries, rankOf)); if (fp) front = fp.map((v) => Math.round(v * 1000) / 1000); }
-  catch (e) { console.error("  前受けの予想:", e.message); }
-  // riders = [車番, 年齢, 期, ライン内位置, 評価順位, 評価点, 競走得点, 府県, 3連対率, 着度数の合計, 得点の変化]
+  try {
+    const fp = r.front || FRONT.probs(p.lines || [], FRONT.fromEntries(p.entries, r.rankBase || rankOf));
+    if (fp) front = fp.map((v) => Math.round(v * 1000) / 1000);
+  } catch (e) { console.error("  前受けの予想:", e.message); }
+  // riders[4](評価順位)・riders[5](評価点)は前受けを足す前のもの(モデルD・期待値がこれで作ってある)。足した後の順位は riders[11](◎○▲・🔥はこちら)
+  const rankBase = r.rankBase || rankOf;
+  // riders = [車番, 年齢, 期, ライン内位置, 評価順位, 評価点, 競走得点, 府県, 3連対率, 着度数の合計, 得点の変化, 前受けを足した評価順位]
+  // 12番目(前受けを足した評価順位)は 2026-10-01 に追加(hikitsugi §4-18)。◎○▲・🔥はこれ。無い記録は 5番目を使う
   // 8番目(府県)は 2026-09-26 に追加(期待値の「地元」「同県の番手」に使う。ev.js)。それより前のデータには無い
   // 9〜11番目も 2026-09-26 に追加(期待値 v2)。得点の変化 = 今の得点 − 90〜365日前の最後の得点(scores.json から。無ければ null)
   // 7番目(競走得点)は 2026-09-21 に追加。それ以前のデータには入っていないので、
@@ -135,12 +140,12 @@ function buildEntry(text, item) {
   };
   const riders = p.entries.map((en) => {
     const sc = (r.scores || []).find((x) => x.car === en.car);
-    return [en.car, en.age || 0, parseInt(en.ki, 10) || 0, posOf[en.car] ?? 3, rankOf[en.car] || 9,
-            Number((sc?.total || 0).toFixed(1)), en.score > 0 ? Number(en.score.toFixed(2)) : null,
+    return [en.car, en.age || 0, parseInt(en.ki, 10) || 0, posOf[en.car] ?? 3, rankBase[en.car] || 9,
+            Number((sc?.totalBase ?? sc?.total ?? 0).toFixed(1)), en.score > 0 ? Number(en.score.toFixed(2)) : null,
             en.pref ? String(en.pref).replace(/[\s　]/g, "") : null,
             en.rate && en.rate.sanren != null ? en.rate.sanren : null,
             en.seiseki ? (en.seiseki.win1 || 0) + (en.seiseki.win2 || 0) + (en.seiseki.win3 || 0) + (en.seiseki.out || 0) : 0,
-            scoreChangeOf(en)];
+            scoreChangeOf(en), rankOf[en.car] || 9];
   });
   return {
     key: (p.place || "?") + "_" + (p.raceNo || "?"),
