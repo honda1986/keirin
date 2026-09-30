@@ -21,7 +21,7 @@ def ev(a, b, c, yrs):
         s = {x: v + (a if x in head else 0) - (b if x in fr else 0) - (c if x in bk else 0) for x, v in tot.items()}
         rk = sorted(s, key=lambda x: -s[x]); n += 1; w += rk[0] == fin[0]; t3 += rk[0] in fin; bx += set(rk[:3]) == set(fin)
     return n, 100 * w / n, 100 * t3 / n, 100 * bx / n
-print("いま", {y: ev(0, 0, 0, {y}) for y in ["2022", "2025", "2026"]})
+print("いま", {y: ev(0, 0, 0, {y}) for y in ["2022", "2023", "2024", "2025", "2026"]})
 best = []
 for a in [0, 5, 10, 15, 20, 30]:
     for b in [0, 3, 6, 10]:
