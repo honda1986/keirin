@@ -127,7 +127,7 @@ function judgeD(r, snap) {
   const n = snap.n || (r.riders || []).length;
   if (!Array.isArray(r.riders) || r.riders.length !== n) return { verdict: "noOdds", why: "車立てが合わない" };
   if (r.riders.some((x) => !x[7])) return { verdict: "noDelta" };
-  const all = EVD.evAll(r.riders, r.lines, r.place, snap.o, n);
+  const all = EVD.evAll(r.riders, r.lines, r.place, snap.o, n, r.seri);
   if (!all) return { verdict: "thin" };
   // 買うのは条件(期待値≥1.05・20倍以下)を満たす組を全部(期待値の高い順)。ticket・ev・odds は1点目
   const ps = EVD.picks(all);

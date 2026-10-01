@@ -2672,7 +2672,7 @@ function dRows() {
     if (!Array.isArray(x.riders) || x.riders.length < 5) continue;
     const snap = LIVE_ODDS.races[x.key];
     if (!snap || !Array.isArray(snap.o) || (snap.n && snap.n !== x.riders.length)) continue;
-    const ps = EVD.picks(EVD.evAll(x.riders, x.lines, x.place, snap.o, x.riders.length));
+    const ps = EVD.picks(EVD.evAll(x.riders, x.lines, x.place, snap.o, x.riders.length, x.seri));
     ps.forEach((p, i) => out.push({ key: x.key, place: x.place, raceNo: x.raceNo, startTime: x.startTime, cars: x.riders.length, ticket: p.ticket, ev: p.ev, odds: p.odds, snap,
       nth: i + 1, of: ps.length, sameAsHot: SHOUBU_ROWS.some((h) => h.key === x.key && h.ticket === p.ticket) }));
   }
