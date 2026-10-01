@@ -373,12 +373,8 @@ def main(argv=None):
         import json as _json
         with open(args.config, encoding="utf-8") as f:
             _raw = _json.load(f)
-        if _raw.get("use_ev_9car", _raw.get("use_ev")) and "hot9_use_ev" not in _raw:
-            print("（2026-09-27 の見直しで、🔥の9車立ては期待値で絞らず 5〜15倍の帯の中を全部買うようにしました（5年とも回収100%超え）。"
-                  "期待値で絞るなら run.bat の 7) で「🔥9車立て: 期待値1以上だけ買う」を する にしてください）")
-        if _raw.get("buy_7car") and "buy_7car_hot" not in _raw:
-            print("（2026-09-27 の見直しで、🔥の7車立ては買わなくしました（5年とも回収100%未満）。"
-                  "買うなら run.bat の 7) で「🔥の7車立ても買う」を はい にしてください）")
+        print(f"（🔥の買い方: 9車立て={config_mod.HOT_MODE_LABEL[cfg.hot9_mode]} / 7車立て={config_mod.HOT_MODE_LABEL[cfg.hot7_mode]}。"
+              "run.bat の 7)（設定）で変えられます）")
         if cfg.buy_model_d and ((cfg.max_races_per_day is not None and cfg.max_races_per_day < 20)
                                 or (cfg.max_yen_per_day is not None and cfg.max_yen_per_day < 20 * cfg.bet_yen)):
             print(f"（2026-09-29 からモデルDは「期待値1.05以上・20倍以下の組を全部」になり、🔥と合わせて1日平均6〜7点・多い日で20点ほど買います。"

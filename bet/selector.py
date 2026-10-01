@@ -76,6 +76,54 @@ def skip_reason(r):
     return f"判定 {v}"
 
 
+def _in_band(r):
+    """帯の中か。betplan の inBand（無い古い出力なら倍率と bandLo〜bandHi から）"""
+    if isinstance(r.get("inBand"), bool):
+        return r["inBand"]
+    v = r.get("verdict")
+    if v in ("buy", "skipEv"):
+        return True
+    if v == "skipBand" or not r.get("needOdds"):
+        return False
+    o, lo, hi = r.get("odds"), r.get("bandLo"), r.get("bandHi")
+    return isinstance(o, (int, float)) and isinstance(lo, (int, float)) and isinstance(hi, (int, float)) and lo <= o <= hi
+
+
+def hot_decision(r, mode):
+    """🔥1レースを買うか → (買う?, 見送りの理由)。mode は config の hot9_mode / hot7_mode
+    both=期待値1以上 かつ 帯の中 / ev=期待値1以上だけ / band=帯の中だけ / either=どちらか / all=全部 / off=買わない"""
+    if mode == "all":
+        return True, ""
+    if mode == "off":
+        return False, "買わない設定"
+    ev = r.get("ev")
+    ev_ok = isinstance(ev, (int, float)) and ev >= 1
+    band_ok = _in_band(r)
+    if mode == "both":
+        buy = ev_ok and band_ok
+    elif mode == "ev":
+        buy = ev_ok
+    elif mode == "band":
+        buy = band_ok
+    elif mode == "either":
+        buy = ev_ok or band_ok
+    else:
+        return False, f"買い方の設定が読めない（{mode!r}）"
+    if buy:
+        return True, ""
+    o, lo, hi = r.get("odds"), r.get("bandLo"), r.get("bandHi")
+    ev_txt = (f"期待値{ev:.2f}（1未満）" if isinstance(ev, (int, float)) else
+              {"thin": "票が薄く期待値を出せない", "noDelta": "選手データが足りず期待値を出せない",
+               "noOdds": "締切前の倍率が無い"}.get(r.get("verdict"), "期待値を出せない"))
+    band_txt = f"{o}倍は帯{lo}〜{hi}倍の外" if isinstance(o, (int, float)) else "倍率が読めず帯を確かめられない"
+    if mode == "ev":
+        return False, ev_txt
+    if mode == "band":
+        return False, band_txt
+    parts = ([] if ev_ok else [ev_txt]) + ([] if band_ok else [band_txt])
+    return False, "・".join(parts)
+
+
 def _bet(r, cfg, minutes, note="", t=None, n=1):
     """t: モデルDの1点（{ticket, ev, odds}）。無ければレースの ticket・ev・odds"""
     snap = r.get("snap") or {}
@@ -178,23 +226,28 @@ def select(plan, done_keys, spent_yen, races_bought, cfg, at, bought_keys=()):
             continue
 
         is7 = int(r.get("cars") or 0) < 8
-        if is7 and not cfg.buy_7car_hot:
-            res.skips.append((_bet(r, cfg, minutes), "🔥の7車立ては買わない設定（5年とも回収100%未満）"))
+        mode = cfg.hot7_mode if is7 else cfg.hot9_mode       # 7車立て・9車立て（8車以上）で別々に決める
+        side = "7車立て" if is7 else "9車立て"
+        if mode == "off":
+            res.skips.append((_bet(r, cfg, minutes), f"🔥の{side}は買わない設定"))
             continue
         if minutes > cfg.decide_at_minutes:
             continue                      # まだ決めない（締切 decide_at_minutes 分前まで待つ）
         ok, note, why = _snap_ok(r, cfg)
+        if mode == "all":
+            # 🔥を全部: 倍率は見ない（届いていなくても買う）
+            res.bets.append(_bet(r, cfg, minutes, note if ok else "倍率を見ずに買う（🔥を全部買う設定）"))
+            hot_now.add(key)
+            continue
         if not ok:
             res.skips.append((_bet(r, cfg, minutes), why))
             continue
-        v = r.get("verdict")
-        use_ev = cfg.use_ev_7car if is7 else cfg.use_ev_9car     # 7車立て・9車立て（8車以上）で別々に決める
-        buy = v == "buy" if use_ev else v in ("buy", "skipEv")    # 期待値を使わなくても帯（9車 5〜15倍・7車 4〜15倍）は見る
+        buy, reason = hot_decision(r, mode)
         if buy:
             res.bets.append(_bet(r, cfg, minutes, note))
             hot_now.add(key)
         else:
-            res.skips.append((_bet(r, cfg, minutes, note), skip_reason(r)))
+            res.skips.append((_bet(r, cfg, minutes, note), reason))
 
     res.bets.sort(key=lambda b: (b.minutes, b.place, b.rno))
 
