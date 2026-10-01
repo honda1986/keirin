@@ -5,7 +5,7 @@ const E = require("./evd.js");
 const F = require("./test/evd_fixture.json");
 let worst = 0, combos = 0, bad = 0;
 for (const x of F) {
-  const all = E.evAll(x.riders, x.lines, x.place, x.o, x.n);
+  const all = E.evAll(x.riders, x.lines, x.place, x.o, x.n, x.seri);
   if (!all) { console.log("計算できない:", x.id); bad++; continue; }
   for (const a of all) {
     const want = x.ev[a.ticket];

@@ -581,7 +581,7 @@ function dPicksOf(dir, e, d) {
   const fo = allOdds(dir, id);
   const [o, src] = sn && sn.n === n ? [sn.o, "s"] : fo && fo.cars === n ? [fo.o, "f"] : [null, null];
   if (!o) return [];
-  return EVD.picks(EVD.evAll(e.riders, e.lines, e.place, o, n)).map((p) => [p.ticket, Math.round(p.ev * 1000) / 1000, p.odds, src]);
+  return EVD.picks(EVD.evAll(e.riders, e.lines, e.place, o, n, e.seri)).map((p) => [p.ticket, Math.round(p.ev * 1000) / 1000, p.odds, src]);
 }
 function writeDaily(dir, byDate, rankedOf) {
   const days = {};
