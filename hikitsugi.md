@@ -954,6 +954,15 @@ Kドリームスの HTML では `icon_p bracket_open` / `bracket_close` と脚�
     そこで `riders[4]`（評価順位）・`riders[5]`（評価点）は足す前、`riders[11]` に足した後の順位を書く（fetch.js）。🔥の判定（index.html の rankedOfRow・results.js の rankedOf）は riders[11] があればそれ
   - 前受けの確率は足す前の順位で計算する（front.js はその順位で学習した）。predict は `rankBase` と `front` を返す
 
+## 4-19. 昼にⒹの買い目と収支が消えた（2026-10-01）
+
+はむさん「午前中モデルDの買い目3つあったのに、予想・結果が急に変わった」。
+- races.json は朝の2回（07:35・09:30）とも中身は同じで、原因ではなかった
+- 原因: PC が 12:53 の送信を最後に止まり、snap.yml（GitHub の予備）が心拍切れ（15分）で記録を引き継いだ。予備は**自分の記録だけで latest.json を上書き**するので、
+  午前のレースの倍率が消え、アプリが倍率から計算しているⒹの買い目（佐世保4R 3=4=7 的中750・佐世保6R 3=5=7 的中860・松阪4R 3=4=7）と、まとめの収支が消えた
+- 直し: snap_live.js が latest.json を作るとき、手元の記録に odds-snap の snap/YYYYMMDD.json.gz（snapbr/）と今の latest.json（同じ日）を足し合わせる。PC・GitHub のどちらが書いても締切を過ぎたレースが残る
+- ★PC が止まると自動投票（bet/）も止まる。PC の状態ははむさんに確認してもらう
+
 ## 5. 次にやること
 
 ### 保留中（データが貯まってから判断する）
