@@ -25,7 +25,11 @@ DEFAULTS = {
     "use_ev": True,            # 古い設定（7車・9車まとめて）。新しい2つが無ければその既定値に使う
     "buy_7car": True,          # 古い設定（使っていない。2026-09-27 に buy_7car_hot へ。残っていても警告しないため）
     "buy_7car_hot": False,     # 🔥の7車立ても買う（5年とも回収100%未満。既定は買わない）
-    "buy_model_d": True,       # モデルD（全レース・期待値1.1以上・10〜30倍）も買う
+    "buy_model_d": True,       # モデルD（全レース・期待値1.05以上・20倍以下）も買う
+    # 🔥の買い方（2026-10-01〜）。9車立て（8車以上）と7車立てで別々に。null なら古い設定（hot9_use_ev・buy_7car_hot・use_ev_7car）から決める
+    #   off=買わない / both=期待値1以上 かつ 帯の中 / ev=期待値1以上だけ / band=帯の中だけ / either=期待値1以上 または 帯の中 / all=🔥を全部
+    "hot9_mode": None,         # 古い設定のままなら band（5〜15倍の中を全部）
+    "hot7_mode": None,         # 古い設定のままなら off（買わない）
     "decide_at_minutes": 2.5,
     "decide_left_minutes": 6.0,   # 古い設定（使っていない。残っていても警告しないため）
     "max_snap_age_minutes": 4.0,
@@ -65,6 +69,8 @@ class Config:
     use_ev_9car: bool = True
     use_ev_7car: bool = True
     buy_7car_hot: bool = False
+    hot9_mode: str = "band"
+    hot7_mode: str = "off"
     buy_model_d: bool = True
     decide_at_minutes: float = 2.5
     max_snap_age_minutes: float = 4.0
@@ -136,6 +142,26 @@ def _as_num(d, key, lo=None, hi=None):
     return float(v)
 
 
+HOT_MODES = ("off", "both", "ev", "band", "either", "all")
+HOT_MODE_LABEL = {
+    "off": "買わない",
+    "both": "期待値1以上 かつ 帯の中",
+    "ev": "期待値1以上だけ（帯は見ない）",
+    "band": "帯の中だけ（期待値は見ない）",
+    "either": "期待値1以上 または 帯の中",
+    "all": "🔥を全部（期待値も帯も見ない）",
+}
+
+
+def _as_mode(d, key, fallback):
+    v = d.get(key)
+    if v is None:
+        return fallback
+    if v not in HOT_MODES:
+        raise ConfigError(f"{key} は {' / '.join(HOT_MODES)} のどれかにしてください（いまは {v!r}）")
+    return v
+
+
 def _as_str(d, key, required=False):
     v = d.get(key, DEFAULTS[key])
     if not isinstance(v, str):
@@ -181,6 +207,9 @@ def from_dict(d, base_dir="."):
         ntfy_topic=_as_str(d, "ntfy_topic"),
         ntfy_in_dry=_as_bool(d, "ntfy_in_dry"),
     )
+    # 🔥の買い方。書かれていなければ古い設定から（何も変えていなければ 9車=帯の中だけ・7車=買わない）
+    cfg.hot9_mode = _as_mode(d, "hot9_mode", "both" if cfg.use_ev_9car else "band")
+    cfg.hot7_mode = _as_mode(d, "hot7_mode", ("both" if cfg.use_ev_7car else "band") if cfg.buy_7car_hot else "off")
     if cfg.payment_method not in ("opcoin", "cash"):
         raise ConfigError(f"payment_method は \"opcoin\"（OPコイン）か \"cash\"（投票資金）にしてください（いまは {cfg.payment_method!r}）")
     if cfg.bet_yen % 100:

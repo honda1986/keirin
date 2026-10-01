@@ -20,6 +20,7 @@ PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
 YEN, LIMIT_YEN, LIMIT_POINTS, YESNO, MINUTES = "yen", "limit_yen", "limit_pt", "yn", "min"
 ONOFF = "onoff"
+MODE = "mode"
 PAY = "pay"
 TERMS = "terms"
 TOPIC = "topic"
@@ -37,10 +38,9 @@ ITEMS = [
     ("1点あたりの金額", "bet_yen", YEN),
     ("1日の上限（円）", "max_yen_per_day", LIMIT_YEN),
     ("1日の上限（点数）", "max_races_per_day", LIMIT_POINTS),
-    ("モデルDも買う（期待値1.1以上・10〜30倍）", "buy_model_d", YESNO),
-    ("🔥9車立て: 期待値1以上だけ買う", "hot9_use_ev", ONOFF),
-    ("🔥の7車立ても買う（5年ともマイナス）", "buy_7car_hot", YESNO),
-    ("🔥7車立て: 期待値1以上だけ買う", "use_ev_7car", ONOFF),
+    ("モデルDも買う（期待値1.05以上・20倍以下）", "buy_model_d", YESNO),
+    ("🔥9車立ての買い方（帯 5〜15倍）", "hot9_mode", MODE),
+    ("🔥7車立ての買い方（帯 4〜15倍）", "hot7_mode", MODE),
     ("支払い方法", "payment_method", PAY),
     ("締切まで何分を切ったら買わないか", "close_min_minutes", MINUTES),
     ("ログイン維持の間隔", "keepalive_minutes", MINUTES),
@@ -48,6 +48,12 @@ ITEMS = [
     ("dry でも通知する", "ntfy_in_dry", ONOFF),
     ("通知を試しに1通送る", None, SENDTEST),
 ]
+
+MODE_ORDER = ["both", "ev", "band", "either", "all", "off"]
+MODE_NOTE = """
+  🔥（本命ライン3人の3連複1点）を、締切前の倍率で何を見て買うか。
+  期待値はアプリと同じ ev.js。帯は 9車立て 5〜15倍・7車立て 4〜15倍。
+  5年の成績: 9車立ては「帯の中だけ」がいちばん安定（帯の中は5年ともプラス）。7車立ては帯の中でも5年合計でマイナス。"""
 
 TOPIC_NOTE = """
   スマホに ntfy アプリを入れて、ここに入れたのと同じ名前のトピックを購読してください。
@@ -78,6 +84,12 @@ def save_raw(d):
 def show(d, key, kind):
     if kind == SENDTEST:
         return ""
+    if kind == MODE:
+        try:
+            c = config_mod.from_dict(d)
+            return config_mod.HOT_MODE_LABEL[getattr(c, key)]
+        except config_mod.ConfigError:
+            return str(d.get(key))
     v = d.get(key, config_mod.DEFAULTS.get(key))
     if key == "use_ev_7car" and key not in d:
         v = d.get("use_ev", True)              # 古い設定（まとめて1つ）を引き継ぐ
@@ -121,6 +133,16 @@ def ask(label, kind, now):
         if not s:
             return None, "変えませんでした"
         return ("" if s == "-" else s), ""
+    if kind == MODE:
+        print(MODE_NOTE)
+        for i, m in enumerate(MODE_ORDER, 1):
+            print(f"  {i}={config_mod.HOT_MODE_LABEL[m]}")
+        s = input("  番号（何も入れずに Enter で変えない）: ").strip()
+        if not s:
+            return None, "変えませんでした"
+        if not s.isdigit() or not (1 <= int(s) <= len(MODE_ORDER)):
+            return None, f"1〜{len(MODE_ORDER)} を入れてください"
+        return MODE_ORDER[int(s) - 1], ""
     if kind == YESNO:
         print("  1=買う / 2=買わない")
     elif kind == ONOFF:

@@ -225,6 +225,113 @@ class TestSelector(unittest.TestCase):
         self.assertEqual([b.place for b in r.bets], ["広島", "岐阜"])
 
 
+class TestHotMode(unittest.TestCase):
+    """🔥の買い方（hot9_mode / hot7_mode）。2026-10-01〜"""
+    def sel(self, p, c, at=NOW):
+        return selector.select(p, set(), 0, 0, c, at)
+
+    # 期待値1以上か × 帯の中か の4通り（9車は帯5〜15倍）
+    CASES = {
+        "ev_in":   dict(verdict="buy", ev=1.2, odds=9.0),
+        "ev_out":  dict(verdict="skipBand", ev=1.2, odds=22.0),
+        "noev_in": dict(verdict="skipEv", ev=0.8, odds=9.0),
+        "noev_out": dict(verdict="skipBand", ev=0.8, odds=3.5),
+    }
+    WANT = {   # 買うケース
+        "both": {"ev_in"}, "ev": {"ev_in", "ev_out"}, "band": {"ev_in", "noev_in"},
+        "either": {"ev_in", "ev_out", "noev_in"}, "all": {"ev_in", "ev_out", "noev_in", "noev_out"}, "off": set(),
+    }
+
+    def _race(self, case, cars):
+        lo, hi = (5, 15) if cars >= 8 else (4, 15)
+        x = race(need=True, cars=cars, bandlo=lo, bandhi=hi, **self.CASES[case])
+        x["inBand"] = lo <= x["odds"] <= hi
+        return x
+
+    def test_9車と7車それぞれ6通りの買い方(self):
+        for cars, key in ((9, "hot9_mode"), (7, "hot7_mode")):
+            for mode, want in self.WANT.items():
+                for case in self.CASES:
+                    r = self.sel(plan(self._race(case, cars)), cfg(**{key: mode}))
+                    got = bool(r.bets)
+                    self.assertEqual(got, case in want, f"{cars}車 {mode} {case}")
+                    if not got:
+                        self.assertEqual(len(r.skips), 1, f"{cars}車 {mode} {case} 見送りの理由が残る")
+
+    def test_9車と7車は別々に効く(self):
+        p = plan(self._race("noev_in", 9), dict(self._race("noev_in", 7), place="別府", rno=4, close="15:04"))
+        r = self.sel(p, cfg(hot9_mode="ev", hot7_mode="band"))
+        self.assertEqual([b.place for b in r.bets], ["別府"])
+        r = self.sel(p, cfg(hot9_mode="band", hot7_mode="off"))
+        self.assertEqual([b.place for b in r.bets], ["岐阜"])
+        self.assertIn("7車立ては買わない設定", r.skips[0][1])
+
+    def test_見送りの理由(self):
+        r = self.sel(plan(self._race("noev_out", 9)), cfg(hot9_mode="both"))
+        why = r.skips[0][1]
+        self.assertIn("期待値0.80", why); self.assertIn("帯5〜15倍の外", why)
+        r = self.sel(plan(self._race("noev_in", 9)), cfg(hot9_mode="ev"))
+        self.assertIn("期待値0.80", r.skips[0][1])
+        r = self.sel(plan(dict(self._race("ev_in", 9), verdict="thin", ev=None)), cfg(hot9_mode="ev"))
+        self.assertIn("票が薄く", r.skips[0][1])
+
+    def test_全部は倍率が無くても買う_ほかは見送り(self):
+        x = race(verdict="noOdds", ev=None, odds=None, snap=False, need=True, bandlo=5, bandhi=15)
+        r = self.sel(plan(x), cfg(hot9_mode="all"))
+        self.assertEqual(len(r.bets), 1)
+        self.assertIn("倍率を見ずに買う", r.bets[0].note)
+        for mode in ("both", "ev", "band", "either"):
+            r = self.sel(plan(x), cfg(hot9_mode=mode))
+            self.assertEqual(r.bets, [], mode)
+
+    def test_全部でも決める時刻までは待つ(self):
+        r = self.sel(plan(race(verdict="skipBand", odds=30.0)), cfg(hot9_mode="all", decide_at_minutes=2.5))
+        self.assertEqual((r.bets, r.skips), ([], []))
+
+    def test_古い設定からの引き継ぎ(self):
+        c = cfg()
+        self.assertEqual((c.hot9_mode, c.hot7_mode), ("band", "off"))           # 何も書いていない = いままでどおり
+        self.assertEqual(cfg(hot9_use_ev=True).hot9_mode, "both")
+        self.assertEqual(cfg(buy_7car_hot=True).hot7_mode, "both")              # 7車の期待値は既定で使う
+        self.assertEqual(cfg(buy_7car_hot=True, use_ev_7car=False).hot7_mode, "band")
+        self.assertEqual(cfg(hot9_use_ev=True, hot9_mode="either").hot9_mode, "either")   # 新しい設定が優先
+        self.assertEqual(cfg(hot9_mode="all", hot7_mode="ev").unknown_keys, [])
+
+    def test_読めない値は設定で弾く(self):
+        for bad in ("BAND", "全部", 1, True):
+            with self.assertRaises(config_mod.ConfigError):
+                cfg(hot9_mode=bad)
+
+    def test_設定メニューで選べる(self):
+        import builtins
+        import settings
+        d = {"decide_at_minutes": 6}
+        self.assertEqual(settings.show(d, "hot9_mode", settings.MODE), config_mod.HOT_MODE_LABEL["band"])
+        self.assertEqual(settings.show(d, "hot7_mode", settings.MODE), config_mod.HOT_MODE_LABEL["off"])
+        orig = builtins.input
+        try:
+            for i, m in enumerate(settings.MODE_ORDER, 1):
+                builtins.input = lambda *_a, _i=i: str(_i)
+                with open(os.devnull, "w") as dn:
+                    so = sys.stdout; sys.stdout = dn
+                    try:
+                        v, _ = settings.ask("🔥9車立ての買い方", settings.MODE, "")
+                    finally:
+                        sys.stdout = so
+                self.assertEqual(v, m)
+            builtins.input = lambda *_a: "9"
+            with open(os.devnull, "w") as dn:
+                so = sys.stdout; sys.stdout = dn
+                try:
+                    v, why = settings.ask("x", settings.MODE, "")
+                finally:
+                    sys.stdout = so
+            self.assertIsNone(v)
+        finally:
+            builtins.input = orig
+        self.assertEqual(sorted(settings.MODE_ORDER), sorted(config_mod.HOT_MODES))
+
+
 class TestConfirm(unittest.TestCase):
     """実物（2026-09-26 に記録モードで採った画面）の文字の形で確かめる"""
     SLIP = [["", "09/26\n岐 阜", "2", "3連複フ\n3-4-7", "9.1", "00円"]]

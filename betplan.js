@@ -11,6 +11,7 @@
 //     期待値 = ev.js(アプリと同じ式。node evcheck.js で突き合わせ済み)
 //     7車立て(needOdds)は、その倍率が帯(bandLo〜bandHi)の中のときだけ
 //     verdict: buy(買い) / skipEv(期待値1未満) / skipBand(帯の外) / thin(票が薄い) / noOdds(倍率なし) / noDelta(選手データ不足)
+//     ev(期待値)・inBand(帯の中か)も返す。実際に買うかは bet/ の hot9_mode / hot7_mode(両方・期待値だけ・帯だけ・どちらか・全部・買わない)で決める
 //   ★買い目を作り直さない。plan は fetch.js(engine.js の f3PlanFrom)が書いたものをそのまま使う
 //   ★2026-09-27 の見直し(hikitsugi §4-12):
 //     ・🔥の9車立て(8車以上)も帯 5〜15倍の中だけ(needOdds を立てて返す。5年とも100%超えだったのはここだけ)
@@ -147,10 +148,11 @@ function judge(plan, delta, snap) {
   const i = cs.findIndex((c) => c.join("=") === plan.ticket);
   const v = i >= 0 ? snap.o[i] : null;
   const odds = v > 0 && v < 9999 ? v : null;
-  if (!delta) return { verdict: "noDelta", odds };
-  const ev = EV.evOf(delta, plan.ticket, snap.o, n);
-  if (ev == null) return { verdict: "thin", odds };
+  // inBand(帯の中か)は期待値が出せないときも返す。bet/ が 9車・7車ごとの買い方(帯だけ・期待値だけ・どちらか…)で使う
   const inBand = plan.needOdds ? odds != null && odds >= plan.bandLo && odds <= plan.bandHi : true;
+  if (!delta) return { verdict: "noDelta", odds, inBand };
+  const ev = EV.evOf(delta, plan.ticket, snap.o, n);
+  if (ev == null) return { verdict: "thin", odds, inBand };
   return { verdict: !inBand ? "skipBand" : ev >= 1 ? "buy" : "skipEv", ev: Math.round(ev * 1000) / 1000, odds, inBand };
 }
 
