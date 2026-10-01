@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """部品ごとの確かめ（画面もネットも触らない）"""
+import contextlib
 import json
 import os
 import shutil
@@ -330,6 +331,50 @@ class TestHotMode(unittest.TestCase):
         finally:
             builtins.input = orig
         self.assertEqual(sorted(settings.MODE_ORDER), sorted(config_mod.HOT_MODES))
+
+
+class TestChromeLeftover(unittest.TestCase):
+    """前に開いた Chrome が同じプロファイルで残っていると起動できない（2026-10-02）。残りを見分けて閉じる"""
+    def test_このプロファイルのChromeだけ見分ける(self):
+        import browser
+        prof = os.path.join(tempfile.gettempdir(), "kb_chrome_profile")
+        rows = [
+            {"ProcessId": 11, "CommandLine": f'chrome.exe --no-first-run --user-data-dir={prof} --remote-debugging-pipe about:blank'},
+            {"ProcessId": 12, "CommandLine": f'chrome.exe --type=renderer --user-data-dir="{prof}" --lang=ja'},
+            {"ProcessId": 13, "CommandLine": f'chrome.exe --user-data-dir={prof}_other'},          # 似た名前の別プロファイル
+            {"ProcessId": 14, "CommandLine": 'chrome.exe --profile-directory=Default'},            # 普段使いの Chrome
+            {"ProcessId": 15, "CommandLine": None},
+            {"ProcessId": "x", "CommandLine": f'chrome.exe --user-data-dir={prof}'},
+            None,
+        ]
+        self.assertEqual(browser.profile_pids(rows, prof), [11, 12])
+        self.assertEqual(browser.profile_pids(rows, prof + os.sep), [11, 12])
+        self.assertEqual(browser.profile_pids([], prof), [])
+        self.assertEqual(browser.profile_pids(None, prof), [])
+
+    def test_残ったChromeを閉じてやり直す_本物のChrome(self):
+        exe = os.environ.get("KEIRIN_BET_CHROMIUM")
+        if not exe or not os.path.exists(exe) or os.name == "nt":
+            self.skipTest("KEIRIN_BET_CHROMIUM が無い")
+        import subprocess, time as _t
+        import browser
+        prof = tempfile.mkdtemp(prefix="kb_prof_")
+        try:
+            # 前の Chrome が同じプロファイルで残っている状態を作る
+            left = subprocess.Popen([exe, "--headless=new", "--no-sandbox", f"--user-data-dir={prof}", "about:blank"],
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            _t.sleep(2)
+            self.assertIn(left.pid, browser.profile_pids(browser._chrome_rows(), prof))
+            c = config_mod.from_dict({"profile_dir": prof, "headless": True, "use_installed_chrome": False}, base_dir=prof)
+            with browser.open_context(c) as (ctx, page):
+                page.set_content("<p>ok</p>")
+                self.assertEqual(page.inner_text("p"), "ok")
+            _t.sleep(0.5)
+            self.assertIsNotNone(left.poll(), "残っていた Chrome が閉じられていない")
+        finally:
+            with contextlib.suppress(Exception):
+                left.kill()
+            shutil.rmtree(prof, ignore_errors=True)
 
 
 class TestConfirm(unittest.TestCase):
