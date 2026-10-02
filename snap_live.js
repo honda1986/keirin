@@ -13,6 +13,7 @@
 // ・アプリは raw.githubusercontent.com ではなく GitHub の API(contents)で読む。raw はブランチを
 //   書き換えても3分以上古い中身を返した(2026-09-26 に確認)。API は書き換え直後から新しい
 // ・新しい記録があれば送る。無くても5分おきに送る(= PC の心拍。snap.yml が見ている)
+// ・日付が変わっても、新しい日の最初の記録が入るまでは前の日の分を送る(date は前の日のまま)
 // ・締切を過ぎたレースも残す: 手元の記録に、odds-snap の snap/YYYYMMDD.json.gz(snap.yml は snapbr/ に取ってある)と
 //   今の latest.json(同じ日なら)を足し合わせる。2026-10-01 に PC が昼に止まり、代わりに記録を始めた GitHub が
 //   自分の分だけで latest.json を上書きして、午前のレースの倍率(=アプリのⒹの買い目と収支)が消えた
@@ -41,17 +42,11 @@ function git(args, input) {
   return { ok: p.status === 0, out: ((p.stdout || "") + (p.stderr || "")).trim() };
 }
 
-function main() {
-  const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10).replace(/-/g, "");
-  let lines = [];
-  try { lines = fs.readFileSync(path.join(DIR, today + ".jsonl"), "utf8").split("\n").filter((l) => l.trim()); } catch (e) {}
-  let st = {};
-  try { st = JSON.parse(fs.readFileSync(STATE, "utf8")); } catch (e) {}
-  // 新しい記録が無くても5分おきには送る(= 心拍。GitHub の snap.yml は source=PC の updatedAt が
-  // 15分以上古いと「PC が止まった」とみなして代わりに記録を始める)
-  const fresh = st.date === today && st.count === lines.length;
-  if (!FORCE && fresh && Date.now() - (st.at || 0) < HEARTBEAT_MIN * 60000) return;
-
+function readLines(day) {
+  try { return fs.readFileSync(path.join(DIR, day + ".jsonl"), "utf8").split("\n").filter((l) => l.trim()); } catch (e) { return []; }
+}
+// その日の各レースの「いちばん新しい記録」: 手元の記録 + odds-snap の snap/YYYYMMDD.json.gz(snapbr/) + 今の latest.json(同じ日なら)
+function collect(day, lines, cur) {
   const races = {};
   const add = (r) => {
     if (!r || !r.k || !Array.isArray(r.o)) return;
@@ -59,22 +54,46 @@ function main() {
     if (!old || r.t > old.t) races[r.k] = { t: r.t, left: r.left, upd: r.upd, n: r.n, o: r.o };
   };
   for (const l of lines) { let r; try { r = JSON.parse(l); } catch (e) { continue; } add(r); }
-  // odds-snap にまとめた今日の記録(snap.yml が snapbr/ に取ってある。PC には無くてよい)
-  for (const f of [path.join(__dirname, "snapbr", "snap", today + ".json.gz")]) {
-    try { const j = JSON.parse(zlib.gunzipSync(fs.readFileSync(f)).toString("utf8")); if (j.date === today) (j.rows || []).forEach(add); } catch (e) {}
-  }
-  // 今の latest.json(もう一方が送った分)。同じ日のものだけ
+  try {
+    const j = JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(__dirname, "snapbr", "snap", day + ".json.gz"))).toString("utf8"));
+    if (j.date === day) (j.rows || []).forEach(add);
+  } catch (e) {}
+  if (cur && cur.date === day) for (const [k, v] of Object.entries(cur.races || {})) add({ k, ...v });
+  return races;
+}
+const dayBefore = (d8) => new Date(Date.UTC(+d8.slice(0, 4), +d8.slice(4, 6) - 1, +d8.slice(6, 8)) - 86400e3).toISOString().slice(0, 10).replace(/-/g, "");
+
+function main() {
+  const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10).replace(/-/g, "");
+  const yday = dayBefore(today);
+  const lines = readLines(today);
+  let st = {};
+  try { st = JSON.parse(fs.readFileSync(STATE, "utf8")); } catch (e) {}
+  // 新しい記録が無くても5分おきには送る(= 心拍。GitHub の snap.yml は source=PC の updatedAt が
+  // 15分以上古いと「PC が止まった」とみなして代わりに記録を始める)
+  const fresh = st.date === today && st.count === lines.length;
+  if (!FORCE && fresh && Date.now() - (st.at || 0) < HEARTBEAT_MIN * 60000) return;
+
+  // 今の latest.json(もう一方が送った分)
+  let cur = null;
   if (PUSH && git(["fetch", "-q", "origin", "refs/heads/odds-live"]).ok) {
-    const cur = git(["show", "FETCH_HEAD:latest.json"]);
-    try { const j = cur.ok && JSON.parse(cur.out); if (j && j.date === today) for (const [k, v] of Object.entries(j.races || {})) add({ k, ...v }); } catch (e) {}
+    const c = git(["show", "FETCH_HEAD:latest.json"]);
+    try { cur = c.ok ? JSON.parse(c.out) : null; } catch (e) { cur = null; }
   }
-  const body = JSON.stringify({ updatedAt: new Date().toISOString(), date: today, source: SOURCE, races });
+  let date = today, races = collect(today, lines, cur);
+  // 日付が変わってから新しい日の最初の記録が入るまでは、前の日の分を送り続ける。
+  //   そうしないと 0時に空になり、まだ前の日のレースを見ているアプリのⒹの買い目と収支が消える(2026-10-03 0時)
+  if (!Object.keys(races).length) {
+    const prev = collect(yday, readLines(yday), cur);
+    if (Object.keys(prev).length) { date = yday; races = prev; }
+  }
+  const body = JSON.stringify({ updatedAt: new Date().toISOString(), date, source: SOURCE, races });
   fs.writeFileSync(OUT, body);
   if (!PUSH) { console.log("latest.json を作りました(" + Object.keys(races).length + "レース)"); return; }
 
   const b = git(["hash-object", "-w", OUT]);
   const t = b.ok && git(["mktree"], "100644 blob " + b.out + "\tlatest.json\n");
-  const c = t && t.ok && git(["commit-tree", t.out, "-m", "odds live " + today + " (" + SOURCE + ")"]);
+  const c = t && t.ok && git(["commit-tree", t.out, "-m", "odds live " + date + " (" + SOURCE + ")"]);
   if (!c || !c.ok) { console.log("最新オッズを送る準備に失敗: " + ((c || t || b).out || "").split("\n").pop()); return; }
   const p = git(["push", "-q", "-f", "origin", c.out + ":refs/heads/odds-live"]);
   if (!p.ok) { console.log("最新オッズを送れず(次の回にまた送る): " + p.out.split("\n").pop()); return; }
