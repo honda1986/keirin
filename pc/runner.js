@@ -126,7 +126,7 @@ function pullMain(st) {
 // ---- 3. 出走表が今日の分でないときは自分で取る ----
 function raceDayOf(file) {
   try {
-    const rj = JSON.parse(fs.readFileSync(file, "utf8"));
+    const rj = require("../datafile.js").read(file);
     for (const x of rj.races || []) {
       const j = String(x.date || "").match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
       if (j) return j[1] + j[2].padStart(2, "0") + j[3].padStart(2, "0");

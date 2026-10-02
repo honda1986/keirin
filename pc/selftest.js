@@ -58,7 +58,7 @@ try {
   git(["init", "-q", "--bare", "-b", "main", ORIGIN]);   // -b main が無いと clone が空になる(HEAD が master を指す)
   const seed = path.join(T, "seed");
   fs.mkdirSync(path.join(seed, "pc"), { recursive: true });
-  for (const f of ["snap_pack.js", "snap_live.js", "pc/runner.js"]) fs.copyFileSync(path.join(SRC, f), path.join(seed, f));
+  for (const f of ["snap_pack.js", "snap_live.js", "datafile.js", "pc/runner.js"]) fs.copyFileSync(path.join(SRC, f), path.join(seed, f));
   // 偽の snap.js: 呼ばれるたびに今日の記録を1行足すだけ(ネットに出ない)
   fs.writeFileSync(path.join(seed, "snap.js"), `
 const fs=require("fs"),path=require("path");const d=path.join(__dirname,"snapwork");fs.mkdirSync(d,{recursive:true});
@@ -89,8 +89,10 @@ fs.appendFileSync(path.join(d,day+".jsonl"),JSON.stringify({t:t.slice(11,23),k:"
   check("心拍(pc/heartbeat.json)が届いた", hb.status === 0 && /"at"/.test(hb.stdout));
   check("ログが残った", fs.existsSync(path.join(LOGS, "snap_" + today + ".log")));
   const lv = spawnSync("git", ["show", "odds-live:latest.json"], { cwd: ORIGIN, env, encoding: "utf8" });
-  let lj = {}; try { lj = JSON.parse(lv.stdout); } catch (e) {}
+  let lj = {}, lh = {}; try { lh = JSON.parse(lv.stdout); lj = require("../datafile.js").open(lh); } catch (e) {}
   check("最新の倍率(odds-live)に今日のレースが入った", lj.races && lj.races["テスト_1R"] && lj.source === "PC");
+  // 合言葉があるときは暗号化され、snap.yml の心拍判定に要る source・updatedAt だけ見える(hikitsugi §4-22)
+  if (process.env.KEIRIN_PASS) check("合言葉があるので latest.json は暗号化(source・updatedAt は見える)", !!lh.enc && !lh.races && lh.source === "PC" && !!lh.updatedAt);
   const nLive = spawnSync("git", ["rev-list", "--count", "odds-live"], { cwd: ORIGIN, env, encoding: "utf8" }).stdout.trim();
   check("odds-live は履歴を持たない(1コミットだけ)", nLive === "1", nLive + "コミット");
 

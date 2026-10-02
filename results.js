@@ -139,7 +139,7 @@ function makeEntry(x, r, d8) {
 
 async function main() {
   const dir = __dirname;
-  const races = JSON.parse(fs.readFileSync(path.join(dir, "races.json"), "utf8")).races || [];
+  const races = require("./datafile.js").read(path.join(dir, "races.json")).races || [];
   const histPath = path.join(dir, "history.json");
   const hist = fs.existsSync(histPath) ? JSON.parse(fs.readFileSync(histPath, "utf8")) : { entries: [] };
   const done = new Set(hist.entries.map((e) => e.id));

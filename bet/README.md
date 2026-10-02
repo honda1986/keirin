@@ -79,6 +79,9 @@ PC のタスク（runner.js）が10分おきに GitHub を取り込むので、*
 （Python の部分は、動かし直したときに新しくなります）。
 `config.json`・`bet_done.json`・`chrome_profile\`・`logs\`・`shots\` は git に入らず、消されません。
 
+データを合言葉で暗号化しているときは、先に `C:\keirin\keirin\pc\set_pass.bat` で合言葉を入れておくこと
+（無いと出走表を読めず、ログに「合言葉が設定されていません」と出て何も買いません。keirin の hikitsugi §4-22）。
+
 デスクトップから開きたいときは `run.bat` を右クリック →「送る」→「デスクトップ (ショートカットを作成)」。
 
 ### 3. 上げていく順番 ★飛ばさないこと

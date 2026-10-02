@@ -2,3 +2,6 @@ snapwork/
 snapbr/
 scorefill-out.json
 __pycache__/
+
+# 合言葉(pc\set_pass.bat が作る。絶対に git に入れない)
+.keirin_pass

@@ -296,9 +296,26 @@
   .frow .bar i { display: block; height: 100%; background: var(--green); border-radius: 4px; }
   .frow .pc { width: 40px; text-align: right; font-weight: 900; font-variant-numeric: tabular-nums; }
   .frow .tg { font-size: 10px; color: var(--dim); width: 58px; }
+  /* 合言葉の画面(races.json などが暗号化されているとき。hikitsugi §4-22) */
+  .lock { position: fixed; inset: 0; z-index: 100; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .lock.hidden { display: none; }
+  .lock-card { width: 100%; max-width: 360px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px 18px; }
+  .lock-card p { margin: 12px 0 0; font-size: 13px; color: var(--muted); }
+  .lock-card input { width: 100%; margin-top: 12px; padding: 12px; font-size: 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel2); color: var(--text); font-family: inherit; }
+  .lock-card input:focus { outline: 2px solid var(--gold); outline-offset: 2px; }
 </style>
 </head>
 <body>
+<div id="lockBox" class="lock hidden" role="dialog" aria-modal="true" aria-labelledby="lockTitle">
+  <form class="lock-card" id="lockForm" autocomplete="on">
+    <div class="brand"><small>KEIRIN</small><span id="lockTitle">合言葉を入れてください</span></div>
+    <input type="text" name="username" value="keirin" autocomplete="username" hidden>
+    <input type="password" id="lockPass" name="password" autocomplete="current-password" placeholder="合言葉" aria-label="合言葉">
+    <button class="run" type="submit" id="lockGo">開く</button>
+    <p class="err hidden" id="lockErr"></p>
+    <p>この端末で1回入れれば、次からは聞きません。</p>
+  </form>
+</div>
 <header class="appbar"><div class="row">
   <div class="brand"><small>KEIRIN</small>競輪予想</div>
   <div class="upd" id="appUpd">読み込み中…</div>
@@ -2052,6 +2069,59 @@ window.loadRace = (key) => {
   }, 60);
 };
 
+// ---- 合言葉(races.json・latest.json は暗号化してある。datafile.js と同じ形・hikitsugi §4-22) ----
+//   鍵 = PBKDF2-SHA256(合言葉, "keirin-data-v1", 150000回) / AES-256-GCM。鍵(合言葉そのものではない)をこの端末に覚える
+const LOCK_SALT = "keirin-data-v1", LOCK_ITER = 150000, LOCK_LS = "keirinKey";
+const b64d = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+const b64e = (u) => btoa(String.fromCharCode(...new Uint8Array(u)));
+const lockErr = (msg) => Object.assign(new Error(msg), { lock: true });
+let LOCK_KEY = (async () => {
+  try { const r = localStorage.getItem(LOCK_LS); if (r && crypto.subtle) return await crypto.subtle.importKey("raw", b64d(r), "AES-GCM", false, ["decrypt"]); } catch (e) {}
+  return null;
+})();
+async function deriveKey(pass) {
+  const te = new TextEncoder();
+  const base = await crypto.subtle.importKey("raw", te.encode(pass.trim()), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: te.encode(LOCK_SALT), iterations: LOCK_ITER }, base, 256);
+  return { raw: bits, key: await crypto.subtle.importKey("raw", bits, "AES-GCM", false, ["decrypt"]) };
+}
+async function decryptWith(key, j) {
+  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64d(j.enc.iv) }, key, b64d(j.enc.ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+// 暗号化されていれば解く(されていなければそのまま)。鍵が無い・違うときは lock 付きのエラー
+async function openData(j) {
+  if (!j || !j.enc) return j;
+  if (!crypto.subtle) throw lockErr("この画面(https でない)では解けません");
+  const key = await LOCK_KEY;
+  if (!key) throw lockErr("");
+  try { return await decryptWith(key, j); } catch (e) { throw lockErr("合言葉が変わったようです。新しい合言葉を入れてください"); }
+}
+let LOCK_SAMPLE = null;   // 合言葉が合っているか確かめる用(さっき読んだ races.json)
+function showLock(sample, msg) {
+  LOCK_SAMPLE = sample || LOCK_SAMPLE;
+  $("lockBox").classList.remove("hidden");
+  const er = $("lockErr"); er.textContent = msg || ""; er.classList.toggle("hidden", !msg);
+  setTimeout(() => $("lockPass").focus(), 50);
+}
+$("lockForm").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const pass = $("lockPass").value, go = $("lockGo"), er = $("lockErr");
+  if (!pass.trim()) return;
+  if (!crypto.subtle) { er.textContent = "https で開いてください(GitHub Pages の https://〜)"; er.classList.remove("hidden"); return; }
+  go.disabled = true; go.textContent = "確かめています…";
+  try {
+    const k = await deriveKey(pass);
+    if (LOCK_SAMPLE) await decryptWith(k.key, LOCK_SAMPLE);    // 違えばここで失敗する
+    try { localStorage.setItem(LOCK_LS, b64e(k.raw)); } catch (e) {}
+    LOCK_KEY = Promise.resolve(k.key);
+    $("lockPass").value = ""; $("lockBox").classList.add("hidden");
+    $("loadToday").click(); loadLiveOdds(true);
+  } catch (e) {
+    er.textContent = "合言葉が違います"; er.classList.remove("hidden"); $("lockPass").select();
+  } finally { go.disabled = false; go.textContent = "開く"; }
+});
+
 // 本日の全レース(GitHub ActionsがコミットしたJSON)を検索リストへ流し込む
 $("loadToday").addEventListener("click", async () => {
   $("searchErr").classList.add("hidden");
@@ -2059,7 +2129,9 @@ $("loadToday").addEventListener("click", async () => {
     await SCORES_READY;                       // 得点ログが揃ってから予想する
     const res = await fetch("./races.json", { cache: "no-store" });
     if (!res.ok) throw new Error("races.json が見つかりません(" + res.status + ")");
-    const data = await res.json();
+    const sealed = await res.json();
+    let data;
+    try { data = await openData(sealed); } catch (e) { if (e.lock) { showLock(sealed, e.message); return; } throw e; }
     if (!data.races || !data.races.length) throw new Error("レースデータが空です");
     data.races.forEach((x) => {
       const sx = x.score != null ? { score: x.score, verdict: x.verdict, reasons: x.reasons || [] } : null;
@@ -2580,6 +2652,7 @@ async function loadLiveOdds(force) {
   if (!j) {   // 回数の上限などで API が使えないときは raw(数分遅れることがある)
     try { const r = await fetch("https://raw.githubusercontent.com/honda1986/keirin/odds-live/latest.json?t=" + now, { cache: "no-store" }); if (r.ok) j = await r.json(); } catch (e) {}
   }
+  if (j) { try { j = await openData(j); } catch (e) { LIVE_ERR = e.lock ? "合言葉" : e.message; j = null; } }   // 暗号化(hikitsugi §4-22)
   if (j && RACE_DAY && j.date === RACE_DAY.replace(/-/g, "")) { LIVE_ODDS = j; LIVE_ERR = ""; }
   paintShoubu();
 }

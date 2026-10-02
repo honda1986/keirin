@@ -35,6 +35,7 @@ const path = require("path");
 const { spawnSync } = require("child_process");
 const EV = require("./ev.js");
 const EVD = require("./evd.js");
+const DF = require("./datafile.js");
 const HOT9_BAND = [5, 15];         // 🔥の9車立ての帯(2026-09-27〜)
 
 const argv = process.argv.slice(2);
@@ -64,7 +65,9 @@ function git(args) {
   const p = spawnSync("git", args, { cwd: DIR, env: { ...process.env, ...GIT_ENV }, encoding: "utf8", timeout: 40000, windowsHide: true, maxBuffer: 64 << 20 });
   return { ok: !p.error && p.status === 0, out: p.stdout || "", err: (p.error ? p.error.message : p.stderr || "").trim() };
 }
-const readJson = (f) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch (e) { return null; } };
+// 読めない(無い・壊れた)ときは null。暗号化されていれば解く(合言葉が無ければ notes に書くため例外を残す)
+let DATA_ERR = null;
+const readJson = (f) => { try { return DF.read(f); } catch (e) { if (/合言葉/.test(e.message)) DATA_ERR = e.message; return null; } };
 const writeJson = (f, o) => { try { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, JSON.stringify(o)); } catch (e) {} };
 
 // ---- 出走表 ----
@@ -82,7 +85,7 @@ function loadRaces(today, notes) {
     st.racesAt = Date.now(); writeJson(path.join(WORK, "betplan-state.json"), st);
     const f = git(["fetch", "-q", "--no-write-fetch-head", "--refmap=", "origin", "+refs/heads/main:refs/betplan/main"]);
     const s = f.ok && git(["show", "refs/betplan/main:races.json"]);
-    if (s && s.ok) { try { j = JSON.parse(s.out); writeJson(cache, j); } catch (e) {} }
+    if (s && s.ok) { try { j = DF.parse(s.out); writeJson(cache, j); } catch (e) { if (/合言葉/.test(e.message)) DATA_ERR = e.message; } }
     else notes.push("GitHub から races.json を取れず: " + ((s || f).err || "").split("\n").pop());
   }
   if (j && Array.isArray(j.races) && j.races.some((r) => raceDay8(r) === today)) return { races: j.races, from: "GitHub main" };
@@ -114,7 +117,7 @@ function remoteSnaps(today, notes) {
     st.liveAt = Date.now(); writeJson(stf, st);
     const f = git(["fetch", "-q", "--no-write-fetch-head", "--refmap=", "origin", "+refs/heads/odds-live:refs/betplan/odds-live"]);
     const s = f.ok && git(["show", "refs/betplan/odds-live:latest.json"]);
-    if (s && s.ok) { try { writeJson(cache, JSON.parse(s.out)); } catch (e) {} }
+    if (s && s.ok) { try { writeJson(cache, DF.parse(s.out)); } catch (e) { if (/合言葉/.test(e.message)) DATA_ERR = e.message; } }
     else notes.push("odds-live を取れず: " + ((s || f).err || "").split("\n").pop());
   }
   const j = readJson(cache);
@@ -214,6 +217,7 @@ function main() {
   }
   const out = hotOut.concat(dOut).sort((a, b) => (a.minutesToClose ?? 9e9) - (b.minutesToClose ?? 9e9));
 
+  if (DATA_ERR) notes.push(DATA_ERR);
   const res = { now: now.toISOString(), date: today, racesFrom: from, oddsFrom: oddsFrom || "なし", notes, races: out };
   if (!has("pretty")) { process.stdout.write(JSON.stringify(res) + "\n"); return; }
   console.log(`${today} 出走表:${from} 倍率:${res.oddsFrom}  🔥${hotOut.length} / モデルD(締切20分以内)${dOut.length}`);

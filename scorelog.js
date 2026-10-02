@@ -113,7 +113,7 @@ if (require.main === module) {
   const before = Object.values(store.riders).reduce((a, l) => a + l.length, 0);
   let res;
   if (argv.includes("--today")) {
-    const races = JSON.parse(fs.readFileSync(path.join(dir, "races.json"), "utf8")).races || [];
+    const races = require("./datafile.js").read(path.join(dir, "races.json")).races || [];
     res = updateFromRaces(store, races);
     console.log("当日の races.json:", races.length, "レース");
   } else {

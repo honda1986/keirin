@@ -985,6 +985,21 @@ Kドリームスの HTML では `icon_p bracket_open` / `bracket_close` と脚�
 はむさん「10/2のモデルDの買い目消えてます」。latest.json が 0時に「20261003・0R」へ切り替わり、アプリ（races.json は10/2のまま・倍率は日付が合うときだけ使う）は前の日のⒹの買い目と収支を出せなくなった。
 - 直し: snap_live.js は、新しい日の最初の記録が入るまで前の日の分（手元の記録・odds-snap の snapbr/・今の latest.json）を date=前の日 のまま送り続ける。心拍（updatedAt・source）はそのまま毎回新しくなるので、snap.yml の「PC が止まった」判定には影響しない
 
+## 4-22. 合言葉でデータを暗号化した（他の人がアプリを使えないように・2026-10-03）
+
+はむさん「READMEに全部載っちゃってるのが嫌」「他人が使えなければいい」。リポジトリを private にすると無料プランでは Pages・未ログインの odds-live 読み・Actions の分数（snap.yml だけで1日約1,400分）が使えなくなるので、**公開のまま中身を合言葉で暗号化**した。
+- 対象: `races.json`（今日の出走表・予想）と odds-live の `latest.json`（最新の倍率＝Ⓓ）。これが無いとアプリの「今日」は何も出ない
+- しくみ（`datafile.js`）: 鍵 = PBKDF2-SHA256(合言葉, "keirin-data-v1", 150000回)、AES-256-GCM。形は `{ 見せてよい項目, enc:{v:1, iv, ct} }`（ct の最後16バイトが認証タグ）
+  - races.json は `updatedAt` だけ、latest.json は `updatedAt・date・source` を暗号化せずに残す（snap.yml の心拍判定が解かずに読むため）
+  - 合言葉が無ければ今までどおり暗号化しない（GitHub に KEIRIN_PASS を入れた次の取得から暗号化が始まる）。読むときは暗号化されていれば解く
+- **合言葉はどこにも書かない**。置き場所は2つだけ: GitHub の Secrets `KEIRIN_PASS`（main・live・results・snap・gitfill の yml が env で渡す）と、PC の `keirin\.keirin_pass`（`pc\set_pass.bat` で作る・.gitignore 済み）。前後の空白・改行は無視
+- アプリ（index.html）: races.json が暗号化されていて鍵が無い・違うときは「合言葉を入れてください」の画面。入れた合言葉から作った**鍵**（合言葉そのものではない）を localStorage `keirinKey` に覚え、次からは聞かない。WebCrypto なので https（GitHub Pages）でだけ動く
+- 読む側: fetch.js（書く）・snap_live.js（書く）・betplan.js・live.js・results.js・scorelog.js・snap.js・gitfill.js・pc/runner.js。PC の手元用 `RACES_OUT`（races-local.json）と snapwork/ の取り置きは git に入らないので暗号化しない
+- ★PC に合言葉が無い・違うと betplan.js が races.json を読めず、**自動投票は何も買わない**（notes に「合言葉が設定されていません」/「解けません」と出る）。snap.js も記録を始めない
+- ★合言葉を変えるときは GitHub の KEIRIN_PASS と PC（set_pass.bat）の両方。アプリは「合言葉が変わったようです」と出るので入れ直す
+- 暗号化していないもの: コード（index.html・engine.js など）、stats.json・results-today.json・history.json などの成績、README。予想の作り方を読まれることは防げないが、**今日の予想と倍率をアプリで見ることはできない**
+- 確かめ方: `node datacheck.js`（index.html の合言葉の部分をそのまま取り出し、Node で暗号化 → ブラウザと同じ WebCrypto で解く）。`KEIRIN_PASS=何か node pc/selftest.js` で latest.json が暗号化され source・updatedAt が見えることも確かめる
+
 ## 5. 次にやること
 
 ### 保留中（データが貯まってから判断する）

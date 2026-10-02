@@ -23,6 +23,7 @@ const fs = require("fs");
 const zlib = require("zlib");
 const path = require("path");
 const { spawnSync } = require("child_process");
+const DF = require("./datafile.js");
 
 const DIR = path.join(__dirname, "snapwork");
 const OUT = path.join(DIR, "latest.json");
@@ -78,7 +79,7 @@ function main() {
   let cur = null;
   if (PUSH && git(["fetch", "-q", "origin", "refs/heads/odds-live"]).ok) {
     const c = git(["show", "FETCH_HEAD:latest.json"]);
-    try { cur = c.ok ? JSON.parse(c.out) : null; } catch (e) { cur = null; }
+    try { cur = c.ok ? DF.parse(c.out) : null; } catch (e) { cur = null; if (/合言葉/.test(e.message)) console.log(e.message); }
   }
   let date = today, races = collect(today, lines, cur);
   // 日付が変わってから新しい日の最初の記録が入るまでは、前の日の分を送り続ける。
@@ -87,7 +88,9 @@ function main() {
     const prev = collect(yday, readLines(yday), cur);
     if (Object.keys(prev).length) { date = yday; races = prev; }
   }
-  const body = JSON.stringify({ updatedAt: new Date().toISOString(), date, source: SOURCE, races });
+  // 合言葉があれば暗号化(updatedAt・date・source は snap.yml の心拍判定に使うので見せたまま。hikitsugi §4-22)
+  const head = { updatedAt: new Date().toISOString(), date, source: SOURCE };
+  const body = DF.stringify({ ...head, races }, head);
   fs.writeFileSync(OUT, body);
   if (!PUSH) { console.log("latest.json を作りました(" + Object.keys(races).length + "レース)"); return; }
 
