@@ -25,6 +25,10 @@ permissions:
   contents: write
   actions: write    # 時間切れのとき自分を起動し直すため
 
+# races.json・latest.json を合言葉で暗号化/解く(datafile.js・hikitsugi §4-22)。未設定なら今までどおり暗号化しない
+env:
+  KEIRIN_PASS: ${{ secrets.KEIRIN_PASS }}
+
 jobs:
   live:
     runs-on: ubuntu-latest

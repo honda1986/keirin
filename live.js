@@ -54,7 +54,7 @@ function merge(prev, day, found) {
 
 async function main() {
   const DRY = process.argv.includes("--dry");
-  const rj = JSON.parse(fs.readFileSync(path.join(__dirname, "races.json"), "utf8"));
+  const rj = require("./datafile.js").read(path.join(__dirname, "races.json"));
   const list = rj.races || [];
   const days = [...new Set(list.map(raceDate).filter(Boolean))].sort();
   if (!days.length) { console.error("races.json からレース日が取れません"); process.exit(1); }

@@ -12,6 +12,10 @@ concurrency:
 permissions:
   contents: write
 
+# races.json・latest.json を合言葉で暗号化/解く(datafile.js・hikitsugi §4-22)。未設定なら今までどおり暗号化しない
+env:
+  KEIRIN_PASS: ${{ secrets.KEIRIN_PASS }}
+
 jobs:
   results:
     runs-on: ubuntu-latest

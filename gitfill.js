@@ -70,7 +70,7 @@ function snapshots(FROM, TO) {
   let broken = 0;
   for (const sha of shas) {
     let races;
-    try { races = JSON.parse(git(["show", sha + ":races.json"]).toString()).races || []; }
+    try { races = require("./datafile.js").parse(git(["show", sha + ":races.json"]).toString()).races || []; }
     catch (e) { broken++; continue; }
     const byDate = new Map();
     for (const x of races) {

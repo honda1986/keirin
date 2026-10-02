@@ -45,6 +45,12 @@ irm https://raw.githubusercontent.com/honda1986/keirin/main/pc/install.ps1 | iex
 
 以下の 1〜1-5 は、この1行が中でやっていることを手でやる場合の手順（ふつうは読まなくてよい）。
 
+### 合言葉（races.json などを暗号化している場合）
+
+GitHub の Secrets に `KEIRIN_PASS` を入れてデータを暗号化しているときは、PC にも同じ合言葉が要ります（引き継ぎ資料 §4-22）。
+`C:\keirin\keirin\pc\set_pass.bat` をダブルクリック → 合言葉を2回入れる（画面には * だけ出ます）。
+保存先は `C:\keirin\keirin\.keirin_pass`（git には入りません）。**これが無いと記録も自動投票も止まります。**
+
 ## 1. 準備（手でやる場合）
 
 ### 1-1. Node.js を入れる
@@ -129,6 +135,7 @@ Git・Node.js・改行の設定・フォルダ・**GitHub へ送れるか（ロ�
 | 「送れず」「GitHub のログインが要ります」 | 1-3 のトークンの対象と権限。直したら setup.bat をもう一度 |
 | 「手で直しかけのファイルがあるので、コードの取り込みは見送り」 | `C:\keirin\keirin` で `git status`。直しかけを消す（`git checkout -- ファイル名`）と次から取り込む |
 | 「今日の出走表がありません」 | GitHub の朝の更新（main.yml）が遅れている。7時を過ぎると PC が自分で取る（20分おきに試す） |
+| ログに「合言葉が設定されていません」「解けません」 | `pc\set_pass.bat` で GitHub の Secrets `KEIRIN_PASS` と同じ合言葉を入れ直す |
 | タスクを止めたい | `Disable-ScheduledTask -TaskName keirin_snap`（戻すのは `Enable-ScheduledTask`）。止めても GitHub が引き継ぐ |
 | 消したい | `Unregister-ScheduledTask -TaskName keirin_snap -Confirm:$false` |
 
@@ -142,6 +149,7 @@ Git・Node.js・改行の設定・フォルダ・**GitHub へ送れるか（ロ�
 | `pc/setup.bat` `pc/setup.js` | 準備と試し運転 |
 | `pc/tasks.bat` `pc/register_tasks.ps1` | タスクの登録 |
 | `pc/task.bat` | タスクから呼ばれる入口（PATH を足して `node pc\runner.js`） |
+| `pc/set_pass.bat` `pc/set_pass.js` | 合言葉を PC に置く（`.keirin_pass`。git に入らない） |
 | `pc/runner.js` | 取り込み・出走表の予備取得・記録・送信・ロック・ログ |
 | `pc/selftest.js` | runner.js の動きを外に触らずに確かめる（setup.bat が動かす） |
 | `snap.js` / `snap_pack.js` | 記録とまとめ（GitHub の snap.yml と同じもの） |

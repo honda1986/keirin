@@ -130,7 +130,7 @@ async function main() {
   let list = [];
   for (const f of [path.join(__dirname, "races.json"), path.join(DIR, "races-local.json")]) {
     let rj;
-    try { rj = JSON.parse(fs.readFileSync(f, "utf8")); } catch (e) { continue; }
+    try { rj = require("./datafile.js").read(f); } catch (e) { if (/合言葉/.test(e.message)) console.log(hms(), e.message); continue; }
     list = (rj.races || []).filter((x) => raceDay(x) === today);
     if (list.length) break;
   }

@@ -21,6 +21,7 @@ const { parseCard, predict, sujiExpect, applyScoreLog, f3PlanFrom } = require(".
 const { T, TRACK_NAMES } = require("./bankdata.js");
 const EV = require("./ev.js");
 const FRONT = require("./front.js");
+const DF = require("./datafile.js");
 
 // 競走得点の日次ログ。Kドリームスには前得点が無いので、ここから scoreDiff を復元する。
 // この実行で書き足すより前の状態を読む(当日ぶんは prevMeetScore が見ないので順序は問わない)。
@@ -207,11 +208,10 @@ function buildEntry(text, item) {
   // PC の予備取得(pc/runner.js)が、GitHub の朝の更新が遅れた日に手元だけで使うため。
   // main のファイルを書き換えると、次に GitHub から取り込むときにぶつかる。
   const outPath = process.env.RACES_OUT || path.join(__dirname, "races.json");
-  fs.writeFileSync(outPath, JSON.stringify({
-    updatedAt: new Date().toISOString(),
-    count: races.length,
-    races,
-  }));
+  // races.json は合言葉があれば暗号化して置く(datafile.js・hikitsugi §4-22)。RACES_OUT(PC の手元用・git に入らない)はそのまま
+  const racesObj = { updatedAt: new Date().toISOString(), count: races.length, races };
+  if (process.env.RACES_OUT) fs.writeFileSync(outPath, JSON.stringify(racesObj));
+  else if (!DF.write(outPath, racesObj, { updatedAt: racesObj.updatedAt })) console.log(" (合言葉が無いので races.json は暗号化していません)");
   // 競走得点の日次ログを更新する(ネットワークには出ない。いま作った races を読み直すだけ)。
   // Kドリームスには前得点が無いので、毎日の得点を貯めて「前回の開催との差」で代用する。
   // ★ここが失敗してもレース取得自体は成功させる(races.json は既に書いてある)。
