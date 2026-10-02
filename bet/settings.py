@@ -8,6 +8,7 @@
 """
 import json
 import os
+import secrets
 import sys
 import tempfile
 
@@ -58,7 +59,7 @@ MODE_NOTE = """
 TOPIC_NOTE = """
   スマホに ntfy アプリを入れて、ここに入れたのと同じ名前のトピックを購読してください。
   購入した・購入に失敗した・買えずに見送った・止まった ときに通知が来ます。
-  ★トピック名を知っている人は誰でも通知を読めます。keirin-hamu-8f3k2q のような
+  ★トピック名を知っている人は誰でも通知を読めます。下の「おすすめ」のような
     推測されにくい名前にしてください（半角の英数字・_・- だけ）。"""
 
 
@@ -129,9 +130,13 @@ def ask(label, kind, now):
         return True, ""
     if kind == TOPIC:
         print(TOPIC_NOTE)
-        s = input("  トピック名（何も入れずに Enter で変えない / - だけで通知をやめる）: ").strip()
+        idea = "keirin-" + secrets.token_hex(6)      # 毎回作り直す乱数(どこにも書かない)
+        print(f"  おすすめ（今作った乱数）: {idea}")
+        s = input("  トピック名（+ でおすすめを使う / 何も入れずに Enter で変えない / - だけで通知をやめる）: ").strip()
         if not s:
             return None, "変えませんでした"
+        if s == "+":
+            s = idea
         return ("" if s == "-" else s), ""
     if kind == MODE:
         print(MODE_NOTE)

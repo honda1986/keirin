@@ -998,6 +998,9 @@ Kドリームスの HTML では `icon_p bracket_open` / `bracket_close` と脚�
 - ★PC に合言葉が無い・違うと betplan.js が races.json を読めず、**自動投票は何も買わない**（notes に「合言葉が設定されていません」/「解けません」と出る）。snap.js も記録を始めない
 - ★合言葉を変えるときは GitHub の KEIRIN_PASS と PC（set_pass.bat）の両方。アプリは「合言葉が変わったようです」と出るので入れ直す
 - 暗号化していないもの: コード（index.html・engine.js など）、stats.json・results-today.json・history.json などの成績、README。予想の作り方を読まれることは防げないが、**今日の予想と倍率をアプリで見ることはできない**
+- あわせて（同じ日）: index.html に `noindex, nofollow, noarchive`（検索に出さない）と `no-referrer`。bet/ の偽サイト（テスト用）にも noindex。
+  公開ファイルに例として載っていた ntfy のトピック名（実際に使っている名前だった）を消し、`run.bat` の `7)` で毎回乱数の「おすすめ」を出すようにした（`+` で採用）。
+  ★git の履歴には前の名前が残るので、**実際のトピック名は新しいものに変える**（7) で + → スマホの ntfy で新しい名前を購読し直す → 「通知を試しに1通送る」）
 - 確かめ方: `node datacheck.js`（index.html の合言葉の部分をそのまま取り出し、Node で暗号化 → ブラウザと同じ WebCrypto で解く）。`KEIRIN_PASS=何か node pc/selftest.js` で latest.json が暗号化され source・updatedAt が見えることも確かめる
 
 ## 5. 次にやること
