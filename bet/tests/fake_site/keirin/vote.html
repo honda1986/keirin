@@ -73,6 +73,12 @@ function drawMatome() {
     h += '</tr><tr class="tate"><td>車<br>立</td>' + [...Array(12)].map((_, i) => "<td" + (i < v.closed ? ' class="keshi"' : "") + ">" + v.cars + "<br>車</td>").join("") + "</tr>";
   });
   $("#raceArea tbody").innerHTML = h;
+  // 実物と同じく「全R」と各レースを連動させる。残りが最終Rだけの場では、最終Rを入れると全Rも入る（実物 2026-10-03 松阪12R）
+  document.querySelectorAll('#raceArea input[name="shadatsu"]').forEach((all) => {
+    const races = [...all.closest("tr").querySelectorAll('input[name^="group"]')];
+    all.addEventListener("change", () => races.forEach((r) => { r.checked = all.checked; }));
+    races.forEach((r) => r.addEventListener("change", () => { all.checked = races.every((x) => x.checked); }));
+  });
 }
 function drawSlip() {
   const s = slip();

@@ -168,6 +168,42 @@ class TestFakeSite(unittest.TestCase):
         op.bet(self.session, self.bet_obj(), True, lambda s: None, lambda: None)
         self.assertEqual(BOUGHT[0]["slip"], [{"venue": "岐阜", "race": 3, "t": "3-4-7", "units": 1}])
 
+    def test_残りが最終Rだけの場は全Rが連動しても買える(self):
+        # 岸和田は11Rまで締め切り。12Rを入れると全Rにも入る（実物 2026-10-03 松阪12R で前の選択を外せず失敗した）
+        self.login()
+        note = op.bet(self.session, self.bet_obj(place="岸和田", rno=12, ticket="1=5=6", cars=7), True, lambda s: None, lambda: None)
+        self.assertIn("購入済み", note)
+        self.assertEqual(BOUGHT[0]["slip"], [{"venue": "岸和田", "race": 12, "t": "1-5-6", "units": 1}])
+        # 前の回の 12R と全R が入ったまま残っていても、30秒待たずに外せる
+        vp = self.session.vote_page()
+        self.session._to_matome(vp)
+        box = vp.locator('#raceArea input[value$="_56_12"]')
+        box.check()
+        self.assertEqual(vp.locator("#raceArea input[type=checkbox]:checked").count(), 2)   # 全R も入った
+        t0 = time.time()
+        self.session._reset_inputs(vp)
+        self.assertLess(time.time() - t0, 10)
+        self.assertEqual(vp.locator("#raceArea input[type=checkbox]:checked").count(), 0)
+        # 全R だけが入っていても外せる
+        vp.locator('#raceArea input[name="shadatsu"]').first.check()
+        self.session._reset_inputs(vp)
+        self.assertEqual(vp.locator("#raceArea input[type=checkbox]:checked").count(), 0)
+
+    def test_ほかのレースも入る全Rは止める(self):
+        self.login()
+        # 岐阜は2R〜12Rが残っている。全Rが入ったままだと、レースの欄が1つでも買わない
+        #   （連動を切った全Rに入れておく = 外し忘れ・サイトの作りが変わった、の代わり）
+        orig = self.session._reset_inputs
+        def leave_all(v):
+            orig(v)
+            v.evaluate("""(() => { const a = document.querySelectorAll('#raceArea input[name=shadatsu]')[0];
+              const n = a.cloneNode(); n.checked = true; a.replaceWith(n); })()""")
+        self.session._reset_inputs = leave_all
+        with self.assertRaises(Exception) as cm:
+            op.bet(self.session, self.bet_obj(), True, lambda s: None, lambda: self.fail("押そうとした"))
+        self.assertIn("全R", str(cm.exception))
+        self.assertEqual(BOUGHT, [])
+
     def test_買い目一覧が合わなければ押さない(self):
         self.login()
         vp = self.session.vote_page()

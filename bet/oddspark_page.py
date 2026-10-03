@@ -14,6 +14,8 @@
                       三連複フォーメーションで 1列に1車ずつ → 1通り（買い目一覧では昇順 "3-4-7"）
       レース          table#raceArea の input[type=checkbox][value="YYYYMMDD_場コード_R"]
                       （締め切ったレースはチェック欄が無い。場コードは ul#course の li[value]）
+                      各場の行の先頭に「全R」のチェック欄（value に "_" が無い）。★その場で残りが最終Rだけのとき、
+                      最終Rにチェックを入れると全Rにも入り、どちらかを外すともう片方も外れる（実物 2026-10-03 松阪12R）
       賭式            input#sanrenpuku（name=betTypeSelect。ほかは外す）
       支払い方法      input#paymentMethodBuyLimit（投票資金）/ input#paymentMethodOpCoin（OPコイン）
       セット          a#multiSet → div#buylist の tr[id^=kaime]、td#sumBetCount「組数：1通り」td#sumPay「合計金額：100円」
@@ -43,7 +45,8 @@ SEL = {
     "matome_tab": '#course li[value="00"] a',
     "race_area": "#raceArea",
     "race_box": '#raceArea input[type="checkbox"][value="{date}_{jcd}_{rno}"]',
-    "race_checked": "#raceArea input[type=checkbox]:checked",
+    "race_checked": '#raceArea input[type=checkbox][value*="_"]:checked',   # レースの欄だけ（全R は数えない）
+    "race_any_checked": "#raceArea input[type=checkbox]:checked",         # 全R も含む
     "sha_cell": '#shaArea td[name="keirin{col}"] a',
     "sha_on": "#shaArea a.on",
     "sha_reset": "#reset",
@@ -529,13 +532,21 @@ class Session:
             vp.wait_for_timeout(300)
             for a in vp.locator(SEL["sha_on"]).all():             # リセットで消えなければ1つずつ
                 a.click()
-        for cb in vp.locator(SEL["race_checked"]).all():
-            cb.uncheck()
+        # ★1つ外すと連動して別の欄（全R ⇔ 最終R）も外れるので、毎回数え直して先頭から外す。
+        #   （.all() で先に並べると、消えた2つ目を30秒待って TimeoutError になった。2026-10-03 松阪12R）
+        for _ in range(40):
+            left = vp.locator(SEL["race_any_checked"])
+            if left.count() == 0:
+                break
+            try:
+                left.first.uncheck(timeout=5000)
+            except Exception:
+                vp.wait_for_timeout(300)                     # 連動で外れた直後など。数え直す
         for cb in vp.locator(SEL["bet_types"]).all():
             want = cb.get_attribute("id") == SEL["sanrenpuku"].lstrip("#")
             if cb.is_checked() != want:
                 cb.set_checked(want)
-        if vp.locator(SEL["sha_on"]).count() or vp.locator(SEL["race_checked"]).count():
+        if vp.locator(SEL["sha_on"]).count() or vp.locator(SEL["race_any_checked"]).count():
             raise RuntimeError("前の選択が消えない")
 
     def fill_ticket(self, vp, b, jcd):
@@ -570,6 +581,14 @@ class Session:
         race.check()
         if vp.locator(SEL["race_checked"]).count() != 1 or not race.is_checked():
             raise RuntimeError("レースのチェックが1つにならない")
+        # 全R に入っていてよいのは、その場の残りがこのレースだけで連動して入ったときだけ
+        bad_all = vp.evaluate("""(want) => [...document.querySelectorAll('#raceArea input[type=checkbox]:checked')]
+          .filter((cb) => !(cb.value || '').includes('_'))
+          .map((cb) => [...cb.closest('tr').querySelectorAll('input[type=checkbox]')].map((e) => e.value).filter((v) => v && v.includes('_')))
+          .filter((vals) => !(vals.length === 1 && vals[0] === want))
+          .map((vals) => vals.join(','))""", f"{b.date}_{jcd}_{b.rno}")
+        if bad_all:
+            raise RuntimeError("全R にチェックが入っている（ほかのレースも買う恐れ）: " + " / ".join(bad_all))
         pay = vp.locator(SEL["pay_opcoin"] if self.pay == "opcoin" else SEL["pay_cash"])
         pay.check()
         if not pay.is_checked():
