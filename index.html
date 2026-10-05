@@ -211,6 +211,19 @@
   .evsw { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); margin-top: 8px; flex-wrap: wrap; }
   .evsw input { width: 16px; height: 16px; accent-color: var(--green); }
   .evsw small { margin-left: auto; color: var(--dim); }
+  /* 詳細: 期待値 上位5 */
+  .evt5 { display: grid; gap: 4px; }
+  .evt5 .r { display: grid; grid-template-columns: 1.6em auto 1fr auto auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 8px; background: var(--panel2); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .evt5 .r.pick { background: rgba(95,192,139,.12); box-shadow: inset 0 0 0 1px rgba(95,192,139,.45); }
+  .evt5 .r.hit { box-shadow: inset 0 0 0 2px var(--gold); }
+  .evt5 .n { color: var(--muted); font-weight: 900; text-align: center; }
+  .evt5 .o { color: var(--muted); text-align: right; }
+  .evt5 .e { font-weight: 900; text-align: right; min-width: 3.2em; }
+  .evt5 .e.up { color: var(--green); }
+  .evt5 .tg { display: flex; gap: 4px; justify-content: flex-end; min-width: 4.5em; }
+  .evt5 .tg span { font-size: 10px; padding: 1px 6px; border-radius: 99px; background: var(--panel); color: var(--muted); white-space: nowrap; }
+  .evt5 .tg .d { color: var(--green); }
+  .evt5 .tg .h { color: var(--gold); }
   .reschip { display: inline-flex; align-items: center; gap: 2px; font-size: 10px; margin-top: 3px; color: var(--muted); }
   header.appbar { padding: 0; }
   .lineviz .cb.dim { opacity: .45; }
@@ -395,6 +408,7 @@
   <p class="note" style="font-size:10px;color:#5E7573">展開=ライン位置+スタート+得点と成績の乖離補正。マイナス表示は「得点上位だが直近勝てていない」減点を含む</p></section>
   <section class="card hl hidden" id="tenkaiCard" data-tab="ana"><h2>展開予想</h2><p class="tenkai" id="tenkai"></p><p class="bankfit" id="bankFit"></p></section>
   <section class="card hidden" id="markCard" data-tab="ana"><h2>予想印</h2><div id="markBox"></div></section>
+  <section class="card hidden" id="evTopCard" data-tab="ana"><h2>期待値 上位5（3連複・モデルD）</h2><div id="evTopBox"></div></section>
   <section class="card hidden" id="betCard" data-tab="ana"><h2>買い目</h2>
     <div id="f3Box" style="display:none;margin:0 0 12px;padding:10px 12px;border-radius:8px"></div>
     <details class="more" style="margin:0 0 10px"><summary>参考: 旧方式の買い目(2車単・3連単の学習構成)</summary>
@@ -1730,7 +1744,7 @@ $("paste").addEventListener("click", async () => {
 $("clear").addEventListener("click", () => {
   $("src").value = "";
   $("track").value = "";
-  ["bankCard","parseCard","scoreCard","tenkaiCard","markCard","betCard","sujiCard","backCard"].forEach((i) => { const el = $(i); if (el) el.classList.add("hidden"); });
+  ["bankCard","parseCard","scoreCard","tenkaiCard","markCard","betCard","sujiCard","backCard","evTopCard"].forEach((i) => { const el = $(i); if (el) el.classList.add("hidden"); });
   $("err").classList.add("hidden");
   lastParsed = null;
   $("src").focus();
@@ -2237,7 +2251,7 @@ function strToLines(str, cars) {
 
 $("run").addEventListener("click", () => {
   $("err").classList.add("hidden");
-  ["bankCard","parseCard","scoreCard","tenkaiCard","markCard","betCard","sujiCard","backCard"].forEach((i) => $(i).classList.add("hidden"));
+  ["bankCard","parseCard","scoreCard","tenkaiCard","markCard","betCard","sujiCard","backCard","evTopCard"].forEach((i) => $(i).classList.add("hidden"));
   let p, tName;
   try {
     p = parseCard($("src").value, TRACK_NAMES);
@@ -2287,6 +2301,8 @@ function render(p, tName) {
     rh.classList.remove("hidden");
   }
   if ($("anaEmpty")) $("anaEmpty").style.display = "none";
+  ANA_ROW = raceList.find((x) => x.place === p.place && x.raceNo === p.raceNo) || null;   // 期待値 上位5 用(貼り付けたレースは null)
+  paintEvTop();
   try {
     const rk = {}; (r.scores || []).forEach((sc, i) => { rk[sc.car] = i + 1; });
     const fp = typeof FRONT !== "undefined" ? FRONT.probs(p.lines || [], FRONT.fromEntries(p.entries, rk)) : null;
@@ -2769,6 +2785,34 @@ function dCard(row) {
     (res && !res.pending ? "" : '<div class="evline buy"><span>今 <b>' + row.odds + "倍</b></span><span>期待値 <b>" + row.ev.toFixed(2) + '</b></span><span class="v">✓ 買い</span><small>' + when + "</small></div>") +
     resBlock(res) + "</div>";
 }
+// ---- 詳細: 期待値 上位5(モデルD と同じ evd.js・締切前の倍率)。買うのは「Ⓓ買い」の印の組だけ(自動投票も同じ) ----
+let ANA_ROW = null;
+function evTopHtml(x) {
+  if (typeof EVD === "undefined" || !Array.isArray(x.riders) || x.riders.length < 5) return '<div class="evbox wait">このレースは期待値を計算できません（選手データ不足）</div>';
+  const snap = LIVE_ODDS && LIVE_ODDS.races ? LIVE_ODDS.races[x.key] : null;
+  if (!snap || !Array.isArray(snap.o)) return '<div class="evbox wait">締切前の倍率が届くと出ます<small>PC が締切20分ほど前から1分おきに送ります</small></div>';
+  if (snap.n && snap.n !== x.riders.length) return '<div class="evbox wait">倍率の組数が出走表と合わないので出しません</div>';
+  const all = EVD.evAll(x.riders, x.lines, x.place, snap.o, x.riders.length, x.seri);
+  if (!all) return '<div class="evbox wait">票がまだ薄く、期待値を計算できません</div>';
+  const pk = new Set(EVD.picks(all).map((r) => r.ticket));
+  const hot = (SHOUBU_ROWS.find((h) => h.key === x.key) || {}).ticket;
+  const top = all.slice().sort((a, b) => b.ev - a.ev).slice(0, 5);
+  const when = (snap.upd ? snap.upd + "現在" : String(snap.t || "").slice(0, 5) + "取得") + "・締切" + Math.max(0, Math.round(snap.left)) + "分前の倍率";
+  return '<div class="evt5">' + top.map((r, i) => {
+    const res = f3ResultOf(x.place, x.raceNo, r.ticket), hit = !!(res && !res.pending && res.hit);
+    const tags = (pk.has(r.ticket) ? '<span class="d">Ⓓ買い</span>' : "") + (r.ticket === hot ? '<span class="h">🔥</span>' : "") + (hit ? '<span class="h">的中</span>' : "");
+    return '<div class="r' + (pk.has(r.ticket) ? " pick" : "") + (hit ? " hit" : "") + '"><span class="n">' + (i + 1) + "</span><span>" + ticketBalls(r.ticket, "s") + "</span>" +
+      '<span class="o">' + r.odds + '倍</span><span class="e' + (r.ev >= EVD.PICK.minEv ? " up" : "") + '">' + r.ev.toFixed(2) + '</span><span class="tg">' + tags + "</span></div>";
+  }).join("") + "</div>" +
+    '<p class="note" style="font-size:10px;margin-top:6px">右の数字が期待値（1.00 で元が取れる計算）。' + when + "。" +
+    "「Ⓓ買い」はモデルDの買い条件（期待値" + EVD.PICK.minEv + "以上・" + EVD.PICK.oddsHi + "倍以下）に入る組で、自動投票もこれだけ買います。ほかは参考（期待値1.00〜1.05は5年で回収94.7%）。</p>";
+}
+function paintEvTop() {
+  const card = $("evTopCard"); if (!card) return;
+  if (!ANA_ROW) { card.classList.add("hidden"); return; }
+  $("evTopBox").innerHTML = evTopHtml(ANA_ROW);
+  card.classList.remove("hidden");
+}
 // 終わったレースの1行
 function doneRow(it) {
   const r = it.r, res = f3ResultOf(r.place, r.raceNo, r.ticket);
@@ -2783,6 +2827,7 @@ function doneRow(it) {
     '<span class="tk">' + ticketBalls(r.ticket, "s") + "</span>" + (order ? '<span style="color:var(--dim)">→</span><span class="tk">' + order + "</span>" : "") + right + "</div>";
 }
 function paintShoubu() {
+  paintEvTop();                                   // 詳細の「期待値 上位5」も新しい倍率で
   const nowL = $("nowList"), doneL = $("doneList"), empty = $("shoubuEmpty");
   if (!nowL || !doneL) return;
   const byTime = (a, b) => (a.startTime || "99:99").localeCompare(b.startTime || "99:99");
