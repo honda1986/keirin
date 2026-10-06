@@ -189,10 +189,14 @@ async function main() {
   }
   const entryById = new Map(hist.entries.map((e) => [e.id, e]));
   let added = 0, p2added = 0;
+  // 今日のレースは夜(21時以降)の集計まで入れない。朝の予備(09:47)が途中までの成績(モデルD無し)を書くと、
+  // アプリが今日の速報(Ⓓ入り)よりそちらを出して、今日のⒹが成績から消えた(2026-10-06)
+  const jstNow = new Date(Date.now() + 9 * 3600e3), today8 = jstNow.toISOString().slice(0, 10).replace(/-/g, ""), early = jstNow.getUTCHours() < 21;
   for (const x of races) {
     const dH = raceDate(x);
     if (!dH) continue;
     const d8 = dH.replace(/-/g, "");
+    if (early && d8 === today8) continue;
     const id = d8 + "_" + x.key;
     const r = results[d8 + "_" + x.place + "_" + x.raceNo]; // 開催日が一致する結果だけを使う
     // 3連単が取れなくても、2車単の並びが「1着-2着」なので記録できる
