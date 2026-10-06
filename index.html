@@ -2961,8 +2961,10 @@ function calDays() {
   const lv = liveDay();
   if (lv) {
     const d8 = RACE_DAY.replace(/-/g, "");
-    const settled = (d) => d ? d.h.filter((x) => x[5] === 0 || x[5] === 1).length : 0;
-    if (!days[d8] || settled(lv) > settled(days[d8])) days[d8] = lv;
+    const settled = (d) => d ? d.h.concat(d.d || []).filter((x) => x[5] === 0 || x[5] === 1).length : 0;
+    // 夜の集計(Ⓓ入り)が済むまでは速報を使う。途中までの集計(Ⓓ無し)と同数なら速報を優先(2026-10-06 に今日のⒹが消えた)
+    const old = days[d8], oldHasD = !!(old && old.d && old.d.length);
+    if (!old || settled(lv) > settled(old) || (settled(lv) === settled(old) && !oldHasD)) days[d8] = lv;
   }
   return days;
 }
