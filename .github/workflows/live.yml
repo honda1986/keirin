@@ -69,7 +69,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run live.yml --ref main -R "$GITHUB_REPOSITORY"
-      # ★夜の結果収集(results.yml)は 23:50 の定時実行だが、GitHub の遅れで毎日 03:40 頃にずれ込み、
+      # ★夜の結果収集(results.yml)は 23:50 の定時実行だが、GitHub の遅れで毎日 1〜3時頃にずれ込み、
       #   日別成績が翌朝まで変わらなかった(しかも同じ頃に朝の出走表取得が races.json を翌日分へ替える)。
       #   1時にここで終わるときに起動すれば、その日の races.json が残っているうちに確実に集計できる。
       #   23:50 の定時実行は予備としてそのまま残す(二重に動いても、既にあるレースは足さないので害はない)。

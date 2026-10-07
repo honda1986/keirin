@@ -1,11 +1,13 @@
 name: 全レース更新
 on:
   schedule:
-    # ★UTCで書く。GitHubの定時実行は数時間遅れることがある(実測1〜7時間)ので、
-    #   始発レース(08:30 JST)に間に合うよう、朝の取得は大きく前倒ししてある。
+    # ★UTCで書く。GitHubの定時実行は数時間遅れることがある(実測1〜7時間。2026-10 は 03:40 予定が 06:40〜07:50 に動いていた)。
     #   きりの良い分(:00 / :30)は混んで遅れやすいので、わざと外してある。
-    - cron: '40 18 * * *'   # 03:40 JST  本命。遅れても始発に間に合う
-    - cron: '10 21 * * *'   # 06:10 JST  予備(上が落ちたとき用)
+    # ★朝の出走表は 05:00 JST に取る(はむさんの希望・2026-10-07)。定時実行は遅れるので、夜中に起こしておいて
+    #   ジョブの中で 05:00 まで待ってから取る(下の「朝5時まで待つ」)。05:00 を過ぎて動き出したらすぐ取る
+    - cron: '47 15 * * *'   # 00:47 JST → 05:00 まで待って取る(本命)
+    - cron: '17 18 * * *'   # 03:17 JST → 同じ(上が落ちた・遅れすぎたとき用)
+    - cron: '10 21 * * *'   # 06:10 JST  予備
     - cron: '20 3 * * *'    # 12:20 JST  日中の出走変更を拾う
     - cron: '50 7 * * *'    # 16:50 JST  ナイター/ミッドナイト前
   workflow_dispatch:
@@ -15,10 +17,28 @@ permissions:
 env:
   KEIRIN_PASS: ${{ secrets.KEIRIN_PASS }}
 
+# 本命と予備が両方 05:00 まで待っていると同時に push してぶつかるので、1本ずつ
+concurrency:
+  group: races-fetch
+  cancel-in-progress: false
+
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 330
     steps:
+      # checkout より先に待つ(待ってから取り込むので、待っている間の他の更新とぶつからない)
+      - name: 朝5時(JST)まで待つ(夜中の定時実行のとき)
+        if: github.event_name == 'schedule'
+        run: |
+          h=$(TZ=Asia/Tokyo date +%-H)
+          if [ "$h" -lt 5 ]; then
+            w=$(( $(TZ=Asia/Tokyo date -d "05:00" +%s) - $(date +%s) ))
+            echo "$(TZ=Asia/Tokyo date +%H:%M) JST。05:00 まで $((w / 60)) 分待ちます"
+            sleep "$w"
+          else
+            echo "$(TZ=Asia/Tokyo date +%H:%M) JST。待たずに取ります"
+          fi
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
