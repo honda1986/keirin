@@ -22,6 +22,27 @@ const { T, TRACK_NAMES } = require("./bankdata.js");
 const EV = require("./ev.js");
 const FRONT = require("./front.js");
 const DF = require("./datafile.js");
+// 展開予想の「ラインで前について行けない(離れる)確率」(tenkai.js の detach。hikitsugi §4-25・§4-26)。🔥9車の条件に使う
+let TENKAI = null;
+try { TENKAI = require("./tenkai.js").load(JSON.parse(fs.readFileSync(path.join(__dirname, "tenkai-model.json"), "utf8"))); }
+catch (e) { console.log("展開モデルなし(離れる確率は出さない):", e.message); }
+
+// 🔥の3人がいるラインで、番手か3番手のどちらかが前について行けない確率 = 1 − (1−p番手)(1−p3番手)。
+// 入力の作り方は index.html の tenkaiInput と同じ。分析(analysis/tenkai/hanare_bet.py)と同じく、
+// 3人を全部含むラインの2人目・3人目で計算する(競りで1人飛ばした3人でも、ラインの並び順のまま)。
+function lineBreakOf(p, r, bank, rankBase, trio) {
+  if (!TENKAI || !Array.isArray(trio) || trio.length < 3) return null;
+  const ent = {}; for (const e of p.entries) ent[e.car] = e;
+  const lines = (p.lines || []).map((l) => l.filter((c) => ent[c])).filter((l) => l.length);
+  const seen = new Set(lines.flat()); for (const e of p.entries) if (!seen.has(e.car)) lines.push([e.car]);
+  const ln = lines.find((l) => trio.every((c) => l.includes(c)));
+  if (!ln || ln.length < 3) return null;
+  const R = {};
+  for (const e of p.entries) R[e.car] = [e.kyaku, e.k.nige, e.k.makuri, e.k.sashi, e.k.mark, e.S, e.B, e.score, rankBase[e.car] || 9, e.rate.sanren, e.age];
+  const det = TENKAI.detach({ n: p.entries.length, bank: bank ? bank[0] : 400, klass: r.klass, seri: p.seri || [], lines, R });
+  if (det[ln[1]] == null || det[ln[2]] == null) return null;
+  return Math.round((1 - (1 - det[ln[1]]) * (1 - det[ln[2]])) * 1000) / 1000;
+}
 
 // 競走得点の日次ログ。Kドリームスには前得点が無いので、ここから scoreDiff を復元する。
 // この実行で書き足すより前の状態を読む(当日ぶんは prevMeetScore が見ないので順序は問わない)。
@@ -139,6 +160,10 @@ function buildEntry(text, item) {
     if (!SCORE_LOG || !SCORE_LOG.riders || !en.name || !en.ki) return null;
     return EV.scoreChange(SCORE_LOG.riders[en.name + "|" + String(en.ki).replace(/期$/, "")], d8, en.score);
   };
+  const plan = f3PlanFrom((r.scores || []).map((sc) => sc.car), p.lines || [], { ss: p.entries.some((e) => e.grade === "SS"), seri: p.seri });
+  if (plan && plan.trio) {
+    try { plan.brk = lineBreakOf(p, r, bank, rankBase, plan.trio); } catch (e) { console.error("  離れる確率:", e.message); plan.brk = null; }
+  }
   const riders = p.entries.map((en) => {
     const sc = (r.scores || []).find((x) => x.car === en.car);
     return [en.car, en.age || 0, parseInt(en.ki, 10) || 0, posOf[en.car] ?? 3, rankBase[en.car] || 9,
@@ -165,7 +190,7 @@ function buildEntry(text, item) {
     // ss: S級S班の選手がいるか(🔥の9車は見送り。engine.js の f3PlanFrom)
     ss: p.entries.some((e) => e.grade === "SS"),
     seri: p.seri && p.seri.length ? p.seri.filter((q) => q.every((c) => cars.has(c))) : undefined,   // 競り [[カッコの前, 後], ...]。2026-09-30 から
-    plan: f3PlanFrom((r.scores || []).map((sc) => sc.car), p.lines || [], { ss: p.entries.some((e) => e.grade === "SS"), seri: p.seri }),
+    plan,           // plan.brk: 🔥の3人のラインが切れる確率(lineBreakOf)。2026-10-13 から
     gap: r.scores && r.scores[1] ? Number((r.scores[0].total - r.scores[1].total).toFixed(1)) : null,
     nishatan: r.bets?.nishatan, sanrentan: r.bets?.sanrentan,
     raw: compactCard(text, p.place, p.raceNo), url: item.url,

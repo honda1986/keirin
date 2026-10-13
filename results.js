@@ -134,6 +134,8 @@ function makeEntry(x, r, d8) {
     ss: x.ss ? 1 : undefined,
     seri: Array.isArray(x.seri) && x.seri.length ? x.seri : undefined,   // 競り(並び予想のカッコ)。2026-09-30 から          // S級S班がいる(🔥の判定で使う)。2026-09-28 より前の記録には無い
     front: Array.isArray(x.front) ? x.front : undefined,   // ラインごとの前受け確率(front.js)。2026-09-30 から
+    // [🔥の買い目, 本命ラインが切れる確率](fetch.js の plan.brk)。🔥9車は17%未満なら見送り(hikitsugi §4-26)。2026-10-13 から
+    brk: x.plan && x.plan.ticket && typeof x.plan.brk === "number" ? [x.plan.ticket, x.plan.brk] : undefined,
   };
 }
 
@@ -506,7 +508,8 @@ async function main() {
 // stats.json の recentDays は直近7日だけなので、全期間をここに小さく持つ。
 //   { updatedAt, days: { "YYYYMMDD": { n: 結果が取れたレース数, h: [🔥1件ずつ] } } }
 //   🔥1件 = [場, R, 車立て, 買い目"1=2=3", 着順"1-2-3"("1-2-?"=3着不明), 的中(1/0/-1=3着不明), 3複配当(的中時, 不明はnull), 買い目の確定オッズ(無ければnull),
-//            (空き: アプリの今日の分は発走時刻), 期待値(無ければnull), 期待値の倍率の出どころ("s"=締切前の記録 / "f"=確定オッズ)]
+//            (空き: アプリの今日の分は発走時刻), 期待値(無ければnull), 期待値の倍率の出どころ("s"=締切前の記録 / "f"=確定オッズ),
+//            本命ラインが切れる確率(2026-10-13〜。無い件は11個のまま)]
 // 7車は「オッズ4〜15倍のときだけ買う」ので、確定オッズがあれば帯の外を見送り扱いにできるよう載せる。
 // 過去分は、いまの買い方(本命ライン3人・🔥条件)を当時の予想に当てはめたさかのぼり計算。
 const ODDS_CACHE = {};
@@ -610,9 +613,12 @@ function writeDaily(dir, byDate, rankedOf) {
       const hit = done ? ([e.f, e.s, e.t].sort((a, b) => a - b).join("=") === pl.ticket ? 1 : 0) : -1;
       const trio = pl.ticket.split("=").map(Number);
       const [ev, evSrc] = evForEntry(dir, e, d, pl.ticket);
-      h.push([e.place, e.raceNo, pl.cars, pl.ticket, e.f + "-" + e.s + "-" + (done ? e.t : "?"), hit,
+      const row = [e.place, e.raceNo, pl.cars, pl.ticket, e.f + "-" + e.s + "-" + (done ? e.t : "?"), hit,
         hit === 1 ? (e.p3fpay != null ? e.p3fpay : null) : 0, oddsOf(dir, e.id || (d + "_" + e.place + "_" + e.raceNo), trio),
-        null, ev, evSrc]);
+        null, ev, evSrc];
+      // 12番目: 本命ラインが切れる確率(買い目が同じときだけ。無い日は付けない = アプリは見送らない)
+      if (Array.isArray(e.brk) && e.brk[0] === pl.ticket) row.push(e.brk[1]);
+      h.push(row);
     }
     const rn = (x) => parseInt(x[1], 10) || 0;
     h.sort((a, b) => a[0].localeCompare(b[0]) || rn(a) - rn(b));

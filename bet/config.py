@@ -30,6 +30,9 @@ DEFAULTS = {
     #   off=買わない / both=期待値1以上 かつ 帯の中 / ev=期待値1以上だけ / band=帯の中だけ / either=期待値1以上 または 帯の中 / all=🔥を全部
     "hot9_mode": None,         # 古い設定のままなら band（5〜15倍の中を全部）
     "hot7_mode": None,         # 古い設定のままなら off（買わない）
+    # 🔥9車立ては「3人のラインが切れる確率（番手か3番手が前について行けない確率）17%以上」のときだけ（2026-10-13〜。hikitsugi §4-26）
+    #   5年（5〜15倍）: 17%以上 1,138R 回収125%（5年とも114%以上）/ 17%未満 1,105R 99%。確率が分からないレースは見送らない
+    "hot9_line_break": True,
     "decide_at_minutes": 2.5,
     "decide_left_minutes": 6.0,   # 古い設定（使っていない。残っていても警告しないため）
     "max_snap_age_minutes": 4.0,
@@ -71,6 +74,7 @@ class Config:
     buy_7car_hot: bool = False
     hot9_mode: str = "band"
     hot7_mode: str = "off"
+    hot9_line_break: bool = True
     buy_model_d: bool = True
     decide_at_minutes: float = 2.5
     max_snap_age_minutes: float = 4.0
@@ -185,6 +189,7 @@ def from_dict(d, base_dir="."):
         use_ev_7car=_as_bool(d, "use_ev_7car") if "use_ev_7car" in d else _as_bool(d, "use_ev"),
         buy_7car_hot=_as_bool(d, "buy_7car_hot"),
         buy_model_d=_as_bool(d, "buy_model_d"),
+        hot9_line_break=_as_bool(d, "hot9_line_break"),
         decide_at_minutes=_as_num(d, "decide_at_minutes", lo=1, hi=10),
         max_snap_age_minutes=_as_num(d, "max_snap_age_minutes", lo=1, hi=10),
         close_min_minutes=_as_num(d, "close_min_minutes", lo=0.5, hi=10),
