@@ -305,6 +305,21 @@
   .racehead { padding: 4px 4px 10px; }
   .racehead .t { font-size: 20px; font-weight: 900; }
   .racehead .m { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  /* 展開予想(tenkai.js) */
+  .tk-step { display: grid; grid-template-columns: 1.6em minmax(0, 1fr); gap: 8px; padding: 10px 0; border-bottom: 1px dashed var(--line); }
+  .tk-step:last-child { border-bottom: none; }
+  .tk-step .no { font-weight: 900; color: var(--gold); font-size: 15px; line-height: 1.5; }
+  .tk-step h3 { margin: 0 0 3px; font-size: 11px; color: var(--muted); font-weight: 700; letter-spacing: .06em; }
+  .tk-step p { margin: 0; font-size: 13.5px; line-height: 1.8; }
+  .tk-step b { color: var(--text); }
+  .tk-sc { background: var(--panel2); border-radius: 8px; padding: 7px 10px; margin-top: 6px; font-size: 12.5px; line-height: 1.75; }
+  .tk-sc .pc { display: inline-block; min-width: 2.8em; font-weight: 900; color: var(--gold); font-variant-numeric: tabular-nums; }
+  .tk-g { display: inline-flex; gap: 2px; vertical-align: -3px; }
+  .tk-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .tk-list .t { display: inline-flex; align-items: center; gap: 4px; background: var(--panel2); border-radius: 8px; padding: 5px 8px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .tk-tbl { width: 100%; font-size: 12px; margin-top: 6px; }
+  .tk-tbl td, .tk-tbl th { padding: 4px 6px; text-align: right; }
+  .tk-tbl td.l, .tk-tbl th.l { text-align: left; }
   .frow { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
   .frow:last-child { border-bottom: none; }
   .frow .g { display: inline-flex; gap: 2px; min-width: 96px; }
@@ -388,6 +403,11 @@
   <!-- ===== 詳細: 1レースの詳しい予想 ===== -->
   <section class="racehead hidden" id="raceHead" data-tab="ana"></section>
   <div id="anaEmpty" class="empty" data-tab="ana">「今日」や「レース」でレースを押すと、ここに詳しい予想が出ます。</div>
+  <section class="card hl hidden" id="tenkaiCard" data-tab="ana"><h2>展開予想</h2><div id="tkBox"></div>
+    <details class="more" id="tkOld"><summary>参考: 前の展開コメント（評価値）</summary><p class="tenkai" id="tenkai"></p></details>
+    <p class="bankfit" id="bankFit"></p></section>
+  <section class="card hidden" id="markCard" data-tab="ana"><h2>予想印（1着→2着→3着の順に予想）</h2><div id="tkMarks"></div>
+    <details class="more" id="mkOld"><summary>参考: 前の予想印（評価値の順）</summary><div id="markBox" style="margin-top:6px"></div></details></section>
   <section class="card hidden" id="frontCard" data-tab="ana"><h2>初手の予想（前受け）</h2><div id="frontBox"></div>
     <p class="note" style="font-size:10px;color:var(--dim)">スタートで前を取る（前受け）ラインの確率。並び予想のラインの中身は本番も同じだが、ラインの前後は本番で入れ替わることがある（並び予想の先頭のままは61〜64%、この予想は64〜67%）。ラインの選手のスタート率・人数・単騎・脚質などから計算。</p></section>
   <section class="card hidden" id="bankCard" data-tab="ana"><h2 id="bankTitle"></h2><div class="chips" id="bankChips"></div><p class="note" id="bankNote"></p></section>
@@ -406,8 +426,6 @@
     <th>車</th><th class="l">選手</th><th>位置</th><th>総合</th><th>得点</th><th>調子</th><th>勝星</th><th>適性</th><th>展開</th>
   </tr></thead><tbody id="scoreBody"></tbody></table></div>
   <p class="note" style="font-size:10px;color:#5E7573">展開=ライン位置+スタート+得点と成績の乖離補正。マイナス表示は「得点上位だが直近勝てていない」減点を含む</p></section>
-  <section class="card hl hidden" id="tenkaiCard" data-tab="ana"><h2>展開予想</h2><p class="tenkai" id="tenkai"></p><p class="bankfit" id="bankFit"></p></section>
-  <section class="card hidden" id="markCard" data-tab="ana"><h2>予想印</h2><div id="markBox"></div></section>
   <section class="card hidden" id="evTopCard" data-tab="ana"><h2>期待値 上位5（3連複・モデルD）</h2><div id="evTopBox"></div></section>
   <section class="card hidden" id="betCard" data-tab="ana"><h2>買い目</h2>
     <div id="f3Box" style="display:none;margin:0 0 12px;padding:10px 12px;border-radius:8px"></div>
@@ -466,6 +484,7 @@
 </nav>
 <script src="evd.js"></script>
 <script src="front.js"></script>
+<script src="tenkai.js"></script>
 <script>
 const T = {
   "函館": [400, 51.3, 30.61, 0, 9.8, 16.2, 25.4, 26.2, 48.3, 40.9, 52.8, 26.3, 53.9, 39.1, 9.4, 4.2, 13006, "カント緩め直線短め。海陸風あり。捲りやや不発"],
@@ -2347,6 +2366,7 @@ function render(p, tName) {
     '<div class="mark-row' + (i === 0 ? " top" : "") + '"><span class="mark" style="color:' + (MC[m.mark] || "#EAF2EF") + '">' + m.mark + '</span><div><div class="mname"><span class="no">' + m.car + "</span> " + esc(m.name) + ' <span class="role">(' + m.role + ')</span></div><div class="mreason">' + esc(m.reason) + "</div></div></div>"
   ).join("");
   $("markCard").classList.remove("hidden");
+  paintTenkai(p, r, b);   // 展開予想・予想印を tenkai.js で(読み込みを待つので後から入る)
 
   const planParts = [];
   if (r.planNote) planParts.push(r.planNote);
@@ -2784,6 +2804,76 @@ function dCard(row) {
     lineViz(x.lines, row.ticket.split("=").map(Number), x.front, true, x.seri) +
     (res && !res.pending ? "" : '<div class="evline buy"><span>今 <b>' + row.odds + "倍</b></span><span>期待値 <b>" + row.ev.toFixed(2) + '</b></span><span class="v">✓ 買い</span><small>' + when + "</small></div>") +
     resBlock(res) + "</div>";
+}
+// ---- 詳細: 展開予想・予想印(tenkai.js。前受け → 主導権 → 1着 → 2着 → 3着。hikitsugi §4-24) ----
+//   評価値の順(◎から順に並べるだけ)より、3連単の的中が 4.4% → 約12%(2025〜26年で確認)。買い方(🔥・モデルD)には使わない
+const TENKAI_READY = (async () => {
+  try { const res = await fetch("./tenkai-model.json", { cache: "no-cache" }); if (res.ok && typeof TENKAI !== "undefined") { TENKAI.load(await res.json()); return true; } } catch (e) {}
+  return false;
+})();
+let TK_SEQ = 0;
+function tenkaiInput(p, r, b) {
+  const ent = {}; for (const e of p.entries) ent[e.car] = e;
+  // 欠車は並びから外す。並びに居ない選手は単騎として後ろに(学習データと同じ扱い)
+  const lines = (p.lines || []).map((l) => l.filter((c) => ent[c])).filter((l) => l.length);
+  const seen = new Set(lines.flat()); for (const e of p.entries) if (!seen.has(e.car)) lines.push([e.car]);
+  const rk = r.rankBase || {};
+  const R = {}; for (const e of p.entries) R[e.car] = [e.kyaku, e.k.nige, e.k.makuri, e.k.sashi, e.k.mark, e.S, e.B, e.score, rk[e.car] || 9, e.rate.sanren, e.age];
+  return { n: p.entries.length, bank: b ? b[0] : 400, klass: r.klass, seri: p.seri || [], lines, R };
+}
+async function paintTenkai(p, r, b) {
+  const seq = ++TK_SEQ, box = $("tkBox"), mk = $("tkMarks");
+  const fallback = (msg) => { box.innerHTML = '<p class="note">' + msg + "</p>"; mk.innerHTML = ""; $("tkOld").open = true; $("mkOld").open = true; };
+  box.innerHTML = '<p class="note">展開を計算しています…</p>'; mk.innerHTML = "";
+  if (!(await TENKAI_READY)) return fallback("展開予想のモデルを読み込めませんでした。下の参考(評価値)を見てください。");
+  if (seq !== TK_SEQ) return;
+  let res;
+  try { res = TENKAI.predict(tenkaiInput(p, r, b)); } catch (e) { return fallback("この並びでは展開を計算できませんでした（" + esc(e.message) + "）"); }
+  $("tkOld").open = false; $("mkOld").open = false;
+  const ent = {}; for (const e of p.entries) ent[e.car] = e;
+  const L = res.lines, pc = (v) => Math.round(v * 100) + "%";
+  const lg = (i) => '<span class="tk-g">' + L[i].map((c) => ball(c, "s")).join("") + "</span>";
+  const pos = (c) => { const l = L.find((x) => x.includes(c)); return l.length === 1 ? "単騎" : ["先頭", "番手", "3番手"][Math.min(l.indexOf(c), 2)]; };
+  const who = (c) => ball(c, "s") + " " + esc((ent[c] && ent[c].name) || "") + "<small style=\"color:var(--dim)\">（" + pos(c) + "）</small>";
+  const bars = (vals) => vals.map((v, i) => [v, i]).sort((x, y) => y[0] - x[0]).map(([v, i]) =>
+    '<div class="frow"><span class="g">' + lg(i).replace('class="tk-g"', "") + '</span><span class="bar"><i style="width:' + Math.round(v * 100) + '%"></i></span><span class="pc">' + pc(v) + "</span></div>").join("");
+  // ① 前受け
+  const s0 = res.pS.indexOf(Math.max(...res.pS));
+  // ② 突っ張るか
+  const row = res.pB[s0], tsup = row[s0];
+  let ch = -1; row.forEach((v, i) => { if (i !== s0 && (ch < 0 || v > row[ch])) ch = i; });
+  const step2 = ch < 0 ? lg(s0) + " がそのまま主導権を取りそう。" :
+    tsup >= 0.5 ? "後ろから " + lg(ch) + " が押さえに来ても、" + lg(s0) + " は<b>突っ張る</b>見込み（" + pc(tsup) + "）。"
+               : lg(ch) + " が押さえに来ると、" + lg(s0) + " は<b>引いて</b>主導権を渡しそう（突っ張るのは " + pc(tsup) + "）。";
+  // ④ 筋書き
+  const scText = (x) => (x.s === x.b ? lg(x.s) + " が前受けから突っ張って先行" : lg(x.s) + " が前受け → " + lg(x.b) + " が押さえて主導権、" + lg(x.s) + " は後ろから");
+  const topWin = (x) => Object.entries(x.win).sort((a, b2) => b2[1] - a[1]).slice(0, 3).map(([c, v]) => ball(+c, "s") + pc(v)).join(" ");
+  const scs = res.scenarios.slice(0, 3).map((x) => '<div class="tk-sc"><span class="pc">' + pc(x.p) + "</span>" + scText(x) + "<br>→ 1着候補 " + topWin(x) + "</div>").join("");
+  // ⑤ 主導権を取ったラインから1着が出るか(捲られるか)
+  let leadWin = 0; for (const x of res.scenarios) for (const c of L[x.b]) leadWin += x.p * (x.win[c] || 0);
+  const marks = TENKAI.marks(res), [a, b2, c3] = res.tri[0];
+  box.innerHTML =
+    '<div class="tk-step"><span class="no">①</span><div><h3>スタート（誘導員の後ろを取る＝前受け）</h3><p>' + lg(s0) + " が前を取りそう（" + pc(res.pS[s0]) + "）</p>" + bars(res.pS) + "</div></div>" +
+    '<div class="tk-step"><span class="no">②</span><div><h3>赤板〜打鐘（後ろのラインが誘導を切りに来る）</h3><p>' + step2 + "</p></div></div>" +
+    '<div class="tk-step"><span class="no">③</span><div><h3>主導権（最終バックを先頭で通るライン）</h3>' + bars(res.lead) + "</div></div>" +
+    '<div class="tk-step"><span class="no">④</span><div><h3>ありそうな筋書き（上から3つ）</h3>' + scs + "</div></div>" +
+    '<div class="tk-step"><span class="no">⑤</span><div><h3>ゴール前</h3><p>主導権を取ったラインからそのまま1着が出るのは <b>' + pc(leadWin) + "</b>、別のラインの捲り・差しで1着が出るのは " + pc(1 - leadWin) + "。</p>" +
+      "<p>着順の予想は <b>1着 " + who(a) + "</b> → 2着 " + who(b2) + " → 3着 " + who(c3) + "。</p></div></div>" +
+    '<p class="note" style="font-size:10px;color:var(--dim)">2022〜2026年の約11万レースの「スタートを取った選手」「最終バック先頭」「着順」から学習（' + esc(TENKAI.model.version || "") + "）。2025〜26年で試すと、評価値の順より3連単の的中が約2.7倍・3連複が約1.7倍。ただし倍率と組み合わせても儲けは増えないので、🔥・モデルDの買い方には使っていません。</p>";
+  $("frontCard").classList.add("hidden");   // ①と同じ内容(前受け)なので畳む
+  // 予想印
+  const why = { "◎": "1着の予想", "○": "◎が1着のときの2着", "▲": "◎○のあとの3着", "△": "3着以内の確率が次に高い", "×": "3着以内の確率が次に高い" };
+  const tan = res.tri.slice(0, 5).map((t) => '<span class="t">' + t.slice(0, 3).map((c) => ball(c, "s")).join('<span class="eq">-</span>') + " " + (t[3] * 100).toFixed(1) + "%</span>").join("");
+  const fuku = res.fuku.slice(0, 5).map(([k, v]) => '<span class="t">' + ticketBalls(k, "s") + " " + (v * 100).toFixed(1) + "%</span>").join("");
+  const cars = Object.keys(res.place).map(Number).sort((x, y) => (res.place[y][0] + res.place[y][1] + res.place[y][2]) - (res.place[x][0] + res.place[x][1] + res.place[x][2]));
+  mk.innerHTML = marks.map((m, i) => '<div class="mark-row' + (i === 0 ? " top" : "") + '"><span class="mark" style="color:' + (MC[m.mark] || "#EAF2EF") + '">' + m.mark +
+      '</span><div><div class="mname"><span class="no">' + m.car + "</span> " + esc((ent[m.car] && ent[m.car].name) || "") + ' <span class="role">(' + pos(m.car) + ")</span></div>" +
+      '<div class="mreason">' + why[m.mark] + " ・ 1着 " + pc(m.win) + " ・ 3着以内 " + pc(m.top3) + "</div></div></div>").join("") +
+    '<div class="note" style="margin-top:8px">3連単（1着→2着→3着の確率）</div><div class="tk-list">' + tan + "</div>" +
+    '<div class="note" style="margin-top:8px">3連複</div><div class="tk-list">' + fuku + "</div>" +
+    '<details class="more" style="margin-top:8px"><summary>全員の着順の確率</summary><table class="tk-tbl"><thead><tr><th class="l">車</th><th>1着</th><th>2着</th><th>3着</th><th>3着以内</th></tr></thead><tbody>' +
+      cars.map((c) => { const q = res.place[c]; return '<tr><td class="l">' + ball(c, "s") + " " + esc((ent[c] && ent[c].name) || "") + "</td><td>" + pc(q[0]) + "</td><td>" + pc(q[1]) + "</td><td>" + pc(q[2]) + "</td><td><b>" + pc(q[0] + q[1] + q[2]) + "</b></td></tr>"; }).join("") +
+    "</tbody></table></details>";
 }
 // ---- 詳細: 期待値 上位5(モデルD と同じ evd.js・締切前の倍率)。買うのは「Ⓓ買い」の印の組だけ(自動投票も同じ) ----
 let ANA_ROW = null;
