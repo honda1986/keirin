@@ -5,6 +5,7 @@
 //   ② 主導権(最終バックを先頭で通るライン)| 前受け  モデル B   … 前受けのラインが取れば「突っ張り」
 //   ③ 1着 | 前受け・主導権  モデル W                       … ①②の全部の筋書きを確率で重ねて 1着率
 //   ④ 2着 | 1着  モデル S2 / 3着 | 1・2着  モデル S3        … 1着→2着→3着 の順に予想(3連単の確率)
+//   ⑥ ラインで前について行けない(離れる)確率  モデル D        … 表示だけ(予想に足しても当たりは変わらなかった)
 //
 // ★学習・木は analysis/tenkai(Python・sklearn の HistGradientBoosting)。木は tenkai-model.json。
 //   特徴の作り方は analysis/tenkai/tkcore.py と同じ。node tenkaicheck.js で Python と突き合わせる
@@ -72,6 +73,31 @@
     return { lines, riders };
   }
 
+  // ⑥ ラインで前の選手について行けない(離れる)確率。番手・3番手…ごと(先頭・単騎は無し)。モデル D
+  //   勝敗因が全員に付いているレース(2022〜2026年・約17万人)の「離れ」「千切れ」「続けず」「追えず」「連結外す」で学習。平均 8.4%
+  //   (前の選手が離れた「前が離れて」・自分が千切った「捲り千切る」などは数えない)
+  function detach(race) {
+    if (!MODEL || !MODEL.models.D) return {};
+    const L = race.lines, R = race.R, out = {};
+    const cars = Object.keys(R).map(Number);
+    const sc = cars.map((c) => +R[c][7] || 0), m = sc.reduce((a, b) => a + b, 0) / sc.length;
+    const sd = Math.sqrt(sc.reduce((a, b) => a + (b - m) * (b - m), 0) / sc.length) || 1;
+    const z = (c) => ((+R[c][7] || 0) - m) / sd;
+    const ky = (q) => (KYAKU[q[0]] != null ? KYAKU[q[0]] : 1);
+    L.forEach((x, i) => {
+      if (x.length < 2) return;
+      const h = R[x[0]];
+      for (let k = 1; k < x.length; k++) {
+        const f = x[k], fr = x[k - 1], q = R[f], p = R[fr];
+        out[f] = P("D", { k, size: x.length, pos: i, nl: L.length, n: race.n, bank: race.bank || 400, ks: race.klass === "s" ? 1 : 0,
+          f_kyaku: ky(q), f_mark: q[4], f_sashi: q[3], f_nige: q[1], f_maku: q[2], f_S: q[5], f_B: q[6], f_z: z(f), f_rank: q[8], f_san: q[9] || 0, f_age: q[10],
+          p_kyaku: ky(p), p_nige: p[1], p_maku: p[2], p_B: p[6], p_z: z(fr), p_age: p[10], p_style: style(p[1], p[2]),
+          h_style: style(h[1], h[2]), h_nige: h[1], h_maku: h[2], h_B: h[6], h_z: z(x[0]), h_age: h[10], dz: z(f) - z(fr), dage: q[10] - p[10] });
+      }
+    });
+    return out;
+  }
+
   function predict(race) {
     if (!MODEL) throw new Error("tenkai-model.json が読み込まれていません");
     const { lines, riders } = features(race);
@@ -119,7 +145,10 @@
     const fuku = Object.entries(fukuM).sort((a, b) => b[1] - a[1]);
     const place = {}; riders.forEach((r) => { place[r.car] = [0, 0, 0]; });
     for (const [a, b, c, p] of tri) { place[a][0] += p; place[b][1] += p; place[c][2] += p; }
-    return { lines: race.lines, lineInfo: lines.map((o) => ({ size: o.size, style: STYLE_NAME[o.style] })), pS, pB, lead, scenarios: sc, pw, place, tri, fuku };
+    const det = detach(race);
+    // ラインの上から3人が切れずに続く確率(番手・3番手が離れない)
+    const keep3 = race.lines.map((x) => x.slice(1, 3).reduce((a, c) => a * (1 - (det[c] || 0)), 1));
+    return { det, keep3, lines: race.lines, lineInfo: lines.map((o) => ({ size: o.size, style: STYLE_NAME[o.style] })), pS, pB, lead, scenarios: sc, pw, place, tri, fuku };
   }
 
   // 予想印: 3連単の1番手の 1着-2着-3着 に ◎○▲、残りは3着以内の確率の順に △ ×
@@ -130,7 +159,7 @@
     return [["◎", a], ["○", b], ["▲", c], ["△", rest[0]], ["×", rest[1]]].filter((x) => x[1] != null).map(([m, car]) => ({ mark: m, car, win: res.place[car][0], top3: in3(car) }));
   }
 
-  const api = { load, predict, marks, features, style, STYLE_NAME, get model() { return MODEL; } };
+  const api = { load, predict, detach, marks, features, style, STYLE_NAME, get model() { return MODEL; } };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TENKAI = api;
 })(typeof self !== "undefined" ? self : this);
