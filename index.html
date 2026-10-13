@@ -2821,6 +2821,21 @@ function tenkaiInput(p, r, b) {
   const R = {}; for (const e of p.entries) R[e.car] = [e.kyaku, e.k.nige, e.k.makuri, e.k.sashi, e.k.mark, e.S, e.B, e.score, rk[e.car] || 9, e.rate.sanren, e.age];
   return { n: p.entries.length, bank: b ? b[0] : 400, klass: r.klass, seri: p.seri || [], lines, R };
 }
+// ⑥ ラインで前について行けない(離れる)確率。番手・3番手ごと(tenkai.js の detach。hikitsugi §4-25)
+function detStep(res, L, lg, pc) {
+  const det = res.det || {};
+  const rowsH = L.map((x, i) => {
+    if (x.length < 2) return "";
+    const ps = x.slice(1).map((c, k) => {
+      const v = det[c] || 0, hi = v >= 0.15;
+      return '<span style="white-space:nowrap' + (hi ? ";color:var(--red);font-weight:900" : "") + '">' + ["番手", "3番手", "4番手", "5番手"][k] + ball(c, "s") + " " + pc(v) + "</span>";
+    }).join("　");
+    return '<div class="tk-sc">' + lg(i) + "<br>" + ps + (x.length >= 3 ? '<br><small style="color:var(--dim)">上から3人が切れずに続く ' + pc(res.keep3[i]) + "</small>" : "") + "</div>";
+  }).join("");
+  if (!rowsH) return "";
+  return '<div class="tk-step"><span class="no">⑥</span><div><h3>ラインで前について行けない（離れる）確率</h3>' + rowsH +
+    '<p class="note" style="font-size:10px;margin-top:4px">平均は8%（番手7%・3番手12%）。15%以上を赤字。前の選手より得点が低い・年齢が高い・マークの回数が少ないほど離れやすい。離れた選手の3着以内は9%（離れなければ43%）。</p></div></div>';
+}
 async function paintTenkai(p, r, b) {
   const seq = ++TK_SEQ, box = $("tkBox"), mk = $("tkMarks");
   const fallback = (msg) => { box.innerHTML = '<p class="note">' + msg + "</p>"; mk.innerHTML = ""; $("tkOld").open = true; $("mkOld").open = true; };
@@ -2859,6 +2874,7 @@ async function paintTenkai(p, r, b) {
     '<div class="tk-step"><span class="no">④</span><div><h3>ありそうな筋書き（上から3つ）</h3>' + scs + "</div></div>" +
     '<div class="tk-step"><span class="no">⑤</span><div><h3>ゴール前</h3><p>主導権を取ったラインからそのまま1着が出るのは <b>' + pc(leadWin) + "</b>、別のラインの捲り・差しで1着が出るのは " + pc(1 - leadWin) + "。</p>" +
       "<p>着順の予想は <b>1着 " + who(a) + "</b> → 2着 " + who(b2) + " → 3着 " + who(c3) + "。</p></div></div>" +
+    detStep(res, L, lg, pc) +
     '<p class="note" style="font-size:10px;color:var(--dim)">2022〜2026年の約11万レースの「スタートを取った選手」「最終バック先頭」「着順」から学習（' + esc(TENKAI.model.version || "") + "）。2025〜26年で試すと、評価値の順より3連単の的中が約2.7倍・3連複が約1.7倍。ただし倍率と組み合わせても儲けは増えないので、🔥・モデルDの買い方には使っていません。</p>";
   $("frontCard").classList.add("hidden");   // ①と同じ内容(前受け)なので畳む
   // 予想印
@@ -2871,8 +2887,8 @@ async function paintTenkai(p, r, b) {
       '<div class="mreason">' + why[m.mark] + " ・ 1着 " + pc(m.win) + " ・ 3着以内 " + pc(m.top3) + "</div></div></div>").join("") +
     '<div class="note" style="margin-top:8px">3連単（1着→2着→3着の確率）</div><div class="tk-list">' + tan + "</div>" +
     '<div class="note" style="margin-top:8px">3連複</div><div class="tk-list">' + fuku + "</div>" +
-    '<details class="more" style="margin-top:8px"><summary>全員の着順の確率</summary><table class="tk-tbl"><thead><tr><th class="l">車</th><th>1着</th><th>2着</th><th>3着</th><th>3着以内</th></tr></thead><tbody>' +
-      cars.map((c) => { const q = res.place[c]; return '<tr><td class="l">' + ball(c, "s") + " " + esc((ent[c] && ent[c].name) || "") + "</td><td>" + pc(q[0]) + "</td><td>" + pc(q[1]) + "</td><td>" + pc(q[2]) + "</td><td><b>" + pc(q[0] + q[1] + q[2]) + "</b></td></tr>"; }).join("") +
+    '<details class="more" style="margin-top:8px"><summary>全員の着順の確率</summary><table class="tk-tbl"><thead><tr><th class="l">車</th><th>1着</th><th>2着</th><th>3着</th><th>3着以内</th><th>離れ</th></tr></thead><tbody>' +
+      cars.map((c) => { const q = res.place[c]; return '<tr><td class="l">' + ball(c, "s") + " " + esc((ent[c] && ent[c].name) || "") + "</td><td>" + pc(q[0]) + "</td><td>" + pc(q[1]) + "</td><td>" + pc(q[2]) + "</td><td><b>" + pc(q[0] + q[1] + q[2]) + "</b></td><td>" + (res.det && res.det[c] != null ? pc(res.det[c]) : "—") + "</td></tr>"; }).join("") +
     "</tbody></table></details>";
 }
 // ---- 詳細: 期待値 上位5(モデルD と同じ evd.js・締切前の倍率)。買うのは「Ⓓ買い」の印の組だけ(自動投票も同じ) ----

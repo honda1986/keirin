@@ -21,3 +21,12 @@ node ../../tenkaicheck.js   # tenkai.js と Python の突き合わせ（リポ�
 
 - 木は sklearn の HistGradientBoostingClassifier（150回・15葉）。`tenkai.js` は同じ木を JSON から計算する（差 1e-7）
 - 特徴の作り方は `tkcore.py`（学習）と `tenkai.js`（アプリ）で同じにしてある。片方だけ変えないこと
+
+## ラインで前について行けない（離れる）確率（hikitsugi §4-25）
+```
+python3 hanare.py          # 勝敗因が全員にあるレースの追走者に「離れた」を付け、傾向とモデル（2022-24→2025-26）
+python3 hanare_use.py      # 全レースに年ごと交差で付けて、展開＋順番予想に足す → 当たりは変わらず
+python3 hanare_bet.py      # 本命ライン3人・🔥9車5〜15倍を「切れる確率」で分けた回収
+python3 hanare_why.py      # 先頭−番手の得点差との重なり
+python3 hanare_export.py   # 本番: tenkai-model.json に models.D・fixture に期待値
+```

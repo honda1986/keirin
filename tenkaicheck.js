@@ -6,6 +6,8 @@ let worst = 0, bad = 0;
 for (const x of X) {
   const r = T.predict(x.input);
   for (const [c, v] of Object.entries(x.pw)) worst = Math.max(worst, Math.abs(r.pw[c] - v));
+  for (const [c, v] of Object.entries(x.det || {})) worst = Math.max(worst, Math.abs((r.det[c] || 0) - v));
+  if (x.det && Object.keys(x.det).length !== Object.keys(r.det).length) { bad++; console.log("離れる確率の人数が違う", x.id); }
   x.top.forEach(([a, b, c, p], i) => {
     const t = r.tri.find((q) => q[0] === a && q[1] === b && q[2] === c);
     if (!t) { bad++; console.log("組が無い", x.id, a, b, c); return; }
