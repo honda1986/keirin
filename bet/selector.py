@@ -233,6 +233,12 @@ def select(plan, done_keys, spent_yen, races_bought, cfg, at, bought_keys=()):
             continue
         if minutes > cfg.decide_at_minutes:
             continue                      # まだ決めない（締切 decide_at_minutes 分前まで待つ）
+        if not is7 and cfg.hot9_line_break and r.get("brkOk") is False:
+            # 3人のラインが切れにくい（番手・3番手が離れる確率17%未満）。市場がライン決着を見落としているのは切れやすいレースのほう（hikitsugi §4-26）
+            brk = r.get("brk")
+            pct = f"{brk * 100:.0f}%・" if isinstance(brk, (int, float)) else ""
+            res.skips.append((_bet(r, cfg, minutes), f"本命ラインが切れにくい（離れる確率{pct}17%未満）"))
+            continue
         ok, note, why = _snap_ok(r, cfg)
         if mode == "all":
             # 🔥を全部: 倍率は見ない（届いていなくても買う）

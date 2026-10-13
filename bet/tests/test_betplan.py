@@ -91,6 +91,16 @@ class TestBetplan(unittest.TestCase):
         x = self.hot(self.run_plan([race()], [{"t": "15:00:10", "k": "岐阜_3R", "left": 4.8, "n": 9, "o": self.odds(9, 4.0, base=300.0)}]))[0]
         self.assertEqual((x["verdict"], x["odds"]), ("skipBand", 4.0))
 
+    def test_9車はラインが切れる確率を返す(self):
+        # plan.brk(fetch.js が書く)をそのまま返し、9車は17%以上か(brkOk)も付ける。7車・古い記録は null(2026-10-13〜)
+        snap = lambda k, n: {"t": "15:00:10", "k": k, "left": 4.8, "n": n, "o": self.odds(n, 9.0, base=300.0)}
+        rs = [race(), race(key="広島_1R"), race(key="別府_4R"), race(key="松阪_5R", cars=7, need=True)]
+        rs[0]["plan"]["brk"], rs[1]["plan"]["brk"], rs[3]["plan"]["brk"] = 0.12, 0.17, 0.30
+        out = self.run_plan(rs, [snap("岐阜_3R", 9), snap("広島_1R", 9), snap("別府_4R", 9), snap("松阪_5R", 7)])
+        got = {x["key"]: (x["brk"], x["brkOk"]) for x in self.hot(out)}
+        self.assertEqual(got, {"岐阜_3R": (0.12, False), "広島_1R": (0.17, True), "別府_4R": (None, None), "松阪_5R": (0.30, None)})
+        self.assertTrue(all(x["verdict"] == "buy" or x["verdict"] == "skipEv" for x in self.hot(out) if x["cars"] == 9))   # verdict は変えない
+
     def test_モデルDの買う組はevd_jsと同じ(self):
         r = race()
         o = [8.0 + (i * 7) % 60 for i, _ in enumerate(combos(9))]

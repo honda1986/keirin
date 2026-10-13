@@ -333,6 +333,51 @@ class TestHotMode(unittest.TestCase):
         self.assertEqual(sorted(settings.MODE_ORDER), sorted(config_mod.HOT_MODES))
 
 
+class TestHotLineBreak(unittest.TestCase):
+    """🔥9車立ては本命ラインが切れやすい（離れる確率17%以上）ときだけ。2026-10-13〜（hikitsugi §4-26）"""
+    def sel(self, p, c, at=NOW):
+        return selector.select(p, set(), 0, 0, c, at)
+
+    def _race(self, cars=9, brk=None, ok=None, **kw):
+        lo, hi = (5, 15) if cars >= 8 else (4, 15)
+        x = race(need=True, cars=cars, bandlo=lo, bandhi=hi, **kw)
+        x["inBand"] = lo <= x["odds"] <= hi
+        x["brk"], x["brkOk"] = brk, ok
+        return x
+
+    def test_切れにくい9車は見送る(self):
+        r = self.sel(plan(self._race(brk=0.12, ok=False)), cfg())
+        self.assertEqual(r.bets, [])
+        self.assertIn("本命ラインが切れにくい", r.skips[0][1])
+        self.assertIn("12%", r.skips[0][1])
+
+    def test_切れやすい9車と確率が無い9車は今までどおり(self):
+        for brk, ok in ((0.21, True), (None, None)):
+            r = self.sel(plan(self._race(brk=brk, ok=ok)), cfg())
+            self.assertEqual(len(r.bets), 1, brk)
+
+    def test_全部でも見送る_設定を切れば買う(self):
+        x = self._race(brk=0.12, ok=False)
+        self.assertEqual(self.sel(plan(x), cfg(hot9_mode="all")).bets, [])
+        self.assertEqual(len(self.sel(plan(x), cfg(hot9_line_break=False)).bets), 1)
+
+    def test_7車には効かない(self):
+        r = self.sel(plan(self._race(cars=7, brk=0.12, ok=False)), cfg(hot7_mode="band"))
+        self.assertEqual(len(r.bets), 1)
+
+    def test_決める時刻までは見送りも出さない(self):
+        r = self.sel(plan(self._race(brk=0.12, ok=False, close="15:10")), cfg())
+        self.assertEqual((r.bets, r.skips), ([], []))
+
+    def test_設定(self):
+        import settings
+        self.assertTrue(cfg().hot9_line_break)
+        with self.assertRaises(config_mod.ConfigError):
+            cfg(hot9_line_break="yes")
+        self.assertEqual(settings.show({}, "hot9_line_break", settings.ONOFF), "する")
+        self.assertIn("hot9_line_break", [k for _, k, _ in settings.ITEMS])
+
+
 class TestChromeLeftover(unittest.TestCase):
     """前に開いた Chrome が同じプロファイルで残っていると起動できない（2026-10-02）。残りを見分けて閉じる"""
     def test_このプロファイルのChromeだけ見分ける(self):

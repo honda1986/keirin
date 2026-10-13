@@ -18,6 +18,9 @@
 //     ・🔥の7車立ては5年とも100%未満。判定はそのまま出すが、買うかは bet/ の buy_7car_hot(既定 false)で決める
 //     ・モデルD(evd.js): 全レースの3連複全組から「期待値1.05以上・20倍以下」の組を全部(ふつう1点)。kind:"D"・tickets に全部、ticket は1点目
 //       verdict: buy / none(該当なし) / thin(票が薄い) / noOdds / noDelta。🔥と同じ組なら sameAsHot:true
+//   ★2026-10-13(hikitsugi §4-26): 🔥の9車立ては「3人のラインが切れる確率 brk(番手か3番手が前について行けない確率)が17%以上」も条件
+//     brk は fetch.js が plan.brk に書く(tenkai.js の detach)。ここでは brk と brkOk(17%以上か。分からなければ null)を返すだけ。
+//     verdict は変えない。見送るかは bet/ の hot9_line_break(既定 true)で決める
 //
 // ★倍率の取り方(新しいほうを使う)
 //   1. 手元の snapwork/YYYYMMDD.jsonl(PC の snap.js が3分おきに書く)
@@ -37,6 +40,7 @@ const EV = require("./ev.js");
 const EVD = require("./evd.js");
 const DF = require("./datafile.js");
 const HOT9_BAND = [5, 15];         // 🔥の9車立ての帯(2026-09-27〜)
+const HOT9_BRK = 0.17;             // 🔥の9車立て: 3人のラインが切れる確率がこれ以上のときだけ(2026-10-13〜。index.html の HOT9_BRK と同じ)
 
 const argv = process.argv.slice(2);
 const arg = (k) => { const a = argv.find((x) => x.startsWith("--" + k + "=")); return a ? a.slice(k.length + 3) : null; };
@@ -198,7 +202,9 @@ function main() {
     if (p.cars >= 8) { p.needOdds = true; p.bandLo = HOT9_BAND[0]; p.bandHi = HOT9_BAND[1]; }
     const delta = EV.deltaFromRiders(r.riders, r.lines, r.place);
     const j = judge(p, delta, s);
-    return { kind: "hot", ...base(r, c, s), cars: p.cars, ticket: p.ticket, needOdds: !!p.needOdds, bandLo: p.bandLo, bandHi: p.bandHi, ...j };
+    const brk = typeof p.brk === "number" ? p.brk : null;
+    const brkOk = p.cars >= 8 && brk != null ? brk >= HOT9_BRK : null;
+    return { kind: "hot", ...base(r, c, s), cars: p.cars, ticket: p.ticket, needOdds: !!p.needOdds, bandLo: p.bandLo, bandHi: p.bandHi, brk, brkOk, ...j };
   });
   const hotTicket = {};
   for (const x of hotOut) hotTicket[x.key] = x.ticket;
@@ -226,11 +232,12 @@ function main() {
     if (x.kind === "D" && x.verdict !== "buy") continue;
     const tk = x.kind === "D" && x.tickets && x.tickets.length > 1
       ? x.tickets.map((t) => `${t.ticket}(期待値${t.ev.toFixed(2)} ${t.odds}倍)`).join(" ") + ` ${x.cars}車 ${x.verdict}`
-      : `${x.ticket} ${x.cars}車 ${x.verdict}${x.ev != null ? " 期待値" + x.ev.toFixed(2) : ""}${x.odds != null ? " " + x.odds + "倍" : ""}`;
+      : `${x.ticket} ${x.cars}車 ${x.verdict}${x.ev != null ? " 期待値" + x.ev.toFixed(2) : ""}${x.odds != null ? " " + x.odds + "倍" : ""}` +
+        (x.kind === "hot" && x.brk != null ? ` 切れる確率${Math.round(x.brk * 100)}%${x.brkOk === false ? "(17%未満)" : ""}` : "");
     console.log(`  ${x.kind === "D" ? "Ⓓ" : "🔥"} 締切${x.close}(あと${x.minutesToClose}分) ${x.key.padEnd(8, "　")} ${tk}` +
       (x.snap ? ` [倍率 締切${x.snap.left}分前・${x.snap.age}分前に取得・${x.snap.src}]` : ""));
   }
 }
 
 if (require.main === module) main();
-module.exports = { judge, judgeD, jstDate, raceDay8 };
+module.exports = { judge, judgeD, jstDate, raceDay8, HOT9_BRK };

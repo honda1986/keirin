@@ -41,6 +41,7 @@ ITEMS = [
     ("1日の上限（点数）", "max_races_per_day", LIMIT_POINTS),
     ("モデルDも買う（期待値1.05以上・20倍以下）", "buy_model_d", YESNO),
     ("🔥9車立ての買い方（帯 5〜15倍）", "hot9_mode", MODE),
+    ("🔥9車立ては本命ラインが切れやすいときだけ（離れる確率17%以上）", "hot9_line_break", ONOFF),
     ("🔥7車立ての買い方（帯 4〜15倍）", "hot7_mode", MODE),
     ("支払い方法", "payment_method", PAY),
     ("締切まで何分を切ったら買わないか", "close_min_minutes", MINUTES),
