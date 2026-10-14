@@ -3181,7 +3181,8 @@ function calDays() {
 // 1件をどう数えるか: null=絞り込みの対象外 / skip=帯の外で見送り / open=未確定 / buy=数える
 // x[9] = 期待値(無ければ null)。期待値を出せないレース(府県や倍率が無い)は「買った」として数える
 // 1件の金額(買い方の設定)。🔥9車は13番目(先頭のB率1位 1/0)で分ける。分からない件は「それ以外」
-function calYen(x) { return CAL.kind === "D" ? BUY.d : x[2] >= 8 ? (x[12] === 1 ? BUY.b1 : BUY.rest) : BUY.h7; }
+// 🔥7車は買わない設定でも成績は100円で数えて見せる(はむさん「7車買わないけど成績は見たい」2026-10-14)
+function calYen(x) { return CAL.kind === "D" ? BUY.d : x[2] >= 8 ? (x[12] === 1 ? BUY.b1 : BUY.rest) : (BUY.h7 || 100); }
 function calPick(x) {
   if (CAL.kind === "D") return !BUY.d ? "skipSet" : x[5] !== 0 && x[5] !== 1 ? "open" : "buy";     // モデルDは買った組だけが入っている
   if (CAL.kind === "9" && x[2] < 8) return null;
@@ -3243,12 +3244,12 @@ function renderCal() {
     cells += '<div class="' + cls + '"' + (bg ? ' style="' + bg + '"' : "") + (days[d8] ? ' data-d="' + d8 + '"' : "") + ">" + inner + "</div>";
   }
   const mi = months.indexOf(CAL.ym);
-  const yenTxt = (v) => (v ? v + "円" : "買わない");
+  const yenTxt = (v, k) => (v ? v + "円" : k === "h7" ? "買わない（成績は100円で見る）" : "買わない");
   const buySet = '<details class="more buyset" id="buySet"' + (CAL.buyOpen ? " open" : "") + '><summary>買い方・金額: ' +
-      Object.keys(BUY_DEF).map((k) => BUY_NAME[k].replace("🔥9車 ", "").replace("先頭の", "") + " " + yenTxt(BUY[k])).join("・") + "</summary>" +
+      Object.keys(BUY_DEF).map((k) => BUY_NAME[k].replace("🔥9車 ", "").replace("先頭の", "") + " " + (BUY[k] ? BUY[k] + "円" : "買わない")).join("・") + "</summary>" +
     Object.keys(BUY_DEF).map((k) => '<div class="row"><span>' + BUY_NAME[k] + '</span><select data-k="' + k + '">' +
-      [0, 100, 200, 300, 500, 1000].map((v) => '<option value="' + v + '"' + (BUY[k] === v ? " selected" : "") + ">" + yenTxt(v) + "</option>").join("") + "</select></div>").join("") +
-    '<p class="note" style="font-size:10px;margin-top:6px">成績・今日のまとめの収支をこの金額で数えます（この端末に保存）。自動投票の金額は PC の run.bat の 7)（設定）で同じように決めます（ここを変えても自動投票は変わりません）。' +
+      [0, 100, 200, 300, 500, 1000].map((v) => '<option value="' + v + '"' + (BUY[k] === v ? " selected" : "") + ">" + yenTxt(v, k) + "</option>").join("") + "</select></div>").join("") +
+    '<p class="note" style="font-size:10px;margin-top:6px">成績・今日のまとめの収支をこの金額で数えます（この端末に保存）。🔥7車は「買わない」でも成績は100円で数えて見せます（一覧に「参考」）。自動投票の金額は PC の run.bat の 7)（設定）で同じように決めます（ここを変えても自動投票は変わりません）。' +
     "🔥9車で本命ラインの先頭のB率（最終バックを先頭で通る割合）がレースでいちばんのとき: 5年で回収139%・それ以外 116%（hikitsugi §4-31）。B率が分かるのは🔥9車の 2025/1〜2026/9 と 10/14 から。</p></details>";
   box.innerHTML = buySet +
     '<div class="seg" id="calKind">' + [["all", "🔥全部"], ["9", "🔥9車"], ["7", "🔥7車"], ["D", "Ⓓ モデルD"]].map(([k, t]) =>
@@ -3302,7 +3303,8 @@ function calDetail(d8, day) {
     else if (x[5] === 1) right = '<span class="pay pos">' + (x[6] != null ? Math.round(x[6] * calYen(x) / 100).toLocaleString() + "円" : "的中") + "</span>";
     else right = '<span class="pay neg">✗</span>';
     return '<div class="rh' + (k === "skip" || k === "skipEv" || k === "skipBrk" || k === "skipSet" ? " skip" : "") + '"><span class="nm">' + esc(x[0]) + " " + esc(x[1]) +
-      (!isD && x[2] >= 8 && x[12] === 1 ? ' <span class="kb b1" style="font-size:9px;padding:1px 4px">B1</span>' : "") + "</span>" + ticketBalls(x[3], "s") +
+      (!isD && x[2] >= 8 && x[12] === 1 ? ' <span class="kb b1" style="font-size:9px;padding:1px 4px">B1</span>' : "") +
+      (!isD && x[2] < 8 && !BUY.h7 ? ' <span class="kb ref" style="font-size:9px;padding:1px 4px" title="買わない設定。成績は100円で数えて見せる">参考</span>' : "") + "</span>" + ticketBalls(x[3], "s") +
       od + (order ? '<span class="arrow">→</span>' + order : "") + right + "</div>";
   }).join("");
   return head + rows +
