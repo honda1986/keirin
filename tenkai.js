@@ -30,6 +30,13 @@
   const KIMARI = { bHead: [0.800, 0.199, 0.001], bBan: [0.001, 0.042, 0.957], bRest: [0.001, 0.037, 0.963],
     oHead: [0.007, 0.707, 0.287], oFol: [0.000, 0.102, 0.898], tanki: [0.156, 0.510, 0.335] };   // [逃, 捲, 差]
   const posClass = (r, b) => (r.role === 3 ? "tanki" : r.li === b ? (r.k === 0 ? "bHead" : r.k === 1 ? "bBan" : "bRest") : (r.k === 0 ? "oHead" : "oFol"));
+  // 決まり手(逃げ・捲り・差し)の確率: 筋書きごとに 1着の位置 → 決まり手 の割合を掛けて足す
+  function kimariOf(sc, riders) {
+    const km = [0, 0, 0];
+    for (const x of sc) for (const r of riders) { const q = KIMARI[posClass(r, x.b)], w = x.p * (x.win[r.car] || 0); km[0] += w * q[0]; km[1] += w * q[1]; km[2] += w * q[2]; }
+    const kt = km[0] + km[1] + km[2] || 1;
+    return { nige: km[0] / kt, makuri: km[1] / kt, sashi: km[2] / kt };
+  }
 
   // 木の計算(sklearn の HistGradientBoosting と同じ: x <= しきい値 なら左、欠けていれば missing_go_to_left)
   function prob(md, x) {
@@ -131,11 +138,7 @@
       x.win = {}; riders.forEach((r, i) => { x.win[r.car] = w[i] / t; pw[r.car] += x.p * w[i] / t; });
     }
     sc.sort((a, b) => b.p - a.p);
-    // 決まり手(逃げ・捲り・差し)の確率: 筋書きごとに 1着の位置 → 決まり手 の割合を掛けて足す
-    const km = [0, 0, 0];
-    for (const x of sc) for (const r of riders) { const q = KIMARI[posClass(r, x.b)], w = x.p * (x.win[r.car] || 0); km[0] += w * q[0]; km[1] += w * q[1]; km[2] += w * q[2]; }
-    const kt = km[0] + km[1] + km[2] || 1;
-    const kimari = { nige: km[0] / kt, makuri: km[1] / kt, sashi: km[2] / kt };
+    const kimari = kimariOf(sc, riders);
     // ④ 2着 | 1着、3着 | 1・2着
     const rel1 = (j, i, sfx) => ({ ["role" + sfx]: i.role, ["lsize" + sfx]: i.lsize, ["z" + sfx]: i.z, ["kyaku" + sfx]: i.kyaku,
       ["same" + sfx]: j.li === i.li ? 1 : 0, ["behind" + sfx]: j.li === i.li && j.k === i.k + 1 ? 1 : 0, ["ahead" + sfx]: j.li === i.li && j.k === i.k - 1 ? 1 : 0, ["dz" + sfx]: j.z - i.z });
@@ -159,33 +162,60 @@
     const det = detach(race);
     // ラインの上から3人が切れずに続く確率(番手・3番手が離れない)
     const keep3 = race.lines.map((x) => x.slice(1, 3).reduce((a, c) => a * (1 - (det[c] || 0)), 1));
-    return { det, keep3, lines: race.lines, lineInfo: lines.map((o) => ({ size: o.size, style: STYLE_NAME[o.style] })), pS, pB, lead, scenarios: sc, pw, place, tri, fuku, kimari };
+    return { det, keep3, lines: race.lines, lineInfo: lines.map((o) => ({ size: o.size, style: STYLE_NAME[o.style] })), pS, pB, lead, scenarios: sc, pw, place, tri, fuku, kimari,
+      riders: riders.map((r) => ({ car: r.car, li: r.li, k: r.k, role: r.role })) };
   }
 
-  // オッズ(3連複の倍率)を評価に足す(hikitsugi §4-29)。3連単の確率 P(a,b,c) ∝ P_展開^0.7 × q(3人)^0.5、q = 3連複の倍率から見た確率(1/倍率を全組で割り戻す)
-  //   2022-24 で作った展開・2025年で α,β を決めて 2026年で試すと: ◎1着 45.4→46.5%・○2着 29.6→30.3%・▲3着 25.7→26.7%・3連単1点 11.9→12.4%・3連複1点 25.0→26.8%
+  // オッズ(3連複の倍率)を 1着・2着・3着の段ごとに足す(hikitsugi §4-29・§4-30)。q = 3連複の倍率から見た3人の確率(1/倍率を全組で割り戻す)
+  //   1着: P1(a) ∝ 1着率^0.7 × M1(a)^1.0         M1 = a を含む組の q の和(市場で a が3着以内に来る確率)
+  //   2着: P2(b|a) ∝ 2着率^0.7 × M2(a,b)^0.6     M2 = a・b を含む組の q の和
+  //   3着: P3(c|a,b) ∝ 3着率^0.5 × q(a,b,c)^0.5
+  //   重みは 2022-24 で作った展開・2025年の対数確率で決めた。2026年で試すと(展開だけ → 3連単にまとめて混ぜる(§4-29) → 段ごと):
+  //   ◎1着 45.4 → 46.5 → 47.0%・○2着 29.6 → 30.3 → 30.4%・▲3着 25.7 → 26.7 → 26.6%・3連単 11.9 → 12.4 → 12.4%・3連複 25.0 → 26.8 → 26.9%・対数確率 −4.201 → −4.139 → −4.106
   //   odds = 3連複の倍率(1=2=3, 1=2=4, … の順。odds-live の latest.json の o と同じ)、n = 車立て。使えなければ null
-  const ODDS_MIX = { model: 0.7, market: 0.5 };
+  //   1着が変わるので、筋書き(④)・主導権ラインからの1着(⑤)・決まり手(⑥)も 1着の確率の比で掛け直す(①〜③の前受け・主導権はそのまま)
+  const ODDS_MIX = { w1: [0.7, 1.0], w2: [0.7, 0.6], w3: [0.5, 0.5] };
+  const lg = (v) => Math.log(Math.max(v, 1e-12));
   function withOdds(res, odds, n) {
     if (!res || !Array.isArray(odds) || !(n >= 3)) return null;
     const idx = {}; let i = 0;
     for (let a = 1; a <= n; a++) for (let b = a + 1; b <= n; b++) for (let c = b + 1; c <= n; c++) idx[a + "=" + b + "=" + c] = i++;
     if (odds.length !== i) return null;
-    const q = odds.map((v) => (typeof v === "number" && v > 0 && v < 9999 ? 1 / v : 0));
-    const qs = q.reduce((x, y) => x + y, 0); if (!qs) return null;
-    let tot = 0;
-    const tri = res.tri.map(([a, b, c, p]) => {
-      const j = idx[[a, b, c].sort((x, y) => x - y).join("=")];
-      if (j == null) return null;
-      const w = Math.exp(ODDS_MIX.model * Math.log(Math.max(p, 1e-12)) + ODDS_MIX.market * Math.log(Math.max(q[j] / qs, 1e-6)));
-      tot += w; return [a, b, c, w];
-    });
-    if (tri.some((t) => t == null) || !tot) return null;
-    tri.forEach((t) => { t[3] /= tot; }); tri.sort((x, y) => y[3] - x[3]);
+    const qv = odds.map((v) => (typeof v === "number" && v > 0 && v < 9999 ? 1 / v : 0));
+    const qs = qv.reduce((x, y) => x + y, 0); if (!qs) return null;
+    const qOf = (a, b, c) => { const j = idx[[a, b, c].sort((x, y) => x - y).join("=")]; return j == null ? null : qv[j] / qs; };
+    if (res.tri.some(([a, b, c]) => qOf(a, b, c) == null)) return null;
+    // 展開の段ごとの確率を 3連単の確率から戻す: 1着率 W(a)・2着率 P2(b|a)・3着率 P3(c|a,b)
+    const W = {}, W2 = {}, M1 = {}, M2 = {};
+    for (const [a, b, c, p] of res.tri) {
+      const q = qOf(a, b, c);
+      W[a] = (W[a] || 0) + p; W2[a + "-" + b] = (W2[a + "-" + b] || 0) + p;
+      M1[a] = (M1[a] || 0) + q; M2[a + "-" + b] = (M2[a + "-" + b] || 0) + q;
+    }
+    const cars = Object.keys(W).map(Number);
+    let t1 = 0; const P1 = {};
+    for (const a of cars) { P1[a] = Math.exp(ODDS_MIX.w1[0] * lg(W[a]) + ODDS_MIX.w1[1] * lg(M1[a])); t1 += P1[a]; }
+    cars.forEach((a) => { P1[a] /= t1; });
+    const P2 = {}, t2 = {};
+    for (const key of Object.keys(W2)) { const a = +key.split("-")[0]; const v = Math.exp(ODDS_MIX.w2[0] * lg(W2[key] / W[a]) + ODDS_MIX.w2[1] * lg(M2[key])); P2[key] = v; t2[a] = (t2[a] || 0) + v; }
+    const v3 = res.tri.map(([a, b, c, p]) => Math.exp(ODDS_MIX.w3[0] * lg(p / W2[a + "-" + b]) + ODDS_MIX.w3[1] * lg(qOf(a, b, c))));
+    const t3 = {}; res.tri.forEach(([a, b], j) => { t3[a + "-" + b] = (t3[a + "-" + b] || 0) + v3[j]; });
+    const tri = res.tri.map(([a, b, c], j) => [a, b, c, P1[a] * (P2[a + "-" + b] / t2[a]) * (v3[j] / t3[a + "-" + b])]);
+    tri.sort((x, y) => y[3] - x[3]);
     const fukuM = {}; for (const [a, b, c, p] of tri) { const key = [a, b, c].sort((x, y) => x - y).join("="); fukuM[key] = (fukuM[key] || 0) + p; }
     const place = {}; Object.keys(res.place).forEach((car) => { place[car] = [0, 0, 0]; });
     for (const [a, b, c, p] of tri) { place[a][0] += p; place[b][1] += p; place[c][2] += p; }
-    return Object.assign({}, res, { tri, fuku: Object.entries(fukuM).sort((x, y) => y[1] - x[1]), place, oddsMixed: true });
+    // 筋書き: (筋書き, 1着) の確率に 1着の確率の比 P1/W を掛けて割り戻す → 1着の合計は P1 と同じ
+    let ts = 0;
+    const scenarios = res.scenarios.map((x) => {
+      const win = {}; let p = 0;
+      for (const car of Object.keys(x.win)) { const w = x.p * x.win[car] * (W[car] ? P1[car] / W[car] : 0); win[car] = w; p += w; }
+      for (const car of Object.keys(win)) win[car] = p ? win[car] / p : 0;
+      ts += p; return Object.assign({}, x, { p, win });
+    });
+    scenarios.forEach((x) => { x.p /= ts || 1; }); scenarios.sort((x, y) => y.p - x.p);
+    return Object.assign({}, res, { tri, fuku: Object.entries(fukuM).sort((x, y) => y[1] - x[1]), place, pw: P1, scenarios,
+      kimari: res.riders ? kimariOf(scenarios, res.riders) : res.kimari, oddsMixed: true });
   }
 
   // 予想印: 3連単の1番手の 1着-2着-3着 に ◎○▲、残りは3着以内の確率の順に △ ×

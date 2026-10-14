@@ -2860,7 +2860,7 @@ function kimariStep(res, pc) {
   const k = res.kimari; if (!k) return "";
   const rows = [["逃げ", k.nige, "主導権を取ったラインの先頭がそのまま"], ["捲り", k.makuri, "後ろのラインの先頭が一気に"], ["差し", k.sashi, "番手などが最後の直線で前を抜く"]];
   const top = rows.slice().sort((x, y) => y[1] - x[1])[0];
-  return '<div class="tk-step"><span class="no">⑥</span><div><h3>決まり手の予想（どう決まるか）</h3><p>いちばんありそうなのは <b>' + top[0] + "</b>（" + pc(top[1]) + "）。</p>" +
+  return '<div class="tk-step"><span class="no">⑥</span><div><h3>決まり手の予想（どう決まるか）' + (res.oddsMixed ? '<small style="color:var(--green)"> オッズ込み</small>' : "") + '</h3><p>いちばんありそうなのは <b>' + top[0] + "</b>（" + pc(top[1]) + "）。</p>" +
     rows.map(([n, v, d]) => '<div class="frow"><span class="g" style="min-width:3.2em">' + n + '</span><span class="bar"><i style="width:' + Math.round(v * 100) + '%"></i></span><span class="pc">' + pc(v) + "</span></div>" +
       '<div style="font-size:10px;color:var(--dim);margin:-2px 0 4px 3.4em">' + d + "</div>").join("") +
     '<p style="font-size:11px;margin-top:4px">2着は決まり手でほぼ決まる（5年）: <b>逃げ</b>なら番手が2着 58%／<b>捲り</b>なら捲った選手の番手 39%（別のラインが59%）／<b>差し</b>なら差された先頭 41%（別のラインが44%）。3着は1・2着どちらかと同じラインが 41〜54%。</p>' +
@@ -2934,18 +2934,18 @@ async function paintTenkai(p, r, b) {
   // ④ 筋書き
   const scText = (x) => (x.s === x.b ? lg(x.s) + " が前受けから突っ張って先行" : lg(x.s) + " が前受け → " + lg(x.b) + " が押さえて主導権、" + lg(x.s) + " は後ろから");
   const topWin = (x) => Object.entries(x.win).sort((a, b2) => b2[1] - a[1]).slice(0, 3).map(([c, v]) => ball(+c, "s") + pc(v)).join(" ");
-  const scs = res.scenarios.slice(0, 3).map((x) => '<div class="tk-sc"><span class="pc">' + pc(x.p) + "</span>" + scText(x) + "<br>→ 1着候補 " + topWin(x) + "</div>").join("");
+  const scs = rs.scenarios.slice(0, 3).map((x) => '<div class="tk-sc"><span class="pc">' + pc(x.p) + "</span>" + scText(x) + "<br>→ 1着候補 " + topWin(x) + "</div>").join("");
   // ⑤ 主導権を取ったラインから1着が出るか(捲られるか)
-  let leadWin = 0; for (const x of res.scenarios) for (const c of L[x.b]) leadWin += x.p * (x.win[c] || 0);
+  let leadWin = 0; for (const x of rs.scenarios) for (const c of L[x.b]) leadWin += x.p * (x.win[c] || 0);
   const marks = TENKAI.marks(rs), [a, b2, c3] = rs.tri[0];
   box.innerHTML =
     '<div class="tk-step"><span class="no">①</span><div><h3>スタート（誘導員の後ろを取る＝前受け）</h3><p>' + lg(s0) + " が前を取りそう（" + pc(res.pS[s0]) + "）</p>" + bars(res.pS) + "</div></div>" +
     '<div class="tk-step"><span class="no">②</span><div><h3>赤板〜打鐘（後ろのラインが誘導を切りに来る）</h3><p>' + step2 + "</p></div></div>" +
     '<div class="tk-step"><span class="no">③</span><div><h3>主導権（最終バックを先頭で通るライン）</h3>' + bars(res.lead) + "</div></div>" +
-    '<div class="tk-step"><span class="no">④</span><div><h3>ありそうな筋書き（上から3つ）</h3>' + scs + "</div></div>" +
-    '<div class="tk-step"><span class="no">⑤</span><div><h3>ゴール前</h3><p>主導権を取ったラインからそのまま1着が出るのは <b>' + pc(leadWin) + "</b>、別のラインの捲り・差しで1着が出るのは " + pc(1 - leadWin) + "。</p>" +
+    '<div class="tk-step"><span class="no">④</span><div><h3>ありそうな筋書き（上から3つ）' + (rs.oddsMixed ? '<small style="color:var(--green)"> オッズ込み</small>' : "") + "</h3>" + scs + "</div></div>" +
+    '<div class="tk-step"><span class="no">⑤</span><div><h3>ゴール前' + (rs.oddsMixed ? '<small style="color:var(--green)"> オッズ込み</small>' : "") + '</h3><p>主導権を取ったラインからそのまま1着が出るのは <b>' + pc(leadWin) + "</b>、別のラインの捲り・差しで1着が出るのは " + pc(1 - leadWin) + "。</p>" +
       "<p>着順の予想" + (rs.oddsMixed ? "（オッズ込み）" : "") + "は <b>1着 " + who(a) + "</b> → 2着 " + who(b2) + " → 3着 " + who(c3) + "。</p></div></div>" +
-    kimariStep(res, pc) +
+    kimariStep(rs, pc) +
     detStep(res, L, lg, pc) +
     tkPoints(p, res, b) +
     '<p class="note" style="font-size:10px;color:var(--dim)">2022〜2026年の約11万レースの「スタートを取った選手」「最終バック先頭」「着順」から学習（' + esc(TENKAI.model.version || "") + "）。2025〜26年で試すと、評価値の順より3連単の的中が約2.7倍・3連複が約1.7倍。ただし倍率と組み合わせても儲けは増えないので、🔥・モデルDの買い方には使っていません。</p>";
@@ -2956,7 +2956,7 @@ async function paintTenkai(p, r, b) {
   const fuku = rs.fuku.slice(0, 5).map(([k, v]) => '<span class="t">' + ticketBalls(k, "s") + " " + (v * 100).toFixed(1) + "%</span>").join("");
   const cars = Object.keys(rs.place).map(Number).sort((x, y) => (rs.place[y][0] + rs.place[y][1] + rs.place[y][2]) - (rs.place[x][0] + rs.place[x][1] + rs.place[x][2]));
   const oddsNote = rs.oddsMixed
-    ? '<p class="note" style="font-size:11px;margin-bottom:6px"><b style="color:var(--green)">オッズ込み</b>（' + oddsWhen + "）: 展開の確率に、3連複の倍率から見た確率を混ぜたもの。2026年で試すと ◎の1着 45.4→46.5%・3連複1点 25.0→26.8%・3連単1点 11.9→12.4%。</p>"
+    ? '<p class="note" style="font-size:11px;margin-bottom:6px"><b style="color:var(--green)">オッズ込み</b>（' + oddsWhen + "）: 1着→2着→3着の段ごとに、展開の確率と3連複の倍率から見た確率を混ぜたもの（④筋書き・⑤・⑥決まり手も）。2026年で試すと ◎の1着 45.4→47.0%・○の2着 29.6→30.4%・3連複1点 25.0→26.9%・3連単1点 11.9→12.4%。</p>"
     : '<p class="note" style="font-size:11px;margin-bottom:6px">展開だけの予想。締切20分前ごろに倍率が届くと<b>オッズ込み</b>に変わります（そのほうが少し当たる）。</p>';
   mk.innerHTML = oddsNote + marks.map((m, i) => '<div class="mark-row' + (i === 0 ? " top" : "") + '"><span class="mark" style="color:' + (MC[m.mark] || "#EAF2EF") + '">' + m.mark +
       '</span><div><div class="mname"><span class="no">' + m.car + "</span> " + esc((ent[m.car] && ent[m.car].name) || "") + ' <span class="role">(' + pos(m.car) + ")</span></div>" +
