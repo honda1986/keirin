@@ -280,6 +280,30 @@
   .evline.skip { background: rgba(228,114,107,.10); } .evline.skip .v { color: var(--red); }
   .evline.wait { color: var(--muted); font-size: 11px; }
   .evline small { color: var(--dim); font-size: 10px; width: 100%; }
+  /* 詳細の買い目(いまの買い方。2026-10-15) */
+  .buysec { padding: 10px 12px; border-radius: 12px; background: var(--panel2); margin-bottom: 10px; }
+  .buysec.on { box-shadow: 0 0 0 1px rgba(95,192,139,.55) inset; }
+  .buysec.off { opacity: .9; }
+  .buyh { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-weight: 900; font-size: 14px; }
+  .buyv { margin-left: auto; font-size: 12px; font-weight: 900; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .buyv.buy { background: rgba(95,192,139,.18); color: var(--green); }
+  .buyv.skip { background: rgba(228,114,107,.13); color: var(--red); }
+  .buyv.wait { background: var(--panel); color: var(--muted); }
+  .buyv.hit { background: rgba(95,192,139,.25); color: var(--green); }
+  .buytk { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+  .buytk .kind { font-size: 11px; color: var(--muted); margin-left: 6px; line-height: 1.3; }
+  .buyck { list-style: none; margin: 8px 0 0; padding: 0; font-size: 12px; }
+  .buyck li { display: flex; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); align-items: baseline; }
+  .buyck .m { flex: 0 0 14px; text-align: center; font-weight: 900; }
+  .buyck .m.ok { color: var(--green); } .buyck .m.ng { color: var(--red); } .buyck .m.na { color: var(--dim); }
+  .buyck .k { color: var(--muted); }
+  .buyck .val { margin-left: auto; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+  .buyck .val small { display: block; font-weight: 500; color: var(--dim); font-size: 10px; }
+  .buyd { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 7px 0; border-top: 1px solid var(--line); font-size: 12px; }
+  .buyd:first-of-type { border-top: 0; }
+  .buyd .o { font-variant-numeric: tabular-nums; }
+  .buyd .v { margin-left: auto; font-weight: 900; }
+  .buynote { font-size: 10px; color: var(--dim); margin-top: 6px; line-height: 1.6; }
   /* 1行の一覧(終わったレース・参考) */
   .plist { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
   details.fold .plist { border: none; background: none; }
@@ -432,28 +456,8 @@
     <th>車</th><th class="l">選手</th><th>位置</th><th>総合</th><th>得点</th><th>調子</th><th>勝星</th><th>適性</th><th>展開</th>
   </tr></thead><tbody id="scoreBody"></tbody></table></div>
   <p class="note" style="font-size:10px;color:#5E7573">展開=ライン位置+スタート+得点と成績の乖離補正。マイナス表示は「得点上位だが直近勝てていない」減点を含む</p></section>
+  <section class="card hidden" id="betCard" data-tab="ana"><h2>買い目（いまの買い方）</h2><div id="buyBox"></div></section>
   <section class="card hidden" id="evTopCard" data-tab="ana"><h2>期待値 上位5（3連複・モデルD）</h2><div id="evTopBox"></div></section>
-  <section class="card hidden" id="betCard" data-tab="ana"><h2>買い目</h2>
-    <div id="f3Box" style="display:none;margin:0 0 12px;padding:10px 12px;border-radius:8px"></div>
-    <details class="more" style="margin:0 0 10px"><summary>参考: 旧方式の買い目(2車単・3連単の学習構成)</summary>
-      <p class="note" style="margin:6px 0 8px;font-size:10px;color:#5E7573">いまの買い方は上の3連複「本命ライン3人」。ここは以前の sim.json の学習構成で、2026-09 の検証では採用していない。3連単の成績は、荒れたレースほど配当データが欠けていた影響で上振れしている可能性がある。</p>
-    <div id="winnerBox" style="display:none;margin:0 0 12px;padding:10px 12px;background:rgba(95,192,139,.1);border:1px solid #5FC08B;border-radius:8px"></div>
-    <p class="note" id="betPlan" style="margin:0 0 10px;padding:8px 10px;background:#1C282C;border-left:3px solid #F2C230;border-radius:0 6px 6px 0;font-size:12px;line-height:1.7"></p>
-    <p class="note" style="margin:0 0 5px;font-size:11px">2車単</p><div class="bets" id="bets2"></div>
-    <p class="note" style="margin:0 0 5px;font-size:11px">3連単</p><div class="bets" id="bets3"></div>
-    </details>
-    <div class="caution"><span class="conf" id="conf"></span><span id="caution"></span></div>
-    <p class="note" id="oddsGuide" style="font-size:10px;color:#5E7573"></p>
-  </section>
-  <section class="card hidden" id="backCard" data-tab="ana"><h2>バック取得予測</h2>
-    <div id="backBars"></div>
-    <p class="note" id="backNote" style="font-size:10px;color:#5E7573"></p></section>
-  <section class="card hidden" id="sujiCard" data-tab="ana"><h2>スジ戦略（研究所の実測）</h2>
-    <div class="chips" id="sujiChips" style="margin-bottom:10px"></div>
-    <div class="tbl-scroll"><table><thead><tr>
-      <th class="l">ライン</th><th class="l">先→二</th><th>的中率</th><th>回収率</th><th class="l">判定</th>
-    </tr></thead><tbody id="sujiBody"></tbody></table></div>
-    <p class="note" id="sujiNote" style="font-size:10px;color:#5E7573"></p></section>
   <details class="fold" id="pasteFold" data-tab="ana"><summary>出走表を貼って予想する</summary>
   <section class="card" id="pasteCard" style="margin-top:8px">
     <textarea id="src" placeholder="Kドリームス・Gamboo「基本出走データ」・WINTICKET の出走表ページを全選択コピーして貼り付け…"></textarea>
@@ -1769,7 +1773,7 @@ $("paste").addEventListener("click", async () => {
 $("clear").addEventListener("click", () => {
   $("src").value = "";
   $("track").value = "";
-  ["bankCard","parseCard","scoreCard","tenkaiCard","markCard","betCard","sujiCard","backCard","evTopCard"].forEach((i) => { const el = $(i); if (el) el.classList.add("hidden"); });
+  ["bankCard","parseCard","scoreCard","tenkaiCard","markCard","betCard","evTopCard"].forEach((i) => { const el = $(i); if (el) el.classList.add("hidden"); });
   $("err").classList.add("hidden");
   lastParsed = null;
   $("src").focus();
@@ -2282,7 +2286,7 @@ function strToLines(str, cars) {
 
 $("run").addEventListener("click", () => {
   $("err").classList.add("hidden");
-  ["bankCard","parseCard","scoreCard","tenkaiCard","markCard","betCard","sujiCard","backCard","evTopCard"].forEach((i) => $(i).classList.add("hidden"));
+  ["bankCard","parseCard","scoreCard","tenkaiCard","markCard","betCard","evTopCard"].forEach((i) => $(i).classList.add("hidden"));
   let p, tName;
   try {
     p = parseCard($("src").value, TRACK_NAMES);
@@ -2382,130 +2386,7 @@ function render(p, tName) {
   $("markCard").classList.remove("hidden");
   paintTenkai(p, r, b);   // 展開予想・予想印を tenkai.js で(読み込みを待つので後から入る)
 
-  const planParts = [];
-  if (r.planNote) planParts.push(r.planNote);
-  if (r.strongTanki != null) planParts.push(r.strongTanki + "番(単騎)は力上位につき1着固定。");
-  else if (r.inTankis && r.inTankis.length) planParts.push("単騎" + r.inTankis.join(",") + "番は2・3着づけで押さえ。");
-  $("betPlan").textContent = planParts.join(" ") || "評価順に本命サイドから構成。";
-
-  // 学習した勝ちパターン(回収率100%超)との照合 → 該当時は回収率と推奨買い目を強調表示
-  const sx0 = sujiExpect(p, r, b ? b[10] : null);
-  const gap0 = r.scores && r.scores[1] ? +(r.scores[0].total - r.scores[1].total).toFixed(1) : null;
-  const ranked0 = r.scores.map((sc) => sc.car);
-  const wbox = $("winnerBox");
-  // 学習した全構成から、このレースの条件に合致する最良(回収率最大)を選ぶ
-  const best = ALL_PATTERNS.length ? matchBest({ score: sx0 ? sx0.score : 0, gap: gap0, klass: r.klass, verdict: sx0 ? sx0.verdict : null, grade: p.grade || "", pattern: r.linePattern || "" }, ranked0, p.lines) : null;
-  const win = best && best.roi >= 100 ? best : null;
-  let winTickets = best ? best.tickets : null;
-  if (win && winTickets.length) {
-    // 損益分岐オッズ: N点(N×100円)を的中率hitで買うとき、的中時オッズO倍が O > N/hit なら期待値プラス
-    const hit = win.hitRate / 100;
-    const beOdds = hit > 0 ? (winTickets.length / hit).toFixed(1) : "—";
-    wbox.style.display = "";
-    wbox.innerHTML =
-      '<div style="font-weight:900;color:#5FC08B;font-size:14px;margin-bottom:6px">🔥 勝負レース — 学習回収率 ' + win.roi + '%</div>' +
-      '<div style="font-size:11px;color:#8CA3A0;margin-bottom:8px">過去' + win.races + 'レースのバックテストで、この条件(' + esc(win.filterName) + ')かつ買い目「' + esc(win.patternName) + '」が回収率' + win.roi + '%(的中' + win.hitRate + '%)。</div>' +
-      '<div><b style="color:#F2C230">推奨買い目(' + (win.betType === "nishatan" ? "2車単 " : "3連単 ") + winTickets.length + '点)</b></div>' +
-      '<div style="margin-top:4px;margin-bottom:8px">' + winTickets.map((t) => '<span class="bet3" style="border-color:#5FC08B">' + t + "</span>").join("") + "</div>" +
-      '<div style="font-size:11px;color:#EAF2EF;background:#10181A;border-radius:6px;padding:6px 8px">💰 損益分岐オッズ <b style="color:#5FC08B;font-size:13px">' + beOdds + '倍</b> — この目のオッズ(3連単の配当)が' + beOdds + '倍を超えていれば期待値プラス。下回るなら過剰人気なので見送り推奨。</div>';
-  } else if (best && best.tickets.length) {
-    // 100%未満だが、学習した中では最良の構成
-    const hit = best.hitRate / 100;
-    const beOdds = hit > 0 ? (best.tickets.length / hit).toFixed(1) : "—";
-    wbox.style.display = "";
-    wbox.style.borderColor = "#F2C230";
-    wbox.style.background = "rgba(242,194,48,.07)";
-    wbox.innerHTML =
-      '<div style="font-weight:900;color:#F2C230;font-size:13px;margin-bottom:6px">学習ベスト構成 — 回収率 ' + best.roi + '%(100%未満)</div>' +
-      '<div style="font-size:11px;color:#8CA3A0;margin-bottom:8px">この条件(' + esc(best.filterName) + ')で最も成績が良いのは買い目「' + esc(best.patternName) + '」。過去' + best.races + 'レースで回収率' + best.roi + '%(的中' + best.hitRate + '%)。長期的にはマイナスなので、下記オッズを満たさなければ見送り推奨。</div>' +
-      '<div><b style="color:#F2C230">推奨買い目(' + (best.betType === "nishatan" ? "2車単 " : "3連単 ") + best.tickets.length + '点)</b></div>' +
-      '<div style="margin-top:4px;margin-bottom:8px">' + best.tickets.map((t) => '<span class="bet3">' + t + "</span>").join("") + "</div>" +
-      '<div style="font-size:11px;color:#EAF2EF;background:#10181A;border-radius:6px;padding:6px 8px">💰 損益分岐オッズ <b style="color:#F2C230;font-size:13px">' + beOdds + '倍</b> — オッズがこれを超えていれば期待値プラス。</div>';
-  } else {
-    // 学習データ未取得時: 従来の評価順6点
-    const tickets6 = r.bets.sanrentan || [];
-    wbox.style.display = tickets6.length ? "" : "none";
-    if (tickets6.length) {
-      const scr = sx0 ? sx0.score : 50;
-      const estHit = Math.max(0.08, Math.min(0.30, (scr - 40) / 100));
-      const beOdds = (tickets6.length / estHit).toFixed(0);
-      wbox.innerHTML = '<div style="font-size:11px;color:#8CA3A0">学習データ(sim.json)が未取得のため、評価順の' + tickets6.length + '点を表示しています。参考: 損益分岐オッズは概算 <b style="color:#F2C230">' + beOdds + '倍前後</b>。</div>';
-    }
-  }
-
-  const has2 = r.bets.nishatan && r.bets.nishatan.length;
-  document.querySelectorAll("#betCard .note").forEach((el)=>{ if(el.textContent==="2車単") el.style.display = has2 ? "" : "none"; });
-  $("bets2").innerHTML = has2 ? r.bets.nishatan.map((x) => '<span class="bet2">' + x + "</span>").join("") : "";
-  $("bets2").style.display = has2 ? "" : "none";
-  const mainTickets = (best && best.tickets.length) ? best.tickets : r.bets.sanrentan;
-  $("bets3").innerHTML = mainTickets.map((x) => '<span class="bet3">' + x + "</span>").join("");
-  if (best && best.tickets.length) {
-    $("betPlan").textContent = "学習した最良構成「" + best.patternName + "」を採用(条件: " + best.filterName + " / 過去" + best.races + "レースの回収率" + best.roi + "%)。" + (r.planNote || "");
-  }
-  // ---- 3連複「本命ライン3人」= 主戦略。全レースで表示する ----
-  const f3 = f3Plan(p, r);
-  const f3b = $("f3Box");
-  if (f3 && f3.trio) {
-    const hot = f3.hot;
-    const ac = hot ? "#5FC08B" : "#8CA3A0";
-    f3b.style.display = "";
-    f3b.style.background = hot ? "rgba(95,192,139,.10)" : "#1C282C";
-    f3b.style.border = "1px solid " + (hot ? "#5FC08B" : "#26363B");
-    f3b.innerHTML =
-      '<div style="font-weight:900;color:' + ac + ';font-size:14px;margin-bottom:6px">' +
-        (hot ? "🔥 3連複 本命ライン3人 — 実測回収率 " + f3.roi + "%" : "3連複 本命ライン3人(参考) — 実測回収率 " + f3.roi + "%") + "</div>" +
-      '<div style="margin-bottom:6px;display:flex;align-items:center;gap:3px;flex-wrap:wrap">' + ticketBalls(f3.ticket, "l") +
-        '<span style="font-size:11px;color:#8CA3A0;margin-left:8px">1点 / ' +
-          ((est) => est != null
-            ? '的中率 推定<b style="color:#EAF2EF">' + (est * 100).toFixed(0) + "%</b>(この条件の平均" + f3.hitRate + "%)"
-            : "的中率" + f3.hitRate + "%")(f3HitProb(p, r, p.lines || [], f3.trio)) + "</span></div>" +
-      '<div style="font-size:11px;color:#8CA3A0;line-height:1.7">' + esc(f3.note) + "</div>" +
-      headStyleBox(p, f3.trio) +
-      '<div style="font-size:11px;color:#EAF2EF;background:#10181A;border-radius:6px;padding:6px 8px;margin-top:6px">💰 損益分岐 <b style="color:' + ac + ';font-size:13px">' + (100 / f3.hitRate).toFixed(1) + "倍</b>" +
-        // 🔥のときは下の oddsGate が同じことを書くので、ここには出さない
-        (hot ? "" : ' <span style="color:#8CA3A0">この倍率を超えていなければ見送り。</span>') + "</div>" +
-      resBlock(f3ResultOf(p.place || "", p.raceNo || "", f3.ticket)) +
-      (hot ? oddsGate({ tickets: [f3.ticket], needOdds: f3.needOdds, bandLo: f3.bandLo, bandHi: f3.bandHi, bandNote: f3.bandNote, result: f3ResultOf(p.place || "", p.raceNo || "", f3.ticket) }) : "");
-  } else {
-    f3b.style.display = "none";
-  }
-  $("conf").textContent = "信頼度:" + r.confidence;
-  $("conf").style.color = r.confidence === "高" ? "#5FC08B" : r.confidence === "低" ? "#E4726B" : "#F2C230";
-  $("caution").textContent = "⚠ " + r.caution;
-  $("oddsGuide").textContent = r.oddsGuide || "";
-  $("betCard").classList.remove("hidden");
-
-  // ⑨ バック取得予測
-  if (r.backProbs && r.backProbs.length) {
-    const kl = { s: "S級戦", a12_9: "A級戦9車立", a12_7: "A級戦7車立", ch: "チャレンジ戦" }[r.bkStats.key] || "";
-    $("backBars").innerHTML = r.backProbs.map((bp, i) => {
-      const pct = bp.p * 100;
-      const isTop = i === 0;
-      return '<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="font-weight:' + (isTop ? 900 : 500) + '">[' + bp.line.join("") + "]ライン" + (isTop ? " ← 取得予測" : "") + '</span><span style="font-variant-numeric:tabular-nums;font-weight:700;color:' + (isTop ? "#F2C230" : "#8CA3A0") + '">' + pct.toFixed(1) + "%</span></div>" +
-        '<div style="height:10px;background:#1C282C;border-radius:5px;overflow:hidden"><div style="height:100%;width:' + Math.min(100, pct * 1.6) + "%;background:" + (isTop ? "#F2C230" : "#3E5259") + '"></div></div></div>';
-    }).join("") + (r.backBalanced ? '<p style="margin:4px 0 0;font-size:12px;color:#E4726B">⚠ 上位2ラインが均衡(差5%未満)。主導権争いで隊列が乱れ、荒れやすい形です</p>' : "");
-    $("backNote").textContent = "予測式は遠山競輪研究所027(2017/5〜2020/4・ロジスティック回帰、実測的中率" + (r.bkStats.key === "ch" ? "61.9%" : r.bkStats.key === "s" ? "56.7%" : "58〜61%") + ")。バック取得ラインの実測成績(" + kl + "・このバンク種別): 先頭 勝率" + r.bkStats.head[0] + "%/連対率" + r.bkStats.head[1] + "%、番手 勝率" + r.bkStats.second[0] + "%/連対率" + r.bkStats.second[1] + "%(全選手平均勝率" + r.bkStats.baseWin.toFixed(1) + "%)。";
-    $("backCard").classList.remove("hidden");
-  }
-
-  // ⑧ スジ戦略
-  const klassLabel = { s: "S級戦", a12: "A級1・2班戦", challenge: "A級チャレンジ戦", girls: "ガールズ" }[r.klass] || "";
-  const ks = KLASS_SUJI[r.klass];
-  $("sujiChips").innerHTML =
-    '<span class="chip">' + r.fLabel + "</span>" +
-    '<span class="chip">' + klassLabel + (ks ? "(先→二 " + ks[0] + "% / 二→先 " + ks[1] + "%)" : "") + "</span>" +
-    '<span class="chip">スジ回収率グループ' + r.group + (r.group === "A" ? "(スジ有利な場)" : "(スジ薄めの場)") + "</span>";
-  if (r.sujiPlan.length) {
-    $("sujiBody").innerHTML = r.sujiPlan.map((sp) => {
-      const col = sp.grade === "妙味" ? "#5FC08B" : sp.grade === "低" ? "#E4726B" : "#EAF2EF";
-      return '<tr><td class="l">第' + sp.rank + "ライン[" + sp.line.join("") + ']</td><td class="l" style="font-weight:900;font-variant-numeric:tabular-nums">' + sp.ticket + "</td><td>" + sp.hit.toFixed(1) + "%</td><td style=\"font-weight:900;color:" + col + '">' + sp.roi.toFixed(1) + "%</td><td class=\"l\" style=\"color:" + col + '">' + (sp.grade === "妙味" ? "◎妙味(回収90%超)" : sp.grade === "低" ? "△見送り可" : "○標準") + "</td></tr>";
-    }).join("");
-    $("sujiNote").textContent = "ライン人気順は本アプリの採点スコアで代用推定。的中率・回収率は同形態(" + r.fLabel + ")・同グループの2016/9〜2019/8実測値(遠山競輪研究所)。裏(番手→先頭)は回収率60%台が多く原則非推奨。還元率75%を超える車券が「人気以上に決まる」目安です。";
-  } else {
-    $("sujiBody").innerHTML = "";
-    $("sujiNote").textContent = r.klass === "girls" ? "ガールズはラインが無いためスジ戦略の対象外です。" : r.topIsTanki ? "本命(スコア1位)が単騎のため、研究所シミュレーションの適用外です。" : "2車以上のラインが2〜4本の形態(二〜四分戦)のみ実測データがあります。";
-  }
-  $("sujiCard").classList.remove("hidden");
+  paintBuy(p, r, b);   // 買い目(いまの買い方: 🔥・Ⓓ。2026-10-15 に作り直し・hikitsugi §4-35)
 }
 // ===================================================================
 // 2026-09 作り直し: 画面の組み立て(予想の計算は既存の関数を呼ぶだけ)
@@ -3022,6 +2903,171 @@ function paintEvTop() {
   const s = LIVE_ODDS && LIVE_ODDS.races ? LIVE_ODDS.races[ANA_ROW.key] : null;
   if (s && TK_ARGS && TK_ARGS[0].place === ANA_ROW.place && TK_ARGS[0].raceNo === ANA_ROW.raceNo && s.t !== TK_ODDS_T) paintTenkai(...TK_ARGS);
 }
+// ---- 詳細: 買い目（いまの買い方。2026-10-15 に作り直し・hikitsugi §4-35） ----
+//   🔥 本命ライン3人の3連複1点 と Ⓓ モデルD を、今日タブ・自動投票(betplan.js / bet/)と同じ条件で判定して出す。
+//   ・今日のレース     = 今日タブの行(SHOUBU_ROWS: 出走表の plan.brk / plan.b1)と締切前の倍率(evInfo・EVD.picks)
+//   ・成績から開いた日 = daily.json のその日の行(成績タブと同じ数字。倍率は確定オッズ)
+//   ・貼り付けたレース = 倍率が無いので条件だけ。切れる確率・B率1位はこの画面で計算(fetch.js の lineBreakOf / headB1Of と同じ)
+//   前の表示(2車単・3連単の学習構成、信頼度、配当の目安、バック取得予測、スジ戦略)は 2016〜2020年の研究所の数字で、いまの買い方と関係ないので消した
+let BUY_ARGS = null;
+const HOT9_NOTE = "9車立て・5〜15倍・切れる確率17%以上・S班なしの🔥は、2022〜26年で回収125.5%（1,126R・的中16.0%）";   // hikitsugi §4-31
+// 貼り付けたレース用: 本命ラインが切れる確率・先頭のB率1位(fetch.js と同じ計算)。展開モデルが読めていなければ切れる確率は null
+function hotFactsOf(p, r, b, trio) {
+  const o = { brk: null, b1: null };
+  if (!p || !Array.isArray(p.entries) || !Array.isArray(trio) || trio.length < 3) return o;
+  const ent = {}; for (const e of p.entries) ent[e.car] = e;
+  const L2 = (p.lines || []).map((l) => l.filter((c) => ent[c])).filter((l) => l.length >= 2);
+  const lnB = L2.find((l) => trio.every((c) => l.includes(c)));
+  if (lnB) {
+    const rate = (c) => { const e = ent[c], s = e.seiseki || {}; const t = (s.win1 || 0) + (s.win2 || 0) + (s.win3 || 0) + (s.out || 0); return t ? (e.B || 0) / t : 0; };
+    const mine = rate(lnB[0]); o.b1 = L2.every((l) => rate(l[0]) <= mine + 1e-12);
+  }
+  if (typeof TENKAI !== "undefined" && TENKAI.model) {
+    try {
+      const inp = tenkaiInput(p, r, b), ln = inp.lines.find((l) => trio.every((c) => l.includes(c)));
+      if (ln && ln.length >= 3) { const det = TENKAI.detach(inp); if (det[ln[1]] != null && det[ln[2]] != null) o.brk = Math.round((1 - (1 - det[ln[1]]) * (1 - det[ln[2]])) * 1000) / 1000; }
+    } catch (e) {}
+  }
+  return o;
+}
+// 🔥の対象にならない理由(短く)
+function hotWhyNot(pl, p) {
+  if (!pl) return "評価を計算できませんでした";
+  if (!pl.trio) return /競る/.test(pl.note) ? "本命ラインで2人が位置を競り、本線が3人未満" : "本命ラインが3人未満";
+  if (/位置を競る/.test(pl.note)) return "本命ラインで2人が位置を競る（並び予想のカッコ）";
+  if (/S級S班/.test(pl.note)) return "S級S班がいるレース（🔥の成績が悪いので見送り）";
+  const solo = (p.lines || []).filter((l) => Array.isArray(l) && l.length === 1).length;
+  if (pl.cars >= 8 && solo >= 2) return "9車立てで単騎が" + solo + "人（隊列が読めない）";
+  if (pl.cars === 7) return "7車立てで、本命ライン3人の評価順位の合計が" + pl.rankSum + "（12以上が対象）";
+  return pl.cars + "車立て（🔥は9車立てと7車立てだけ）";
+}
+const ckLi = (m, k, val, sub) => '<li><span class="m ' + (m === "✓" ? "ok" : m === "✗" ? "ng" : "na") + '">' + m + '</span><span class="k">' + k + '</span><span class="val">' + val + (sub ? "<small>" + sub + "</small>" : "") + "</span></li>";
+// 着順と、買った金額での払戻(y = 0 なら見送り)
+function buyResLine(order, hit, pay, y) {
+  if (!order) return "";
+  const balls = order.split("-").map((c) => (c === "?" ? '<span class="cb s" style="background:var(--panel);color:var(--dim)">?</span>' : ball(+c, "s"))).join('<span class="eq" style="font-size:12px">-</span>');
+  let right;
+  if (hit === -1 || hit == null) right = '<span class="pay" style="color:var(--muted)">3着確認中</span>';
+  else if (!y) right = '<span class="pay" style="color:var(--dim);font-size:12px">' + (hit ? "的中だったが見送り" : "見送り") + "</span>";
+  else if (hit && pay == null) right = '<span class="pay pos">的中・配当確認中</span>';
+  else if (hit) right = '<span class="pay pos">3複 ' + pay.toLocaleString() + "円" + (y !== 100 ? " → " + Math.round(pay * y / 100).toLocaleString() + "円" : "") + " <small>(" + yen(Math.round(pay * y / 100) - y) + ")</small></span>";
+  else right = '<span class="pay neg">' + yen(-y) + "円</span>";
+  return '<div class="resbox"><span style="color:var(--muted)">着順</span>' + balls + right + "</div>";
+}
+function paintBuy(p, r, b) {
+  BUY_ARGS = [p, r, b];
+  const box = $("buyBox"), card = $("betCard"); if (!box || !card) return;
+  const P = PAST_RACE, today = !P && ANA_ROW ? ANA_ROW : null;
+  const place = p.place || "", rno = p.raceNo || "";
+  const day = P ? (calDays()[P.d8] || null) : null;
+  const pl = f3Plan(p, r);
+  let html = "";
+  // ---- 🔥 本命ライン3人(3連複1点) ----
+  //   今日 = 今日タブの行 / 過去 = その日の記録(いまの計算と並び・順位が違っても、その日に出していた買い目) / 貼り付け = この画面の計算
+  const row = today ? SHOUBU_ROWS.find((x) => x.key === today.key) : null;
+  const px = P && day ? (day.h || []).find((x) => x[0] === place && x[1] === rno) : null;
+  const H = row ? { cars: row.cars, ticket: row.ticket, rankSum: row.rankSum } : px ? { cars: px[2], ticket: px[3], rankSum: pl && pl.hot && pl.ticket === px[3] ? pl.rankSum : null }
+    : pl && pl.hot && pl.trio ? { cars: pl.cars, ticket: pl.ticket, rankSum: pl.rankSum } : null;
+  if (H) {
+    const isTop = H.cars >= 8, lo = isTop ? BAND9_LO : BAND_LO, hi = isTop ? BAND9_HI : BAND_HI;
+    let brk = null, b1 = null, calc = false;
+    if (row) { brk = row.brk; b1 = row.b1; }
+    else if (px) { brk = typeof px[11] === "number" ? px[11] : null; b1 = px[12] === 1 ? true : px[12] === 0 ? false : null; }
+    else if (!today && !P) { const f = hotFactsOf(p, r, b, pl.trio); brk = f.brk; b1 = f.b1; calc = true; }
+    const y = isTop ? (b1 === true ? BUY.b1 : BUY.rest) : BUY.h7;
+    // 倍率・期待値・判定
+    let odds = null, oddsSub = "", ev = null, verdict = null, res = null;   // verdict: buy / skipBand / skipBrk / skip7 / skipSet / null(倍率待ち)
+    if (row) {
+      const ei = evInfo(row); res = f3ResultOf(place, rno, H.ticket);
+      if (ei) { odds = ei.odds; ev = ei.thin ? null : ei.ev; const s = ei.snap; oddsSub = (s.upd ? s.upd + "現在" : String(s.t || "").slice(0, 5) + "取得") + "・締切" + Math.max(0, Math.round(s.left)) + "分前"; }
+      verdict = hotSkipOf(row, ei) || (ei && ei.verdict === "buy" ? "buy" : null);
+    } else if (px) {
+      odds = typeof px[7] === "number" ? px[7] : null; ev = typeof px[9] === "number" ? px[9] : null; oddsSub = "確定オッズ";
+      verdict = odds != null && (odds < lo || odds > hi) ? "skipBand" : isTop && brk != null && brk < HOT9_BRK ? "skipBrk" : !y ? (isTop ? "skipSet" : "skip7") : "buy";
+      res = px[4] ? { order: px[4], hit: px[5] === 1 ? 1 : px[5] === 0 ? 0 : -1, pay: px[6] } : null;
+    } else if (isTop && brk != null && brk < HOT9_BRK) verdict = "skipBrk";
+    else if (!y) verdict = isTop ? "skipSet" : "skip7";
+    const done = res && res.hit !== -1 && !res.pending;
+    const bought = verdict === "buy" || (verdict == null && !!y);   // 倍率待ちのまま終わったものは、帯の中だった前提(今日タブの収支と同じ)
+    let vb;
+    if (done && row) { const hit = res.hit === true || res.hit === 1; vb = bought && hit ? '<span class="buyv hit">✅ 的中</span>' : bought ? '<span class="buyv skip">✗ 不的中</span>' : '<span class="buyv wait">見送り（' + SKIP_V[verdict] + "）</span>"; }
+    else if (done) { vb = verdict === "buy" ? (res.hit === 1 ? '<span class="buyv hit">✅ 的中</span>' : '<span class="buyv skip">✗ 不的中</span>') : '<span class="buyv wait">見送り（' + (SKIP_V[verdict] || "") + "）</span>"; }
+    else if (verdict === "buy") vb = '<span class="buyv buy">✓ 買う ' + y + "円</span>";
+    else if (verdict) vb = '<span class="buyv skip">✗ 見送り（' + SKIP_V[verdict] + "）</span>";
+    else vb = '<span class="buyv wait">' + (today || P ? "倍率待ち" : lo + "〜" + hi + "倍なら買う") + "</span>";
+    const ck = [];
+    ck.push(ckLi("✓", "形", isTop ? H.cars + "車立て・本命ライン3人・単騎1人以下" : "7車立て・評価順位の合計" + (H.rankSum != null ? H.rankSum + "（12以上）" : "12以上")));
+    ck.push(ckLi(odds == null ? "…" : odds >= lo && odds <= hi ? "✓" : "✗", "倍率 " + lo + "〜" + hi + "倍",
+      odds != null ? (P ? "確定 " : "今 ") + odds + "倍" : today ? "締切前の倍率待ち" : P ? "記録なし" : "締切前に確認",
+      odds != null ? oddsSub : today ? "締切20分前ごろから1分おきに届きます" : ""));
+    if (isTop) {
+      ck.push(ckLi(brk == null ? "–" : brk >= HOT9_BRK ? "✓" : "✗", "本命ラインが切れる確率 17%以上",
+        brk != null ? Math.round(brk * 100) + "%" : "記録なし", brk == null ? "分からないときは見送らない" : calc ? "この画面で計算" : "番手か3番手が前について行けない確率"));
+      ck.push(ckLi("•", "先頭のB率1位", b1 === true ? "1位" : b1 === false ? "1位ではない" : "分からない",
+        "買い方「" + (b1 === true ? "先頭のB率1位" : "それ以外") + "」の金額" + (calc && b1 != null ? "・この画面で計算" : "")));
+    }
+    ck.push(ckLi(y ? "✓" : "✗", "金額", y ? y + "円" : "買わない設定", "成績タブの「買い方」で変えられる（この端末だけ）"));
+    if (ev != null) ck.push(ckLi("•", "期待値（参考）", ev.toFixed(2), isTop ? "🔥9車は期待値では絞らない（PCも同じ）" : ""));
+    html += '<div class="buysec' + (verdict === "buy" || (verdict == null && y) ? " on" : "") + '">' +
+      '<div class="buyh"><span class="kb ' + (isTop ? "hot" : "ref") + '">🔥' + (isTop ? "" : "7車") + "</span>本命ライン3人" + (isTop && b1 === true ? '<span class="kb b1">B率1位</span>' : "") + vb + "</div>" +
+      '<div class="buytk">' + ticketBalls(H.ticket, "l") + '<span class="kind">3連複<br>1点</span></div>' +
+      '<ul class="buyck">' + ck.join("") + "</ul>" +
+      (res ? buyResLine(res.order, res.hit === true ? 1 : res.hit === false ? 0 : res.pending ? -1 : res.hit, res.pay, bought ? y : 0) : "") +
+      '<div class="buynote">' + (isTop ? HOT9_NOTE + "。" : "7車立ては5年とも回収100%未満なので、既定では買いません（金額を入れたときだけ" + lo + "〜" + hi + "倍で買う）。") +
+        (P && !px ? " ※この日の成績の記録には、このレースの🔥がありません（いまの計算では🔥になる）。" : "") +
+        (px && pl && pl.trio && pl.ticket !== px[3] ? " ※いまの計算では本命ライン3人が " + pl.ticket + " になります（その日の予想と並び・順位が違う）。" : "") + "</div></div>";
+  } else {
+    html += '<div class="buysec off"><div class="buyh"><span class="kb ref">🔥</span>本命ライン3人<span class="buyv wait">対象外</span></div>' +
+      '<div class="buynote" style="font-size:12px;color:var(--muted)">' + esc(hotWhyNot(pl, p)) + "</div>" +
+      (pl && pl.trio ? '<div class="buytk" style="opacity:.55">' + ticketBalls(pl.ticket, "s") + '<span class="kind">参考の3人（買わない）</span></div>' : "") + "</div>";
+  }
+  // ---- Ⓓ モデルD(期待値1.10以上・20倍以下の組を全部) ----
+  const pk = typeof EVD !== "undefined" ? EVD.PICK : { minEv: 1.10, oddsHi: 20 };
+  let dh = "", dOn = false;
+  if (today) {
+    const snap = LIVE_ODDS && LIVE_ODDS.races ? LIVE_ODDS.races[today.key] : null;
+    if (typeof EVD === "undefined" || !Array.isArray(today.riders) || today.riders.length < 5) dh = '<div class="buynote">選手データが足りず計算できません</div>';
+    else if (!snap || !Array.isArray(snap.o)) dh = '<div class="buynote" style="font-size:12px;color:var(--muted)">締切前の倍率が届くと出ます（締切20分前ごろから）</div>';
+    else if (snap.n && snap.n !== today.riders.length) dh = '<div class="buynote">倍率の組数が出走表と合わないので出しません</div>';
+    else {
+      const all = EVD.evAll(today.riders, today.lines, today.place, snap.o, today.riders.length, today.seri);
+      const ps = all ? EVD.picks(all) : [];
+      if (!all) dh = '<div class="buynote">票がまだ薄く、期待値を計算できません</div>';
+      else if (!ps.length) dh = '<div class="buynote" style="font-size:12px;color:var(--muted)">このレースは買い目なし（期待値' + pk.minEv.toFixed(2) + "以上・" + pk.oddsHi + "倍以下の組が無い）</div>";
+      else {
+        dOn = !!BUY.d;
+        dh = ps.map((q) => {
+          const res = f3ResultOf(place, rno, q.ticket), dn = res && !res.pending;
+          return '<div class="buyd">' + ticketBalls(q.ticket, "s") + '<span class="o">' + q.odds + "倍</span><span>期待値 <b>" + q.ev.toFixed(2) + "</b></span>" +
+            '<span class="v ' + (dn ? (res.hit && BUY.d ? "pos" : BUY.d ? "neg" : "") : BUY.d ? "pos" : "") + '">' +
+              (dn ? (!BUY.d ? "見送り" : res.hit ? "的中 " + (res.pay != null ? Math.round(res.pay * BUY.d / 100).toLocaleString() + "円" : "") : yen(-BUY.d) + "円") : BUY.d ? "✓ 買う " + BUY.d + "円" : "買わない設定") + "</span></div>";
+        }).join("") + '<div class="buynote">' + (snap.upd ? snap.upd + "現在" : String(snap.t || "").slice(0, 5) + "取得") + "・締切" + Math.max(0, Math.round(snap.left)) + "分前の倍率</div>";
+      }
+    }
+  } else if (P) {
+    const ds = day ? (day.d || []).filter((x) => x[0] === place && x[1] === rno && !(typeof x[8] === "number" && x[8] < pk.minEv) && !(typeof x[7] === "number" && x[7] > pk.oddsHi)) : [];
+    if (!ds.length) dh = '<div class="buynote" style="font-size:12px;color:var(--muted)">この日の記録では買い目なし</div>';
+    else {
+      dOn = !!BUY.d;
+      dh = ds.map((x) => '<div class="buyd">' + ticketBalls(x[3], "s") + '<span class="o">' + (x[7] != null ? x[7] + "倍" : "") + "</span>" + (typeof x[8] === "number" ? "<span>期待値 <b>" + x[8].toFixed(2) + "</b></span>" : "") +
+        '<span class="v ' + (x[5] === 1 && BUY.d ? "pos" : x[5] === 0 && BUY.d ? "neg" : "") + '">' +
+        (!BUY.d ? "見送り（設定）" : x[5] === 1 ? "的中 " + (x[6] != null ? Math.round(x[6] * BUY.d / 100).toLocaleString() + "円" : "") : x[5] === 0 ? yen(-BUY.d) + "円" : "結果待ち") + "</span></div>").join("") +
+        '<div class="buynote">' + (ds.some((x) => x[9] === "s") ? "締切前の倍率で選んだ組" : "確定オッズでさかのぼって選んだ組") + "</div>";
+    }
+  } else dh = '<div class="buynote" style="font-size:12px;color:var(--muted)">倍率が無いので出せません（今日のレースは「今日」「レース」から開くと出ます）</div>';
+  html += '<div class="buysec' + (dOn ? " on" : "") + '"><div class="buyh"><span class="kb d">Ⓓ</span>モデルD' +
+    '<small style="font-weight:500;color:var(--muted);font-size:11px">期待値' + pk.minEv.toFixed(2) + "以上・" + pk.oddsHi + "倍以下の組を全部</small></div>" + dh +
+    '<div class="buynote">2025年1月〜2026年9月で回収131%（1,297点）。' + (today ? "くわしくは下の「期待値 上位5」。" : "") + "</div></div>";
+  // 直近の事故(買い方の判定には入っていない)
+  const kiken = (p.entries || []).filter((e) => e.kiken).map((e) => e.car);
+  if (kiken.length) html += '<div class="buynote" style="font-size:11px;color:var(--gold)">⚠ ' + kiken.join("・") + "番は直近に棄権・落車・失格あり（買う・見送るの判定には入っていません）</div>";
+  html += '<div class="buynote">金額は成績タブの「買い方」で変えられます（この端末だけ）。自動投票の金額は PC の設定（run.bat の 7）で決めます。</div>';
+  box.innerHTML = html;
+  card.classList.remove("hidden");
+  // 貼り付けたレースで展開モデルがまだ読めていなければ、読めたら切れる確率を入れ直す
+  if (!today && !P && pl && pl.hot && pl.cars >= 8 && !(typeof TENKAI !== "undefined" && TENKAI.model)) TENKAI_READY.then((ok) => { if (ok && BUY_ARGS && BUY_ARGS[0] === p) paintBuy(p, r, b); });
+}
+function repaintBuy() { const c = $("betCard"); if (BUY_ARGS && c && !c.classList.contains("hidden")) paintBuy(...BUY_ARGS); }
 // 終わったレースの1行
 function doneRow(it) {
   const r = it.r, res = f3ResultOf(r.place, r.raceNo, r.ticket);
@@ -3038,6 +3084,7 @@ function doneRow(it) {
 }
 function paintShoubu() {
   paintEvTop();                                   // 詳細の「期待値 上位5」も新しい倍率で
+  repaintBuy();                                   // 詳細の「買い目」も(倍率・結果・買い方の金額)
   const nowL = $("nowList"), doneL = $("doneList"), empty = $("shoubuEmpty");
   if (!nowL || !doneL) return;
   const byTime = (a, b) => (a.startTime || "99:99").localeCompare(b.startTime || "99:99");
@@ -3354,7 +3401,7 @@ async function openCalRace(i) {
   const key = x[0] + "_" + x[1];
   if (RACE_DAY && d8 === RACE_DAY.replace(/-/g, "") && raceList.some((y) => y.key === key)) { PAST_RACE = null; loadRace(key); return; }
   showTab("ana"); window.scrollTo(0, 0);
-  ["bankCard","parseCard","scoreCard","tenkaiCard","markCard","betCard","sujiCard","backCard","evTopCard","frontCard"].forEach((id) => { if ($(id)) $(id).classList.add("hidden"); });
+  ["bankCard","parseCard","scoreCard","tenkaiCard","markCard","betCard","evTopCard","frontCard"].forEach((id) => { if ($(id)) $(id).classList.add("hidden"); });
   const rh = $("raceHead");
   if (rh) { rh.innerHTML = '<div class="t">' + esc(x[0] + " " + x[1]) + '</div><div class="m">' + d8Label(d8) + " ・ 出走表を読み込んでいます…</div>"; rh.classList.remove("hidden"); }
   if ($("anaEmpty")) $("anaEmpty").style.display = "none";
