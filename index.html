@@ -2877,7 +2877,8 @@ async function paintTenkai(p, r, b) {
     tsup >= 0.5 ? "後ろから " + lg(ch) + " が押さえに来ても、" + lg(s0) + " は<b>突っ張る</b>見込み（" + pc(tsup) + "）。"
                : lg(ch) + " が押さえに来ると、" + lg(s0) + " は<b>引いて</b>主導権を渡しそう（突っ張るのは " + pc(tsup) + "）。";
   // ④ 筋書き
-  // 図: 周回中(前受けのラインが誘導の後ろ・押さえに来るラインがいちばん後ろ) → 最終バック(主導権のラインが先頭・引いたラインは後ろ) → ゴール(1着候補)
+  // 図: 周回中(前受けのラインが誘導の後ろ・押さえに来るラインがいちばん後ろ) → 最終バック(主導権のラインが先頭) → ゴール(1着候補)
+  //   押さえ先行は、押さえたラインが先頭に入り、ほかは元の順のまま後ろに続く(123-45-67 で 67 が押さえると 67-123-45。2026-10-15 はむさんの指摘で直した)
   //   モデルが予想するのは 前受け(s)・主導権(b)・1着 だけ。真ん中のラインの順は前受けの確率の順の目安なので薄く出す
   const scDiagram = (x) => {
     const nl = L.length, rowB = res.pB[x.s];
@@ -2885,14 +2886,14 @@ async function paintTenkai(p, r, b) {
     const rear = x.b !== x.s ? x.b : ch;
     const mid = [...Array(nl).keys()].filter((i) => i !== x.s && i !== rear).sort((u, v) => res.pS[v] - res.pS[u]);
     const lap = [x.s, ...mid].concat(rear >= 0 ? [rear] : []);
-    const back = x.b !== x.s ? [x.b, ...mid, x.s] : lap;
+    const back = x.b !== x.s ? [x.b, ...lap.filter((i) => i !== x.b)] : lap;
     const grp = (i, cls) => '<span class="fg ' + cls + '">' + L[i].map((c) => ball(c, "xs")).join("") + "</span>";
     const lgx = (i) => '<span class="tk-g">' + L[i].map((c) => ball(c, "xs")).join("") + "</span>";
     const row1 = '<span class="yd">誘導</span>' + lap.map((i) => grp(i, i === x.s ? "front" : i === rear ? "" : "mid")).join("");
     const row2 = back.map((i) => grp(i, i === x.b ? "lead" : i === x.s && x.s !== x.b ? "" : "mid")).join("");
     const how = x.s === x.b
       ? "打鐘 " + lgx(x.s) + " が突っ張る" + (ch >= 0 ? "（" + lgx(ch) + " は叩けない）" : "")
-      : "打鐘 " + lgx(x.b) + " が押さえ、" + lgx(x.s) + " は引く";
+      : "打鐘 " + lgx(x.b) + " が押さえて前へ（" + lgx(x.s) + " はその後ろ）";
     const w = Object.entries(x.win).sort((a, b2) => b2[1] - a[1]).slice(0, 3);
     return '<div class="tkd"><div class="hd"><b>' + pc(x.p) + "</b>" + (x.s === x.b ? "突っ張り先行" : "押さえ先行") + "</div>" +
       '<div class="rw"><span class="ph">周回中</span><span class="fl">' + row1 + "</span></div>" +
