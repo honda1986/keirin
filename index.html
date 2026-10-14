@@ -2862,6 +2862,7 @@ function kimariStep(res, pc) {
   return '<div class="tk-step"><span class="no">⑥</span><div><h3>決まり手の予想（どう決まるか）</h3><p>いちばんありそうなのは <b>' + top[0] + "</b>（" + pc(top[1]) + "）。</p>" +
     rows.map(([n, v, d]) => '<div class="frow"><span class="g" style="min-width:3.2em">' + n + '</span><span class="bar"><i style="width:' + Math.round(v * 100) + '%"></i></span><span class="pc">' + pc(v) + "</span></div>" +
       '<div style="font-size:10px;color:var(--dim);margin:-2px 0 4px 3.4em">' + d + "</div>").join("") +
+    '<p style="font-size:11px;margin-top:4px">2着は決まり手でほぼ決まる（5年）: <b>逃げ</b>なら番手が2着 58%／<b>捲り</b>なら捲った選手の番手 39%（別のラインが59%）／<b>差し</b>なら差された先頭 41%（別のラインが44%）。3着は1・2着どちらかと同じラインが 41〜54%。</p>' +
     '<p class="note" style="font-size:10px">5年の平均は 逃げ25%・捲り28%・差し46%。2025〜26年で試すと、予想25〜35%のとき実際27%・45〜60%のとき54% と確率どおり。いちばん高い決まり手が当たるのは52%（いつも「差し」と言うと47%）。</p></div></div>';
 }
 // 展開のポイント: サイトでよく言われる展開のセオリーのうち、2022〜2026年の約11万レースで確かめて当てはまったもの(と当てはまらなかったもの)。hikitsugi §4-28
@@ -2882,18 +2883,18 @@ function tkPoints(p, res, b) {
   const heads = L.filter((x) => x.length >= 2);
   const nige = heads.filter((x) => sty(x[0]) === 0), maku = heads.filter((x) => sty(x[0]) === 2);
   if (L.length >= 3) {
-    if (!nige.length) out.push(["✅", "逃げ型の先頭がいない: <b>差しの1着 51%</b>（ふつう46%）。ペースが落ち着いて番手が有利"]);
-    else if (nige.length === 1) out.push(["✅", "逃げ型の先頭は " + lg(nige[0]) + " だけ（先行一車に近い）: 逃げの1着 26%（逃げ型がいないと22%）。主導権を取りやすい"]);
-    else out.push(["✅", "逃げ型の先頭が" + nige.length + "人（" + nige.map(lg).join("・") + "）: 主導権争いで脚を使い合い、<b>捲りの1着 " + (nige.length >= 3 ? "35%" : "30%") + "</b>（1人なら27%）"]);
+    if (!nige.length) out.push(["✅", "逃げ型の先頭がいない: <b>差しの1着 51%</b>（ふつう46%）。ペースが落ち着いて番手が有利。ただしライン決着は少なく、1・2着が同じライン 44%・1〜3着が同じライン 17%"]);
+    else if (nige.length === 1) out.push(["✅", "逃げ型の先頭は " + lg(nige[0]) + " だけ（先行一車に近い）: 逃げの1着 26%（逃げ型がいないと22%）。主導権を取りやすく、<b>1・2着が同じライン 57%・1〜3着が同じライン 22%</b>（逃げ型がいないと44%・17%）"]);
+    else out.push(["✅", "逃げ型の先頭が" + nige.length + "人（" + nige.map(lg).join("・") + "）: 主導権争いで脚を使い合い、<b>捲りの1着 " + (nige.length >= 3 ? "35%" : "30%") + "</b>（1人なら27%）。1〜3着が同じラインは " + (nige.length >= 3 ? "14%" : "20%") + "（1人なら22%）"]);
   }
   // 3) 3分戦
   if (L.length === 3 && heads.length === 3) {
-    if (maku.length === 2 && nige.length === 1) out.push(["✅", "捲り型2人と逃げ型1人の3分戦: 捲りどうしが牽制し合い、逃げ型の " + lg(nige[0]) + " の<b>1着 39%</b>（3ラインの平均33%）"]);
-    else if (nige.length === 2) { const o = heads.find((x) => sty(x[0]) !== 0); out.push(["❌", "逃げ型2人の3分戦は「残りの " + lg(o) + " が漁夫の利」とよく言われるが、5年の実際は1着 30%（平均33%）でむしろ少し低い"]); }
+    if (maku.length === 2 && nige.length === 1) out.push(["✅", "捲り型2人と逃げ型1人の3分戦: 捲りどうしが牽制し合い、逃げ型の " + lg(nige[0]) + " から <b>1着 39%・2着 38%・3着 36%</b>（3ラインの平均33%）"]);
+    else if (nige.length === 2) { const o = heads.find((x) => sty(x[0]) !== 0); out.push(["❌", "逃げ型2人の3分戦は「残りの " + lg(o) + " が漁夫の利」とよく言われるが、5年の実際はそのラインから 1着 30%・2着 29%・3着 30%（平均33%）でどれも少し低い"]); }
   }
   // 4) 番手に自力(逃げ+捲りの回数) → 番手捲り
   const ban = heads.map((x) => [x, x[1], ent[x[1]] ? (ent[x[1]].k.nige || 0) + (ent[x[1]].k.makuri || 0) : 0]).filter((q) => q[2] >= 3).sort((u, v) => v[2] - u[2]).slice(0, 2);
-  for (const [x, c, n] of ban) out.push(["✅", ball(c, "s") + "（" + lg(x) + " の番手）は逃げ・捲りが計" + n + "回: 番手捲り（二段駆け）もある。番手の1着率 " + (n >= 6 ? "<b>31%</b>" : "<b>25%</b>") + "（自力0回の番手は13%）"]);
+  for (const [x, c, n] of ban) out.push(["✅", ball(c, "s") + "（" + lg(x) + " の番手）は逃げ・捲りが計" + n + "回: 番手捲り（二段駆け）もある。番手の " + (n >= 6 ? "<b>1着 31%</b>・2着 18%・3着 11%" : "<b>1着 25%</b>・2着 18%・3着 12%") + "（自力0回の番手は 1着 13%・2着 18%・3着 14%）。自力があっても2着は増えず、1着が増える"]);
   if (!out.length) return "";
   return '<div class="tk-step"><span class="no">★</span><div><h3>展開のポイント（よく言われるセオリーを5年のデータで確かめたもの）</h3>' +
     out.map(([m, t]) => '<div class="tk-sc"><span style="margin-right:4px">' + m + "</span>" + t + "</div>").join("") +
