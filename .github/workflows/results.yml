@@ -75,6 +75,23 @@ jobs:
           SNAP_DIR: /tmp/snap/snap
         run: node results.js --stats-only
 
+      # 成績タブで過去のレースを押すと詳細を開くため、その日の出走表のテキストを pastcard ブランチに残す(hikitsugi §4-33)
+      - name: その日の出走表を pastcard ブランチに残す
+        continue-on-error: true
+        run: |
+          git fetch -q --depth=1 origin refs/heads/pastcard
+          rm -rf /tmp/pcb && git worktree add -q --detach /tmp/pcb FETCH_HEAD
+          node dayraw.js /tmp/pcb
+          cd /tmp/pcb
+          git add dayraw-*.json.gz
+          git diff --cached --quiet && echo "変更なし" && exit 0
+          git -c user.name=race-bot -c user.email=actions@github.com commit -qm "dayraw: その日の出走表"
+          for i in 1 2 3 4 5; do
+            if git push -q origin HEAD:refs/heads/pastcard; then echo "push成功 (試行 $i)"; exit 0; fi
+            sleep 5; git fetch -q origin refs/heads/pastcard && git rebase -q FETCH_HEAD || { git rebase --abort; exit 1; }
+          done
+          exit 1
+
       - name: コミット(競合対策リトライ付き)
         run: |
           git config user.name "race-bot"
