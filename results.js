@@ -581,7 +581,8 @@ function dPicksOf(dir, e, d) {
   if (D_PAST == null) { try { D_PAST = JSON.parse(fs.readFileSync(path.join(dir, "d-past.json"), "utf8")).picks || {}; } catch (x) { D_PAST = {}; } }
   const id = e.id || (d + "_" + e.place + "_" + e.raceNo);
   const past = D_PAST[id];
-  if (past) return (typeof past[0] === "string" ? [past] : past).map((p) => [...p, "f"]);   // 古い形(1組)も読む
+  // d-past.json は期待値1.05以上で作ってある。いまの買い条件(evd.js の PICK。2026-10-14〜 1.10以上)に入る組だけ使う
+  if (past) return (typeof past[0] === "string" ? [past] : past).filter((p) => p[1] >= EVD.PICK.minEv && p[2] >= EVD.PICK.oddsLo && p[2] <= EVD.PICK.oddsHi).map((p) => [...p, "f"]);   // 古い形(1組)も読む
   if (!Array.isArray(e.riders) || e.riders.length < 5 || e.riders.some((r) => !r[7])) return [];
   const n = e.riders.length;
   const sn = snapOdds(d, e.place + "_" + e.raceNo);
