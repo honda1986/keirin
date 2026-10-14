@@ -32,6 +32,10 @@ const OUT = path.resolve(opt("out", "pcdir"));
 const CONC = Math.max(1, Math.min(6, parseInt(opt("conc", "2"), 10)));
 const WAIT = Math.max(0, parseInt(opt("wait", "250"), 10));
 const DEADLINE = Date.now() + 5 * 3600e3 + 20 * 60e3;
+// 「取り終えた日」にするのは、走らせた日(日本時間)より前の日だけ。当日・先の日はページが出そろっていない
+// (2026-09-27 に取った 9/28〜30 が、出走表の一部だけで「取り終えた」になっていた。2026-10-14 に修正)
+const jst8 = (t) => new Date(new Date(t).getTime() + 9 * 3600e3).toISOString().slice(0, 10).replace(/-/g, "");
+const TODAY = jst8(Date.now());
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
 const VENUE_PIDS = [11,12,13,21,22,23,24,25,26,27,28,31,32,34,35,36,37,38,42,43,44,45,46,47,48,51,53,54,55,56,61,62,63,71,73,74,75,81,83,84,85,86,87];
 const PID2NAME = {};
@@ -106,6 +110,8 @@ function build(html, it) {
   let store = { updatedAt: null, days: [], races: {} }, raws = {};
   try { store = JSON.parse(fs.readFileSync(file, "utf8")); } catch (e) {}
   try { raws = JSON.parse(zlib.gunzipSync(fs.readFileSync(rawFile)).toString("utf8")); } catch (e) {}
+  // 前の記録で「取り終えた」になっていても、記録した日(日本時間)以降の日は取り直す(取ってあるレースは飛ばすので、足りない分だけ)
+  if (store.updatedAt) { const u = jst8(store.updatedAt); store.days = store.days.filter((d) => d < u); }
   const save = () => {
     store.updatedAt = new Date().toISOString(); store.days.sort();
     fs.writeFileSync(file, JSON.stringify(store));
@@ -136,7 +142,7 @@ function build(html, it) {
       }
     }));
     fails += dayFail;
-    if (!dayFail) store.days.push(d8);          // 1件でも落ちた日は「取り終えた」にしない(次の起動で落ちた分だけ取り直す)
+    if (!dayFail && d8 < TODAY) store.days.push(d8);   // 1件でも落ちた日・当日と先の日は「取り終えた」にしない(次の起動で足りない分だけ取り直す)
     save();
     console.log(d8, list.length, "R 失敗", dayFail, "| 累計", pages, "ページ", ((Date.now() - t0) / 1000 / Math.max(1, pages)).toFixed(2), "秒/ページ");
   }
