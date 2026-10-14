@@ -17,6 +17,7 @@
 from dataclasses import dataclass, field
 
 from bet_store import make_key
+from config import yen_for
 from jst import minutes_to_close
 
 LATE_WINDOW = 30          # 締切を何分過ぎたぶんまで「間に合わなかった」と報せるか
@@ -133,7 +134,7 @@ def _bet(r, cfg, minutes, note="", t=None, n=1):
         kind=kind, n=n,
         date=r["date"], place=r["place"], rno=r["rno"], key=make_key(r["date"], r["place"], r["rno"], kind, n),
         ticket=t["ticket"], close=r["close"], cars=int(r.get("cars") or 0), need_odds=bool(r.get("needOdds")),
-        yen=cfg.bet_yen, minutes=round(minutes, 1), ev=t.get("ev"), odds=t.get("odds"),
+        yen=yen_for(cfg, kind, r.get("cars"), r.get("b1"))[0], minutes=round(minutes, 1), ev=t.get("ev"), odds=t.get("odds"),
         verdict=r.get("verdict") or "", snap_left=snap.get("left"), snap_age=snap.get("age"), note=note,
     )
 
@@ -196,7 +197,7 @@ def select(plan, done_keys, spent_yen, races_bought, cfg, at, bought_keys=()):
             continue
 
         if kind == "D":
-            if not cfg.buy_model_d:
+            if not cfg.buy_model_d or yen_for(cfg, "D", r.get("cars"), None)[0] == 0:   # 金額0 = 買わない（2026-10-14〜）
                 continue
             if minutes > cfg.decide_at_minutes:
                 continue
@@ -238,6 +239,11 @@ def select(plan, done_keys, spent_yen, races_bought, cfg, at, bought_keys=()):
             brk = r.get("brk")
             pct = f"{brk * 100:.0f}%・" if isinstance(brk, (int, float)) else ""
             res.skips.append((_bet(r, cfg, minutes), f"本命ラインが切れにくい（離れる確率{pct}17%未満）"))
+            continue
+        yen, cat = yen_for(cfg, "hot", r.get("cars"), r.get("b1"))
+        if yen == 0:
+            # 種類ごとの金額が0 = 買わない（🔥9車は先頭のB率1位とそれ以外で分けられる。hikitsugi §4-32）
+            res.skips.append((_bet(r, cfg, minutes), f"{cat}は買わない設定"))
             continue
         ok, note, why = _snap_ok(r, cfg)
         if mode == "all":

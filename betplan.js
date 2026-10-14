@@ -21,6 +21,8 @@
 //   ★2026-10-13(hikitsugi §4-26): 🔥の9車立ては「3人のラインが切れる確率 brk(番手か3番手が前について行けない確率)が17%以上」も条件
 //     brk は fetch.js が plan.brk に書く(tenkai.js の detach)。ここでは brk と brkOk(17%以上か。分からなければ null)を返すだけ。
 //     verdict は変えない。見送るかは bet/ の hot9_line_break(既定 true)で決める
+//   ★2026-10-14(hikitsugi §4-32): 🔥に b1(本命ラインの先頭のB率がいちばんか。fetch.js の plan.b1。分からなければ null)を足す。
+//     金額(買わない=0)は bet/ の hot9_b1_yen / hot9_rest_yen で分ける
 //
 // ★倍率の取り方(新しいほうを使う)
 //   1. 手元の snapwork/YYYYMMDD.jsonl(PC の snap.js が3分おきに書く)
@@ -204,7 +206,8 @@ function main() {
     const j = judge(p, delta, s);
     const brk = typeof p.brk === "number" ? p.brk : null;
     const brkOk = p.cars >= 8 && brk != null ? brk >= HOT9_BRK : null;
-    return { kind: "hot", ...base(r, c, s), cars: p.cars, ticket: p.ticket, needOdds: !!p.needOdds, bandLo: p.bandLo, bandHi: p.bandHi, brk, brkOk, ...j };
+    const b1 = typeof p.b1 === "boolean" ? p.b1 : null;   // 本命ラインの先頭のB率がいちばん(fetch.js の plan.b1。2026-10-14〜)。bet/ が金額を分ける
+    return { kind: "hot", ...base(r, c, s), cars: p.cars, ticket: p.ticket, needOdds: !!p.needOdds, bandLo: p.bandLo, bandHi: p.bandHi, brk, brkOk, b1, ...j };
   });
   const hotTicket = {};
   for (const x of hotOut) hotTicket[x.key] = x.ticket;
@@ -233,7 +236,8 @@ function main() {
     const tk = x.kind === "D" && x.tickets && x.tickets.length > 1
       ? x.tickets.map((t) => `${t.ticket}(期待値${t.ev.toFixed(2)} ${t.odds}倍)`).join(" ") + ` ${x.cars}車 ${x.verdict}`
       : `${x.ticket} ${x.cars}車 ${x.verdict}${x.ev != null ? " 期待値" + x.ev.toFixed(2) : ""}${x.odds != null ? " " + x.odds + "倍" : ""}` +
-        (x.kind === "hot" && x.brk != null ? ` 切れる確率${Math.round(x.brk * 100)}%${x.brkOk === false ? "(17%未満)" : ""}` : "");
+        (x.kind === "hot" && x.brk != null ? ` 切れる確率${Math.round(x.brk * 100)}%${x.brkOk === false ? "(17%未満)" : ""}` : "") +
+        (x.kind === "hot" && x.b1 != null ? (x.b1 ? " B率1位" : " B率2位以下") : "");
     console.log(`  ${x.kind === "D" ? "Ⓓ" : "🔥"} 締切${x.close}(あと${x.minutesToClose}分) ${x.key.padEnd(8, "　")} ${tk}` +
       (x.snap ? ` [倍率 締切${x.snap.left}分前・${x.snap.age}分前に取得・${x.snap.src}]` : ""));
   }

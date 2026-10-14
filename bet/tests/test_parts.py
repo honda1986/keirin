@@ -333,6 +333,74 @@ class TestHotMode(unittest.TestCase):
         self.assertEqual(sorted(settings.MODE_ORDER), sorted(config_mod.HOT_MODES))
 
 
+class TestYenByKind(unittest.TestCase):
+    """種類ごとの1点の金額（🔥9車 B率1位 / それ以外 / 🔥7車 / モデルD）。0 = 買わない。2026-10-14〜（hikitsugi §4-32）"""
+    def sel(self, p, c, at=NOW, spent=0):
+        return selector.select(p, set(), spent, 0, c, at)
+
+    def _hot(self, b1, place="岐阜", rno=3, close="15:05", cars=9):
+        lo, hi = (5, 15) if cars >= 8 else (4, 15)
+        x = race(need=True, cars=cars, bandlo=lo, bandhi=hi, place=place, rno=rno, close=close)
+        x["inBand"] = True
+        x["b1"] = b1
+        return x
+
+    def test_何も書かなければ全部1点あたりの金額(self):
+        r = self.sel(plan(self._hot(True), self._hot(False, place="広島", rno=1, close="15:04")), cfg())
+        self.assertEqual(sorted(b.yen for b in r.bets), [100, 100])
+
+    def test_B率1位とそれ以外で金額を分ける(self):
+        p = plan(self._hot(True), self._hot(False, place="広島", rno=1, close="15:04"), self._hot(None, place="別府", rno=2, close="15:03"))
+        r = self.sel(p, cfg(hot9_b1_yen=200, hot9_rest_yen=100))
+        self.assertEqual({b.place: b.yen for b in r.bets}, {"岐阜": 200, "広島": 100, "別府": 100})   # 分からない(None)は それ以外
+
+    def test_金額0は買わない(self):
+        p = plan(self._hot(True), self._hot(False, place="広島", rno=1, close="15:04"))
+        r = self.sel(p, cfg(hot9_rest_yen=0))
+        self.assertEqual([b.place for b in r.bets], ["岐阜"])
+        self.assertIn("B率1位以外", r.skips[0][1]); self.assertIn("買わない設定", r.skips[0][1])
+        r = self.sel(p, cfg(hot9_b1_yen=0, hot9_rest_yen=0))
+        self.assertEqual(r.bets, [])
+
+    def test_モデルDの金額(self):
+        d = race(kind="D", ticket="3=5=8", odds=18.0, ev=1.15)
+        self.assertEqual([b.yen for b in self.sel(plan(d), cfg(model_d_yen=300)).bets], [300])
+        self.assertEqual(self.sel(plan(d), cfg(model_d_yen=0)).bets, [])
+        self.assertEqual([b.yen for b in self.sel(plan(d), cfg(bet_yen=200)).bets], [200])
+
+    def test_1日の上限は金額で数える(self):
+        p = plan(self._hot(True), self._hot(False, place="広島", rno=1, close="15:04"))
+        r = self.sel(p, cfg(hot9_b1_yen=500, max_yen_per_day=1000), spent=500)
+        self.assertEqual([b.place for b in r.bets], ["広島"])          # 500+100 は入る、続く 500 は 1000 を超える
+        self.assertTrue(any("上限" in w for w in r.warnings))
+
+    def test_設定の値(self):
+        import settings
+        c = cfg()
+        self.assertEqual((c.hot9_b1_yen, c.hot9_rest_yen, c.hot7_yen, c.model_d_yen), (None, None, None, None))
+        for bad in (150, -100, 20000, "100", True):
+            with self.assertRaises(config_mod.ConfigError):
+                cfg(hot9_b1_yen=bad)
+        self.assertEqual(cfg(hot9_b1_yen=0).hot9_b1_yen, 0)
+        self.assertEqual(settings.show({"bet_yen": 100}, "hot9_b1_yen", settings.YENOPT), "買う・1点あたりの金額と同じ（100 円）")
+        self.assertEqual(settings.show({"hot9_b1_yen": 0}, "hot9_b1_yen", settings.YENOPT), "買わない")
+        self.assertEqual(settings.show({"hot9_b1_yen": 200}, "hot9_b1_yen", settings.YENOPT), "買う・200 円")
+        import builtins
+        orig = builtins.input
+        try:
+            for typed, want in (("-", "__NULL__"), ("0", 0), ("300", 300)):
+                builtins.input = lambda *_a, _t=typed: _t
+                with open(os.devnull, "w") as dn:
+                    so = sys.stdout; sys.stdout = dn
+                    try:
+                        v, _ = settings.ask("x", settings.YENOPT, "")
+                    finally:
+                        sys.stdout = so
+                self.assertEqual(v, want)
+        finally:
+            builtins.input = orig
+
+
 class TestHotLineBreak(unittest.TestCase):
     """🔥9車立ては本命ラインが切れやすい（離れる確率17%以上）ときだけ。2026-10-13〜（hikitsugi §4-26）"""
     def sel(self, p, c, at=NOW):

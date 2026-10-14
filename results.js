@@ -134,8 +134,10 @@ function makeEntry(x, r, d8) {
     ss: x.ss ? 1 : undefined,
     seri: Array.isArray(x.seri) && x.seri.length ? x.seri : undefined,   // 競り(並び予想のカッコ)。2026-09-30 から          // S級S班がいる(🔥の判定で使う)。2026-09-28 より前の記録には無い
     front: Array.isArray(x.front) ? x.front : undefined,   // ラインごとの前受け確率(front.js)。2026-09-30 から
-    // [🔥の買い目, 本命ラインが切れる確率](fetch.js の plan.brk)。🔥9車は17%未満なら見送り(hikitsugi §4-26)。2026-10-13 から
-    brk: x.plan && x.plan.ticket && typeof x.plan.brk === "number" ? [x.plan.ticket, x.plan.brk] : undefined,
+    // [🔥の買い目, 本命ラインが切れる確率, 先頭のB率1位](fetch.js の plan.brk / plan.b1)。🔥9車は17%未満なら見送り(hikitsugi §4-26)・
+    // B率1位とそれ以外で金額を分けられる(§4-32)。確率は 2026-10-13・B率1位は 2026-10-14 から(無ければ null)
+    brk: x.plan && x.plan.ticket && (typeof x.plan.brk === "number" || typeof x.plan.b1 === "boolean")
+      ? [x.plan.ticket, typeof x.plan.brk === "number" ? x.plan.brk : null, typeof x.plan.b1 === "boolean" ? x.plan.b1 : null] : undefined,
   };
 }
 
@@ -509,7 +511,8 @@ async function main() {
 //   { updatedAt, days: { "YYYYMMDD": { n: 結果が取れたレース数, h: [🔥1件ずつ] } } }
 //   🔥1件 = [場, R, 車立て, 買い目"1=2=3", 着順"1-2-3"("1-2-?"=3着不明), 的中(1/0/-1=3着不明), 3複配当(的中時, 不明はnull), 買い目の確定オッズ(無ければnull),
 //            (空き: アプリの今日の分は発走時刻), 期待値(無ければnull), 期待値の倍率の出どころ("s"=締切前の記録 / "f"=確定オッズ),
-//            本命ラインが切れる確率(2026-10-13〜。無い件は11個のまま)]
+//            本命ラインが切れる確率(2026-10-13〜・過去は hot-past.json。null = 不明), 先頭のB率1位(1/0。2026-10-14〜・過去は hot-past.json)]
+//            (どちらも分からない件は11個のまま)
 // 7車は「オッズ4〜15倍のときだけ買う」ので、確定オッズがあれば帯の外を見送り扱いにできるよう載せる。
 // 過去分は、いまの買い方(本命ライン3人・🔥条件)を当時の予想に当てはめたさかのぼり計算。
 const ODDS_CACHE = {};
@@ -576,6 +579,12 @@ function evForEntry(dir, e, d, ticket) {
 // それより後は history の riders(府県つき)と倍率(締切前の記録があればそれ、無ければ確定オッズ)から毎晩計算する
 const EVD = require("./evd.js");
 let D_PAST = null;
+// 🔥9車の過去分の [買い目, 切れる確率, B率1位](hot-past.json。2025-01〜2026-09・作り直した出走表)。history に brk が無い日に使う
+let HOT_PAST = null;
+function hotPastOf(dir, id) {
+  if (HOT_PAST == null) { try { HOT_PAST = JSON.parse(fs.readFileSync(path.join(dir, "hot-past.json"), "utf8")).hot || {}; } catch (x) { HOT_PAST = {}; } }
+  return HOT_PAST[id] || null;
+}
 // → [[買い目, 期待値, 倍率, 出どころ], ...](条件に合う組を全部。期待値の高い順)。無ければ []
 function dPicksOf(dir, e, d) {
   if (D_PAST == null) { try { D_PAST = JSON.parse(fs.readFileSync(path.join(dir, "d-past.json"), "utf8")).picks || {}; } catch (x) { D_PAST = {}; } }
@@ -617,8 +626,11 @@ function writeDaily(dir, byDate, rankedOf) {
       const row = [e.place, e.raceNo, pl.cars, pl.ticket, e.f + "-" + e.s + "-" + (done ? e.t : "?"), hit,
         hit === 1 ? (e.p3fpay != null ? e.p3fpay : null) : 0, oddsOf(dir, e.id || (d + "_" + e.place + "_" + e.raceNo), trio),
         null, ev, evSrc];
-      // 12番目: 本命ラインが切れる確率(買い目が同じときだけ。無い日は付けない = アプリは見送らない)
-      if (Array.isArray(e.brk) && e.brk[0] === pl.ticket) row.push(e.brk[1]);
+      // 12番目: 本命ラインが切れる確率(null = 分からない → アプリは見送らない)・13番目: 先頭のB率1位(1/0。分からなければ付けない)。
+      // 買い目が同じときだけ。history に無い日は hot-past.json(2025-01〜2026-09)
+      let hb = Array.isArray(e.brk) && e.brk[0] === pl.ticket ? e.brk : null;
+      if (!hb && pl.cars >= 8) { const hp = hotPastOf(dir, e.id || (d + "_" + e.place + "_" + e.raceNo)); if (hp && hp[0] === pl.ticket) hb = hp; }
+      if (hb) { row.push(hb[1] != null ? hb[1] : null); if (hb[2] != null) row.push(hb[2] ? 1 : 0); }
       h.push(row);
     }
     const rn = (x) => parseInt(x[1], 10) || 0;

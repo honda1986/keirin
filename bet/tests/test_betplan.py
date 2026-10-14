@@ -99,6 +99,14 @@ class TestBetplan(unittest.TestCase):
         out = self.run_plan(rs, [snap("岐阜_3R", 9), snap("広島_1R", 9), snap("別府_4R", 9), snap("松阪_5R", 7)])
         got = {x["key"]: (x["brk"], x["brkOk"]) for x in self.hot(out)}
         self.assertEqual(got, {"岐阜_3R": (0.12, False), "広島_1R": (0.17, True), "別府_4R": (None, None), "松阪_5R": (0.30, None)})
+
+    def test_先頭のB率1位を返す(self):
+        # plan.b1(fetch.js が書く)をそのまま返す。無い古い記録は null(2026-10-14〜)
+        snap = lambda k: {"t": "15:00:10", "k": k, "left": 4.8, "n": 9, "o": self.odds(9, 9.0, base=300.0)}
+        rs = [race(), race(key="広島_1R"), race(key="別府_4R")]
+        rs[0]["plan"]["b1"], rs[1]["plan"]["b1"] = True, False
+        out = self.run_plan(rs, [snap("岐阜_3R"), snap("広島_1R"), snap("別府_4R")])
+        self.assertEqual({x["key"]: x["b1"] for x in self.hot(out)}, {"岐阜_3R": True, "広島_1R": False, "別府_4R": None})
         self.assertTrue(all(x["verdict"] == "buy" or x["verdict"] == "skipEv" for x in self.hot(out) if x["cars"] == 9))   # verdict は変えない
 
     def test_モデルDの買う組はevd_jsと同じ(self):
