@@ -44,6 +44,19 @@ function lineBreakOf(p, r, bank, rankBase, trio) {
   return Math.round((1 - (1 - det[ln[1]]) * (1 - det[ln[2]])) * 1000) / 1000;
 }
 
+// 🔥の3人のラインの先頭の B率(B回数 ÷ 着度数の合計)が、2人以上のラインの先頭どうしでいちばんか(同じ値も1位)。
+// 2022〜2026年の🔥9車(5〜15倍・離れる17%以上)で 1位 139% / それ以外 116%(hikitsugi §4-31・§4-32)。分析(analysis/s2/hot2.py)と同じ計算
+function headB1Of(p, trio) {
+  if (!Array.isArray(trio) || trio.length < 3) return null;
+  const ent = {}; for (const e of p.entries) ent[e.car] = e;
+  const lines = (p.lines || []).map((l) => l.filter((c) => ent[c])).filter((l) => l.length >= 2);
+  const ln = lines.find((l) => trio.every((c) => l.includes(c)));
+  if (!ln) return null;
+  const rate = (c) => { const e = ent[c], s = e.seiseki || {}; const tot = (s.win1 || 0) + (s.win2 || 0) + (s.win3 || 0) + (s.out || 0); return tot ? (e.B || 0) / tot : 0; };
+  const mine = rate(ln[0]);
+  return lines.every((l) => rate(l[0]) <= mine + 1e-12);
+}
+
 // 競走得点の日次ログ。Kドリームスには前得点が無いので、ここから scoreDiff を復元する。
 // この実行で書き足すより前の状態を読む(当日ぶんは prevMeetScore が見ないので順序は問わない)。
 let SCORE_LOG = null;
@@ -163,6 +176,7 @@ function buildEntry(text, item) {
   const plan = f3PlanFrom((r.scores || []).map((sc) => sc.car), p.lines || [], { ss: p.entries.some((e) => e.grade === "SS"), seri: p.seri });
   if (plan && plan.trio) {
     try { plan.brk = lineBreakOf(p, r, bank, rankBase, plan.trio); } catch (e) { console.error("  離れる確率:", e.message); plan.brk = null; }
+    try { plan.b1 = headB1Of(p, plan.trio); } catch (e) { console.error("  B率:", e.message); plan.b1 = null; }
   }
   const riders = p.entries.map((en) => {
     const sc = (r.scores || []).find((x) => x.car === en.car);
@@ -190,7 +204,7 @@ function buildEntry(text, item) {
     // ss: S級S班の選手がいるか(🔥の9車は見送り。engine.js の f3PlanFrom)
     ss: p.entries.some((e) => e.grade === "SS"),
     seri: p.seri && p.seri.length ? p.seri.filter((q) => q.every((c) => cars.has(c))) : undefined,   // 競り [[カッコの前, 後], ...]。2026-09-30 から
-    plan,           // plan.brk: 🔥の3人のラインが切れる確率(lineBreakOf)。2026-10-13 から
+    plan,           // plan.brk: 🔥の3人のラインが切れる確率(lineBreakOf)。2026-10-13 から / plan.b1: 先頭のB率がいちばん(headB1Of)。2026-10-14 から
     gap: r.scores && r.scores[1] ? Number((r.scores[0].total - r.scores[1].total).toFixed(1)) : null,
     nishatan: r.bets?.nishatan, sanrentan: r.bets?.sanrentan,
     raw: compactCard(text, p.place, p.raceNo), url: item.url,

@@ -21,6 +21,7 @@ PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
 YEN, LIMIT_YEN, LIMIT_POINTS, YESNO, MINUTES = "yen", "limit_yen", "limit_pt", "yn", "min"
 ONOFF = "onoff"
+YENOPT = "yenopt"      # 種類ごとの1点の金額: null = 1点あたりの金額と同じ / 0 = 買わない
 MODE = "mode"
 PAY = "pay"
 TERMS = "terms"
@@ -36,12 +37,16 @@ TERMS_NOTE = """
 
 ITEMS = [
     ("live を使う（規約を読んだ記録）", "i_have_read_the_terms", TERMS),
-    ("1点あたりの金額", "bet_yen", YEN),
+    ("1点あたりの金額（ふだん）", "bet_yen", YEN),
     ("1日の上限（円）", "max_yen_per_day", LIMIT_YEN),
     ("1日の上限（点数）", "max_races_per_day", LIMIT_POINTS),
     ("モデルDも買う（期待値1.10以上・20倍以下）", "buy_model_d", YESNO),
     ("🔥9車立ての買い方（帯 5〜15倍）", "hot9_mode", MODE),
     ("🔥9車立ては本命ラインが切れやすいときだけ（離れる確率17%以上）", "hot9_line_break", ONOFF),
+    ("🔥9車（先頭のB率1位）を買う・金額", "hot9_b1_yen", YENOPT),
+    ("🔥9車（B率1位以外）を買う・金額", "hot9_rest_yen", YENOPT),
+    ("🔥7車を買う・金額（買い方が「買わない」なら買わない）", "hot7_yen", YENOPT),
+    ("モデルDの金額（買うかは上の「モデルDも買う」）", "model_d_yen", YENOPT),
     ("🔥7車立ての買い方（帯 4〜15倍）", "hot7_mode", MODE),
     ("支払い方法", "payment_method", PAY),
     ("締切まで何分を切ったら買わないか", "close_min_minutes", MINUTES),
@@ -56,6 +61,11 @@ MODE_NOTE = """
   🔥（本命ライン3人の3連複1点）を、締切前の倍率で何を見て買うか。
   期待値はアプリと同じ ev.js。帯は 9車立て 5〜15倍・7車立て 4〜15倍。
   5年の成績: 9車立ては「帯の中だけ」がいちばん安定（帯の中は5年ともプラス）。7車立ては帯の中でも5年合計でマイナス。"""
+
+YENOPT_NOTE = """
+  🔥9車は「本命ラインの先頭のB率（最終バックを先頭で通った回数の割合）がレースでいちばん」かどうかで分けて
+  金額を決められます。2022〜2026年: B率1位 回収139%（年に約100レース）/ それ以外 116%（約140レース）。
+  1日の上限（円）に引っかからないよう、金額を上げたら上限も見直してください。"""
 
 TOPIC_NOTE = """
   スマホに ntfy アプリを入れて、ここに入れたのと同じ名前のトピックを購読してください。
@@ -105,6 +115,10 @@ def show(d, key, kind):
         return "OPコイン" if v == "opcoin" else "投票資金"
     if kind == TOPIC:
         return v or "通知しない"
+    if kind == YENOPT:
+        if v is None:
+            return f"買う・1点あたりの金額と同じ（{d.get('bet_yen', config_mod.DEFAULTS['bet_yen']):,} 円）"
+        return "買わない" if v == 0 else f"買う・{v:,} 円"
     if v is None:
         return "無制限"
     if kind == YEN or kind == LIMIT_YEN:
@@ -159,11 +173,16 @@ def ask(label, kind, now):
         print("  数字を入れてください。0 なら無制限")
     elif kind == YEN:
         print("  数字を入れてください（100円単位）")
+    elif kind == YENOPT:
+        print(YENOPT_NOTE)
+        print("  金額を入れてください（100円単位）。0 = 買わない / - = 1点あたりの金額（ふだん）と同じ")
     else:
         print("  分を入れてください")
     s = input("  新しい値（何も入れずに Enter で変えない）: ").strip()
     if not s:
         return None, "変えませんでした"
+    if kind == YENOPT and s == "-":
+        return "__NULL__", ""
     if kind == PAY:
         if s not in ("1", "2"):
             return None, "1 か 2 を入れてください"

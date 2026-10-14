@@ -33,6 +33,12 @@ DEFAULTS = {
     # 🔥9車立ては「3人のラインが切れる確率（番手か3番手が前について行けない確率）17%以上」のときだけ（2026-10-13〜。hikitsugi §4-26）
     #   5年（5〜15倍）: 17%以上 1,138R 回収125%（5年とも114%以上）/ 17%未満 1,105R 99%。確率が分からないレースは見送らない
     "hot9_line_break": True,
+    # 1点の金額をレースの種類ごとに（2026-10-14〜。hikitsugi §4-32）。null = bet_yen と同じ・0 = 買わない・100円単位
+    #   🔥9車は「本命ラインの先頭のB率がレースでいちばん」（5年 139%）とそれ以外（116%）で分ける。B率が分からないレースは「それ以外」
+    "hot9_b1_yen": None,
+    "hot9_rest_yen": None,
+    "hot7_yen": None,
+    "model_d_yen": None,
     "decide_at_minutes": 2.5,
     "decide_left_minutes": 6.0,   # 古い設定（使っていない。残っていても警告しないため）
     "max_snap_age_minutes": 4.0,
@@ -75,6 +81,10 @@ class Config:
     hot9_mode: str = "band"
     hot7_mode: str = "off"
     hot9_line_break: bool = True
+    hot9_b1_yen: "int | None" = None
+    hot9_rest_yen: "int | None" = None
+    hot7_yen: "int | None" = None
+    model_d_yen: "int | None" = None
     buy_model_d: bool = True
     decide_at_minutes: float = 2.5
     max_snap_age_minutes: float = 4.0
@@ -157,6 +167,29 @@ HOT_MODE_LABEL = {
 }
 
 
+def _as_yen_opt(d, key):
+    """null = bet_yen と同じ。0 = 買わない。それ以外は 100〜10000 の 100円単位"""
+    v = d.get(key, DEFAULTS[key])
+    if v is None:
+        return None
+    if isinstance(v, bool) or not isinstance(v, int):
+        raise ConfigError(f"{key} は整数（100円単位・0 で買わない）か null で書いてください（いまは {v!r}）")
+    if v < 0 or v > 10000 or v % 100:
+        raise ConfigError(f"{key} は 0（買わない）か 100〜10000 の 100円単位にしてください（いまは {v}）")
+    return v
+
+
+# レースの種類 → 1点の金額（0 = 買わない）と、その種類の名前
+def yen_for(cfg, kind, cars, b1):
+    if kind == "D":
+        v, name = cfg.model_d_yen, "モデルD"
+    elif int(cars or 0) >= 8:
+        v, name = (cfg.hot9_b1_yen, "🔥9車（先頭のB率1位）") if b1 is True else (cfg.hot9_rest_yen, "🔥9車（B率1位以外）")
+    else:
+        v, name = cfg.hot7_yen, "🔥7車"
+    return (cfg.bet_yen if v is None else v), name
+
+
 def _as_mode(d, key, fallback):
     v = d.get(key)
     if v is None:
@@ -190,6 +223,10 @@ def from_dict(d, base_dir="."):
         buy_7car_hot=_as_bool(d, "buy_7car_hot"),
         buy_model_d=_as_bool(d, "buy_model_d"),
         hot9_line_break=_as_bool(d, "hot9_line_break"),
+        hot9_b1_yen=_as_yen_opt(d, "hot9_b1_yen"),
+        hot9_rest_yen=_as_yen_opt(d, "hot9_rest_yen"),
+        hot7_yen=_as_yen_opt(d, "hot7_yen"),
+        model_d_yen=_as_yen_opt(d, "model_d_yen"),
         decide_at_minutes=_as_num(d, "decide_at_minutes", lo=1, hi=10),
         max_snap_age_minutes=_as_num(d, "max_snap_age_minutes", lo=1, hi=10),
         close_min_minutes=_as_num(d, "close_min_minutes", lo=0.5, hi=10),
