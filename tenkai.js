@@ -162,6 +162,32 @@
     return { det, keep3, lines: race.lines, lineInfo: lines.map((o) => ({ size: o.size, style: STYLE_NAME[o.style] })), pS, pB, lead, scenarios: sc, pw, place, tri, fuku, kimari };
   }
 
+  // オッズ(3連複の倍率)を評価に足す(hikitsugi §4-29)。3連単の確率 P(a,b,c) ∝ P_展開^0.7 × q(3人)^0.5、q = 3連複の倍率から見た確率(1/倍率を全組で割り戻す)
+  //   2022-24 で作った展開・2025年で α,β を決めて 2026年で試すと: ◎1着 45.4→46.5%・○2着 29.6→30.3%・▲3着 25.7→26.7%・3連単1点 11.9→12.4%・3連複1点 25.0→26.8%
+  //   odds = 3連複の倍率(1=2=3, 1=2=4, … の順。odds-live の latest.json の o と同じ)、n = 車立て。使えなければ null
+  const ODDS_MIX = { model: 0.7, market: 0.5 };
+  function withOdds(res, odds, n) {
+    if (!res || !Array.isArray(odds) || !(n >= 3)) return null;
+    const idx = {}; let i = 0;
+    for (let a = 1; a <= n; a++) for (let b = a + 1; b <= n; b++) for (let c = b + 1; c <= n; c++) idx[a + "=" + b + "=" + c] = i++;
+    if (odds.length !== i) return null;
+    const q = odds.map((v) => (typeof v === "number" && v > 0 && v < 9999 ? 1 / v : 0));
+    const qs = q.reduce((x, y) => x + y, 0); if (!qs) return null;
+    let tot = 0;
+    const tri = res.tri.map(([a, b, c, p]) => {
+      const j = idx[[a, b, c].sort((x, y) => x - y).join("=")];
+      if (j == null) return null;
+      const w = Math.exp(ODDS_MIX.model * Math.log(Math.max(p, 1e-12)) + ODDS_MIX.market * Math.log(Math.max(q[j] / qs, 1e-6)));
+      tot += w; return [a, b, c, w];
+    });
+    if (tri.some((t) => t == null) || !tot) return null;
+    tri.forEach((t) => { t[3] /= tot; }); tri.sort((x, y) => y[3] - x[3]);
+    const fukuM = {}; for (const [a, b, c, p] of tri) { const key = [a, b, c].sort((x, y) => x - y).join("="); fukuM[key] = (fukuM[key] || 0) + p; }
+    const place = {}; Object.keys(res.place).forEach((car) => { place[car] = [0, 0, 0]; });
+    for (const [a, b, c, p] of tri) { place[a][0] += p; place[b][1] += p; place[c][2] += p; }
+    return Object.assign({}, res, { tri, fuku: Object.entries(fukuM).sort((x, y) => y[1] - x[1]), place, oddsMixed: true });
+  }
+
   // 予想印: 3連単の1番手の 1着-2着-3着 に ◎○▲、残りは3着以内の確率の順に △ ×
   function marks(res) {
     const [a, b, c] = res.tri[0];
@@ -170,7 +196,7 @@
     return [["◎", a], ["○", b], ["▲", c], ["△", rest[0]], ["×", rest[1]]].filter((x) => x[1] != null).map(([m, car]) => ({ mark: m, car, win: res.place[car][0], top3: in3(car) }));
   }
 
-  const api = { load, predict, detach, marks, features, style, STYLE_NAME, get model() { return MODEL; } };
+  const api = { load, predict, detach, marks, withOdds, ODDS_MIX, features, style, STYLE_NAME, get model() { return MODEL; } };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TENKAI = api;
 })(typeof self !== "undefined" ? self : this);
