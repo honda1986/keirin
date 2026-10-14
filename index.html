@@ -383,6 +383,15 @@
   .racehead { padding: 4px 4px 10px; }
   .racehead .t { font-size: 20px; font-weight: 900; }
   .racehead .m { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  /* レースの結果(着順・払戻金。2026-10-15) */
+  .raceres { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin: 0 0 12px; }
+  .raceres .rh2 { font-size: 11px; color: var(--muted); font-weight: 700; margin-bottom: 7px; }
+  .raceres .ord { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .raceres .ord > span { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+  .raceres .pays { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 9px; font-size: 12px; color: var(--muted); align-items: baseline; }
+  .raceres .pays b { color: var(--text); font-size: 15px; font-variant-numeric: tabular-nums; }
+  .raceres .mine { margin-top: 9px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .raceres .mine .r { margin-left: auto; font-weight: 900; }
   /* 展開予想(tenkai.js) */
   .tk-step { display: grid; grid-template-columns: 1.6em minmax(0, 1fr); gap: 8px; padding: 10px 0; border-bottom: 1px dashed var(--line); }
   .tk-step:last-child { border-bottom: none; }
@@ -513,6 +522,7 @@
   <!-- ===== レースの詳細(1レースのページ。開くと下のタブを隠し、上の「戻る」で元の画面へ) ===== -->
   <div class="racebar" id="raceBar" data-tab="ana"><button id="raceBack" type="button" aria-label="戻る">‹ 戻る</button><span id="raceBarT">レースの詳細</span></div>
   <section class="racehead hidden" id="raceHead" data-tab="ana"></section>
+  <section class="raceres hidden" id="raceRes" data-tab="ana"></section>
   <div id="anaEmpty" class="empty" data-tab="ana">「今日」「レース」「成績」でレースを押すと、ここに詳しい予想が出ます。</div>
   <section class="card hidden" id="betCard" data-tab="ana"><h2>買い目（いまの買い方）</h2><div id="buyBox"></div></section>
   <section class="card hl hidden" id="tenkaiCard" data-tab="ana"><h2>展開予想</h2><div id="tkBox"></div>
@@ -1849,7 +1859,7 @@ $("paste").addEventListener("click", async () => {
 $("clear").addEventListener("click", () => {
   $("src").value = "";
   $("track").value = "";
-  ["bankCard","parseCard","scoreCard","tenkaiCard","markCard","betCard","evTopCard","dataFold"].forEach((i) => { const el = $(i); if (el) el.classList.add("hidden"); });
+  ["bankCard","parseCard","scoreCard","tenkaiCard","markCard","betCard","evTopCard","dataFold","raceRes"].forEach((i) => { const el = $(i); if (el) el.classList.add("hidden"); });
   $("err").classList.add("hidden");
   lastParsed = null;
   $("src").focus();
@@ -2339,7 +2349,7 @@ function strToLines(str, cars) {
 
 $("run").addEventListener("click", () => {
   $("err").classList.add("hidden");
-  ["bankCard","parseCard","scoreCard","tenkaiCard","markCard","betCard","evTopCard","dataFold"].forEach((i) => $(i).classList.add("hidden"));
+  ["bankCard","parseCard","scoreCard","tenkaiCard","markCard","betCard","evTopCard","dataFold","raceRes"].forEach((i) => $(i).classList.add("hidden"));
   let p, tName;
   try {
     p = parseCard($("src").value, TRACK_NAMES);
@@ -2393,7 +2403,7 @@ function render(p, tName) {
   }
   if ($("anaEmpty")) $("anaEmpty").style.display = "none";
   ANA_ROW = PAST_RACE ? null : raceList.find((x) => x.place === p.place && x.raceNo === p.raceNo) || null;   // 期待値 上位5 用(貼り付けたレース・成績から開いた過去のレースは null)
-  if (PAST_RACE && rh) rh.innerHTML += pastResultHtml();
+  RES_AT = [p.place || "", p.raceNo || ""]; paintRaceRes();   // 結果(着順・払戻金)
   paintEvTop();
   try {
     const rk = {}; (r.scores || []).forEach((sc, i) => { rk[sc.car] = i + 1; });
@@ -3121,7 +3131,7 @@ function paintBuy(p, r, b) {
   // 貼り付けたレースで展開モデルがまだ読めていなければ、読めたら切れる確率を入れ直す
   if (!today && !P && pl && pl.hot && pl.cars >= 8 && !(typeof TENKAI !== "undefined" && TENKAI.model)) TENKAI_READY.then((ok) => { if (ok && BUY_ARGS && BUY_ARGS[0] === p) paintBuy(p, r, b); });
 }
-function repaintBuy() { const c = $("betCard"); if (BUY_ARGS && c && !c.classList.contains("hidden")) paintBuy(...BUY_ARGS); }
+function repaintBuy() { const c = $("betCard"); if (BUY_ARGS && c && !c.classList.contains("hidden")) { paintBuy(...BUY_ARGS); paintRaceRes(); } }
 // 終わったレースの1行
 function doneRow(it) {
   const r = it.r, res = f3ResultOf(r.place, r.raceNo, r.ticket);
@@ -3535,7 +3545,7 @@ async function openCalRace(i) {
   const key = x[0] + "_" + x[1];
   if (RACE_DAY && d8 === RACE_DAY.replace(/-/g, "") && raceList.some((y) => y.key === key)) { PAST_RACE = null; loadRace(key); return; }
   enterRace(); setRaceBar(x[0] + " " + x[1]);
-  ["bankCard","parseCard","scoreCard","tenkaiCard","markCard","betCard","evTopCard","frontCard","dataFold"].forEach((id) => { if ($(id)) $(id).classList.add("hidden"); });
+  ["bankCard","parseCard","scoreCard","tenkaiCard","markCard","betCard","evTopCard","frontCard","dataFold","raceRes"].forEach((id) => { if ($(id)) $(id).classList.add("hidden"); });
   const rh = $("raceHead");
   if (rh) { rh.innerHTML = '<div class="t">' + esc(x[0] + " " + x[1]) + '</div><div class="m">' + d8Label(d8) + " ・ 出走表を読み込んでいます…</div>"; rh.classList.remove("hidden"); }
   if ($("anaEmpty")) $("anaEmpty").style.display = "none";
@@ -3551,13 +3561,34 @@ async function openCalRace(i) {
   const d = detect(raw); if (d) $("track").value = d;
   $("run").click();
 }
-// 過去のレースの結果と、そのとき出していた買い目(詳細の見出しの下に出す)
-function pastResultHtml() {
-  const P = PAST_RACE; if (!P) return "";
-  const x = P.x, order = x[4] ? x[4].split("-").map((c) => (c === "?" ? "?" : ball(+c, "s"))).join("") : "—";
-  const res = x[5] === 1 ? '<b class="pos">的中 ' + (x[6] != null ? Math.round(x[6] * P.yen / 100).toLocaleString() + "円" : "") + "</b>" : x[5] === 0 ? '<b class="neg">✗</b>' : "結果待ち";
-  return '<div class="resbox" style="margin-top:6px"><span style="color:var(--muted)">' + d8Label(P.d8) + " の結果</span>" + order +
-    '<span style="margin-left:auto">' + (P.isD ? "Ⓓ" : "🔥") + " " + ticketBalls(x[3], "s") + " " + res + "</span></div>";
+// レースの結果(着順・払戻金)。レースのページの見出しの下に出す(2026-10-15)
+//   今日のレース = 結果の速報(TODAY_RESULTS) / 成績から開いた日 = daily.json のその日の res(古い daily.json は着順だけ) / 貼り付けた別の日のレース = 出さない
+let RES_AT = null;
+function raceResOf(place, raceNo) {
+  if (PAST_RACE) {
+    const day = calDays()[PAST_RACE.d8] || {}, r = day.res && day.res[place + "_" + raceNo];
+    if (r) return { f: r[0], s: r[1], t: r[2], p3fpay: r[3], p3pay: r[4], p2pay: r[5] };
+    const o = String(PAST_RACE.x[4] || "").split("-").map(Number);
+    return o[0] ? { f: o[0], s: o[1], t: o[2] || null, p3fpay: PAST_RACE.x[5] === 1 ? PAST_RACE.x[6] : null } : null;
+  }
+  if (!ANA_ROW) return null;
+  return (TODAY_RESULTS || []).find((z) => z.place === place && z.raceNo === raceNo) || null;
+}
+function paintRaceRes() {
+  const el = $("raceRes"); if (!el || !RES_AT) return;
+  const r = raceResOf(RES_AT[0], RES_AT[1]), P = PAST_RACE;
+  if (!r || r.f == null) { el.classList.add("hidden"); el.innerHTML = ""; return; }
+  const pos = (c, k) => "<span>" + k + (c != null ? ball(+c, "") : '<span class="cb" style="background:var(--panel2);color:var(--dim)">?</span>') + "</span>";
+  const pay = (k, v) => (v != null ? "<span>" + k + " <b>" + v.toLocaleString() + "円</b></span>" : "");
+  let html = '<div class="rh2">' + (P ? d8Label(P.d8) + " の結果" : "結果") + (r.t == null ? "（3着確認中）" : "") + "</div>" +
+    '<div class="ord">' + pos(r.f, "1着") + pos(r.s, "2着") + pos(r.t, "3着") + "</div>" +
+    '<div class="pays">' + pay("3連複", r.p3fpay) + pay("3連単", r.p3pay) + pay("2車単", r.p2pay) + "</div>";
+  // 成績から開いたときは、そのとき出していた買い目(🔥/Ⓓ)と払戻(買い方の金額ぶん)
+  if (P) {
+    const x = P.x, res = x[5] === 1 ? '<span class="r pos">的中 ' + (x[6] != null ? Math.round(x[6] * P.yen / 100).toLocaleString() + "円" : "") + "</span>" : x[5] === 0 ? '<span class="r neg">✗</span>' : '<span class="r" style="color:var(--muted)">結果待ち</span>';
+    html += '<div class="mine"><span style="color:var(--muted)">その日の買い目</span>' + (P.isD ? '<span class="kb d">Ⓓ</span>' : '<span class="kb hot">🔥</span>') + ticketBalls(x[3], "s") + res + "</div>";
+  }
+  el.innerHTML = html; el.classList.remove("hidden");
 }
 // 月ごとの成績(タップでその月へ)
 function renderMonths(days, months) {
