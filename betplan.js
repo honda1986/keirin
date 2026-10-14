@@ -16,7 +16,7 @@
 //   ★2026-09-27 の見直し(hikitsugi §4-12):
 //     ・🔥の9車立て(8車以上)も帯 5〜15倍の中だけ(needOdds を立てて返す。5年とも100%超えだったのはここだけ)
 //     ・🔥の7車立ては5年とも100%未満。判定はそのまま出すが、買うかは bet/ の buy_7car_hot(既定 false)で決める
-//     ・モデルD(evd.js): 全レースの3連複全組から「期待値1.05以上・20倍以下」の組を全部(ふつう1点)。kind:"D"・tickets に全部、ticket は1点目
+//     ・モデルD(evd.js): 全レースの3連複全組から「期待値1.10以上・20倍以下」(evd.js の PICK。2026-10-14〜)の組を全部(ふつう1点)。kind:"D"・tickets に全部、ticket は1点目
 //       verdict: buy / none(該当なし) / thin(票が薄い) / noOdds / noDelta。🔥と同じ組なら sameAsHot:true
 //   ★2026-10-13(hikitsugi §4-26): 🔥の9車立ては「3人のラインが切れる確率 brk(番手か3番手が前について行けない確率)が17%以上」も条件
 //     brk は fetch.js が plan.brk に書く(tenkai.js の detach)。ここでは brk と brkOk(17%以上か。分からなければ null)を返すだけ。
@@ -137,7 +137,7 @@ function judgeD(r, snap) {
   if (r.riders.some((x) => !x[7])) return { verdict: "noDelta" };
   const all = EVD.evAll(r.riders, r.lines, r.place, snap.o, n, r.seri);
   if (!all) return { verdict: "thin" };
-  // 買うのは条件(期待値≥1.05・20倍以下)を満たす組を全部(期待値の高い順)。ticket・ev・odds は1点目
+  // 買うのは条件(evd.js の PICK = 期待値≥1.10・20倍以下)を満たす組を全部(期待値の高い順)。ticket・ev・odds は1点目
   const ps = EVD.picks(all);
   if (!ps.length) {
     const best = all.reduce((a, b) => (b.ev > (a ? a.ev : -1) ? b : a), null);

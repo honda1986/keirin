@@ -377,7 +377,7 @@ def main(argv=None):
               "run.bat の 7)（設定）で変えられます）")
         if cfg.buy_model_d and ((cfg.max_races_per_day is not None and cfg.max_races_per_day < 20)
                                 or (cfg.max_yen_per_day is not None and cfg.max_yen_per_day < 20 * cfg.bet_yen)):
-            print(f"（2026-09-29 からモデルDは「期待値1.05以上・20倍以下の組を全部」になり、🔥と合わせて1日平均6〜7点・多い日で20点ほど買います。"
+            print(f"（モデルDは「期待値1.10以上・20倍以下の組を全部」（2026-10-14〜）。🔥と合わせて1日平均3〜4点・多い日で15点ほど買います。"
                   f"いまの1日の上限（{cfg.max_yen_per_day or '無制限'}円・{cfg.max_races_per_day or '無制限'}点）だと多い日は後半のレースを買えません。"
                   "run.bat の 7) で上限を 2500円・25点 くらいにしてください）")
     except Exception:
