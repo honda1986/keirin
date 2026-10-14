@@ -604,6 +604,9 @@ function writeDaily(dir, byDate, rankedOf) {
   const days = {};
   for (const d of Object.keys(byDate).sort()) {
     const h = [], dd = [];
+    // その日の🔥・Ⓓのレースの結果 { "場_R": [1着, 2着, 3着, 3連複, 3連単, 2車単] }(払戻は100円あたり)。アプリのレースのページに出す(2026-10-15〜)
+    const res = {};
+    const keepRes = (e) => { res[e.place + "_" + e.raceNo] = [e.f, e.s, e.t != null ? e.t : null, e.p3fpay != null ? e.p3fpay : null, e.p3pay != null ? e.p3pay : null, e.p2pay != null ? e.p2pay : null]; };
     let n = 0;
     for (const e of byDate[d]) {
       if (e.f == null || e.s == null) continue;
@@ -614,6 +617,7 @@ function writeDaily(dir, byDate, rankedOf) {
         const dh = done ? ([e.f, e.s, e.t].sort((a, b) => a - b).join("=") === dp[0] ? 1 : 0) : -1;
         dd.push([e.place, e.raceNo, (e.riders || []).length || null, dp[0], e.f + "-" + e.s + "-" + (done ? e.t : "?"), dh,
           dh === 1 ? (e.p3fpay != null ? e.p3fpay : null) : 0, dp[2], dp[1], dp[3]]);
+        keepRes(e);
       }
       const rk = rankedOf(e);
       if (rk.length < 4 || !Array.isArray(e.lines)) continue;
@@ -635,11 +639,12 @@ function writeDaily(dir, byDate, rankedOf) {
       }
       if (hb) { row.push(hb[1] != null ? hb[1] : null); if (hb[2] != null) row.push(hb[2] ? 1 : 0); }
       h.push(row);
+      keepRes(e);
     }
     const rn = (x) => parseInt(x[1], 10) || 0;
     h.sort((a, b) => a[0].localeCompare(b[0]) || rn(a) - rn(b));
     dd.sort((a, b) => a[0].localeCompare(b[0]) || rn(a) - rn(b));
-    days[d] = dd.length ? { n, h, d: dd } : { n, h };
+    days[d] = Object.assign(dd.length ? { n, h, d: dd } : { n, h }, Object.keys(res).length ? { res } : {});
   }
   fs.writeFileSync(path.join(dir, "daily.json"), JSON.stringify({ updatedAt: new Date().toISOString(), days }));
   console.log("daily.json:", Object.keys(days).length, "日");
