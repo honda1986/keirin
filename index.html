@@ -2830,6 +2830,7 @@ const TENKAI_READY = (async () => {
   return false;
 })();
 let TK_SEQ = 0;
+let TK_ARGS = null, TK_ODDS_T = null;   // オッズ込みの予想印: 倍率が新しくなったら描き直す(hikitsugi §4-29)
 function tenkaiInput(p, r, b) {
   const ent = {}; for (const e of p.entries) ent[e.car] = e;
   // 欠車は並びから外す。並びに居ない選手は単騎として後ろに(学習データと同じ扱い)
@@ -2909,6 +2910,12 @@ async function paintTenkai(p, r, b) {
   let res;
   try { res = TENKAI.predict(tenkaiInput(p, r, b)); } catch (e) { return fallback("この並びでは展開を計算できませんでした（" + esc(e.message) + "）"); }
   $("tkOld").open = false; $("mkOld").open = false;
+  // オッズ(締切前の3連複の倍率)が届いていれば、予想印・着順・3連単/3連複・全員の着順の確率はオッズ込み(TENKAI.withOdds)。①〜④⑥⑦は展開だけ
+  TK_ARGS = [p, r, b];
+  const snap = ANA_ROW && LIVE_ODDS && LIVE_ODDS.races ? LIVE_ODDS.races[ANA_ROW.key] : null;
+  const rs = (snap && TENKAI.withOdds(res, snap.o, snap.n || p.entries.length)) || res;
+  TK_ODDS_T = snap ? snap.t : null;
+  const oddsWhen = rs.oddsMixed ? (snap.upd ? snap.upd + "現在" : String(snap.t || "").slice(0, 5) + "取得") + "・締切" + Math.max(0, Math.round(snap.left)) + "分前の倍率" : "";
   const ent = {}; for (const e of p.entries) ent[e.car] = e;
   const L = res.lines, pc = (v) => Math.round(v * 100) + "%";
   const lg = (i) => '<span class="tk-g">' + L[i].map((c) => ball(c, "s")).join("") + "</span>";
@@ -2930,14 +2937,14 @@ async function paintTenkai(p, r, b) {
   const scs = res.scenarios.slice(0, 3).map((x) => '<div class="tk-sc"><span class="pc">' + pc(x.p) + "</span>" + scText(x) + "<br>→ 1着候補 " + topWin(x) + "</div>").join("");
   // ⑤ 主導権を取ったラインから1着が出るか(捲られるか)
   let leadWin = 0; for (const x of res.scenarios) for (const c of L[x.b]) leadWin += x.p * (x.win[c] || 0);
-  const marks = TENKAI.marks(res), [a, b2, c3] = res.tri[0];
+  const marks = TENKAI.marks(rs), [a, b2, c3] = rs.tri[0];
   box.innerHTML =
     '<div class="tk-step"><span class="no">①</span><div><h3>スタート（誘導員の後ろを取る＝前受け）</h3><p>' + lg(s0) + " が前を取りそう（" + pc(res.pS[s0]) + "）</p>" + bars(res.pS) + "</div></div>" +
     '<div class="tk-step"><span class="no">②</span><div><h3>赤板〜打鐘（後ろのラインが誘導を切りに来る）</h3><p>' + step2 + "</p></div></div>" +
     '<div class="tk-step"><span class="no">③</span><div><h3>主導権（最終バックを先頭で通るライン）</h3>' + bars(res.lead) + "</div></div>" +
     '<div class="tk-step"><span class="no">④</span><div><h3>ありそうな筋書き（上から3つ）</h3>' + scs + "</div></div>" +
     '<div class="tk-step"><span class="no">⑤</span><div><h3>ゴール前</h3><p>主導権を取ったラインからそのまま1着が出るのは <b>' + pc(leadWin) + "</b>、別のラインの捲り・差しで1着が出るのは " + pc(1 - leadWin) + "。</p>" +
-      "<p>着順の予想は <b>1着 " + who(a) + "</b> → 2着 " + who(b2) + " → 3着 " + who(c3) + "。</p></div></div>" +
+      "<p>着順の予想" + (rs.oddsMixed ? "（オッズ込み）" : "") + "は <b>1着 " + who(a) + "</b> → 2着 " + who(b2) + " → 3着 " + who(c3) + "。</p></div></div>" +
     kimariStep(res, pc) +
     detStep(res, L, lg, pc) +
     tkPoints(p, res, b) +
@@ -2945,16 +2952,19 @@ async function paintTenkai(p, r, b) {
   $("frontCard").classList.add("hidden");   // ①と同じ内容(前受け)なので畳む
   // 予想印
   const why = { "◎": "1着の予想", "○": "◎が1着のときの2着", "▲": "◎○のあとの3着", "△": "3着以内の確率が次に高い", "×": "3着以内の確率が次に高い" };
-  const tan = res.tri.slice(0, 5).map((t) => '<span class="t">' + t.slice(0, 3).map((c) => ball(c, "s")).join('<span class="eq">-</span>') + " " + (t[3] * 100).toFixed(1) + "%</span>").join("");
-  const fuku = res.fuku.slice(0, 5).map(([k, v]) => '<span class="t">' + ticketBalls(k, "s") + " " + (v * 100).toFixed(1) + "%</span>").join("");
-  const cars = Object.keys(res.place).map(Number).sort((x, y) => (res.place[y][0] + res.place[y][1] + res.place[y][2]) - (res.place[x][0] + res.place[x][1] + res.place[x][2]));
-  mk.innerHTML = marks.map((m, i) => '<div class="mark-row' + (i === 0 ? " top" : "") + '"><span class="mark" style="color:' + (MC[m.mark] || "#EAF2EF") + '">' + m.mark +
+  const tan = rs.tri.slice(0, 5).map((t) => '<span class="t">' + t.slice(0, 3).map((c) => ball(c, "s")).join('<span class="eq">-</span>') + " " + (t[3] * 100).toFixed(1) + "%</span>").join("");
+  const fuku = rs.fuku.slice(0, 5).map(([k, v]) => '<span class="t">' + ticketBalls(k, "s") + " " + (v * 100).toFixed(1) + "%</span>").join("");
+  const cars = Object.keys(rs.place).map(Number).sort((x, y) => (rs.place[y][0] + rs.place[y][1] + rs.place[y][2]) - (rs.place[x][0] + rs.place[x][1] + rs.place[x][2]));
+  const oddsNote = rs.oddsMixed
+    ? '<p class="note" style="font-size:11px;margin-bottom:6px"><b style="color:var(--green)">オッズ込み</b>（' + oddsWhen + "）: 展開の確率に、3連複の倍率から見た確率を混ぜたもの。2026年で試すと ◎の1着 45.4→46.5%・3連複1点 25.0→26.8%・3連単1点 11.9→12.4%。</p>"
+    : '<p class="note" style="font-size:11px;margin-bottom:6px">展開だけの予想。締切20分前ごろに倍率が届くと<b>オッズ込み</b>に変わります（そのほうが少し当たる）。</p>';
+  mk.innerHTML = oddsNote + marks.map((m, i) => '<div class="mark-row' + (i === 0 ? " top" : "") + '"><span class="mark" style="color:' + (MC[m.mark] || "#EAF2EF") + '">' + m.mark +
       '</span><div><div class="mname"><span class="no">' + m.car + "</span> " + esc((ent[m.car] && ent[m.car].name) || "") + ' <span class="role">(' + pos(m.car) + ")</span></div>" +
       '<div class="mreason">' + why[m.mark] + " ・ 1着 " + pc(m.win) + " ・ 3着以内 " + pc(m.top3) + "</div></div></div>").join("") +
     '<div class="note" style="margin-top:8px">3連単（1着→2着→3着の確率）</div><div class="tk-list">' + tan + "</div>" +
     '<div class="note" style="margin-top:8px">3連複</div><div class="tk-list">' + fuku + "</div>" +
     '<details class="more" style="margin-top:8px"><summary>全員の着順の確率</summary><table class="tk-tbl"><thead><tr><th class="l">車</th><th>1着</th><th>2着</th><th>3着</th><th>3着以内</th><th>離れ</th></tr></thead><tbody>' +
-      cars.map((c) => { const q = res.place[c]; return '<tr><td class="l">' + ball(c, "s") + " " + esc((ent[c] && ent[c].name) || "") + "</td><td>" + pc(q[0]) + "</td><td>" + pc(q[1]) + "</td><td>" + pc(q[2]) + "</td><td><b>" + pc(q[0] + q[1] + q[2]) + "</b></td><td>" + (res.det && res.det[c] != null ? pc(res.det[c]) : "—") + "</td></tr>"; }).join("") +
+      cars.map((c) => { const q = rs.place[c]; return '<tr><td class="l">' + ball(c, "s") + " " + esc((ent[c] && ent[c].name) || "") + "</td><td>" + pc(q[0]) + "</td><td>" + pc(q[1]) + "</td><td>" + pc(q[2]) + "</td><td><b>" + pc(q[0] + q[1] + q[2]) + "</b></td><td>" + (res.det && res.det[c] != null ? pc(res.det[c]) : "—") + "</td></tr>"; }).join("") +
     "</tbody></table></details>";
 }
 // ---- 詳細: 期待値 上位5(モデルD と同じ evd.js・締切前の倍率)。買うのは「Ⓓ買い」の印の組だけ(自動投票も同じ) ----
@@ -2984,6 +2994,9 @@ function paintEvTop() {
   if (!ANA_ROW) { card.classList.add("hidden"); return; }
   $("evTopBox").innerHTML = evTopHtml(ANA_ROW);
   card.classList.remove("hidden");
+  // 開いているレースの倍率が新しくなったら、オッズ込みの予想印を描き直す(同じレースのときだけ)
+  const s = LIVE_ODDS && LIVE_ODDS.races ? LIVE_ODDS.races[ANA_ROW.key] : null;
+  if (s && TK_ARGS && TK_ARGS[0].place === ANA_ROW.place && TK_ARGS[0].raceNo === ANA_ROW.raceNo && s.t !== TK_ODDS_T) paintTenkai(...TK_ARGS);
 }
 // 終わったレースの1行
 function doneRow(it) {
