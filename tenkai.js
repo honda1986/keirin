@@ -24,6 +24,12 @@
   function style(nige, maku) { const J = nige + maku; return J <= 2 ? 3 : nige / J >= 0.6 ? 0 : nige / J <= 0.4 ? 2 : 1; }  // 0逃げ型 1両立 2捲り 3自力弱
   const STYLE_NAME = ["逃げ型", "両立型", "捲り型", "自力弱"];
   const KYAKU = { "逃": 0, "両": 1, "追": 2 };
+  // 1着の選手が「主導権ライン(最終バック先頭のライン b)」から見てどこにいたか → 決まり手(逃げ・捲り・差し)の割合。
+  //   2022〜2026年 109,531R の実際(hikitsugi §4-28)。bHead=主導権ラインの先頭 / bBan=番手 / bRest=3番手以降 / oHead=他のラインの先頭 / oFol=他のラインの番手以降 / tanki=単騎
+  //   これを筋書き(s,b)ごとの1着の確率に掛けて足すと、レースの決まり手の確率になる(2025〜26年で試すと 予想25〜35%→実際27% など確率どおり)
+  const KIMARI = { bHead: [0.800, 0.199, 0.001], bBan: [0.001, 0.042, 0.957], bRest: [0.001, 0.037, 0.963],
+    oHead: [0.007, 0.707, 0.287], oFol: [0.000, 0.102, 0.898], tanki: [0.156, 0.510, 0.335] };   // [逃, 捲, 差]
+  const posClass = (r, b) => (r.role === 3 ? "tanki" : r.li === b ? (r.k === 0 ? "bHead" : r.k === 1 ? "bBan" : "bRest") : (r.k === 0 ? "oHead" : "oFol"));
 
   // 木の計算(sklearn の HistGradientBoosting と同じ: x <= しきい値 なら左、欠けていれば missing_go_to_left)
   function prob(md, x) {
@@ -125,6 +131,11 @@
       x.win = {}; riders.forEach((r, i) => { x.win[r.car] = w[i] / t; pw[r.car] += x.p * w[i] / t; });
     }
     sc.sort((a, b) => b.p - a.p);
+    // 決まり手(逃げ・捲り・差し)の確率: 筋書きごとに 1着の位置 → 決まり手 の割合を掛けて足す
+    const km = [0, 0, 0];
+    for (const x of sc) for (const r of riders) { const q = KIMARI[posClass(r, x.b)], w = x.p * (x.win[r.car] || 0); km[0] += w * q[0]; km[1] += w * q[1]; km[2] += w * q[2]; }
+    const kt = km[0] + km[1] + km[2] || 1;
+    const kimari = { nige: km[0] / kt, makuri: km[1] / kt, sashi: km[2] / kt };
     // ④ 2着 | 1着、3着 | 1・2着
     const rel1 = (j, i, sfx) => ({ ["role" + sfx]: i.role, ["lsize" + sfx]: i.lsize, ["z" + sfx]: i.z, ["kyaku" + sfx]: i.kyaku,
       ["same" + sfx]: j.li === i.li ? 1 : 0, ["behind" + sfx]: j.li === i.li && j.k === i.k + 1 ? 1 : 0, ["ahead" + sfx]: j.li === i.li && j.k === i.k - 1 ? 1 : 0, ["dz" + sfx]: j.z - i.z });
@@ -148,7 +159,7 @@
     const det = detach(race);
     // ラインの上から3人が切れずに続く確率(番手・3番手が離れない)
     const keep3 = race.lines.map((x) => x.slice(1, 3).reduce((a, c) => a * (1 - (det[c] || 0)), 1));
-    return { det, keep3, lines: race.lines, lineInfo: lines.map((o) => ({ size: o.size, style: STYLE_NAME[o.style] })), pS, pB, lead, scenarios: sc, pw, place, tri, fuku };
+    return { det, keep3, lines: race.lines, lineInfo: lines.map((o) => ({ size: o.size, style: STYLE_NAME[o.style] })), pS, pB, lead, scenarios: sc, pw, place, tri, fuku, kimari };
   }
 
   // 予想印: 3連単の1番手の 1着-2着-3着 に ◎○▲、残りは3着以内の確率の順に △ ×

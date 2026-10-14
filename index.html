@@ -2839,7 +2839,7 @@ function tenkaiInput(p, r, b) {
   const R = {}; for (const e of p.entries) R[e.car] = [e.kyaku, e.k.nige, e.k.makuri, e.k.sashi, e.k.mark, e.S, e.B, e.score, rk[e.car] || 9, e.rate.sanren, e.age];
   return { n: p.entries.length, bank: b ? b[0] : 400, klass: r.klass, seri: p.seri || [], lines, R };
 }
-// ⑥ ラインで前について行けない(離れる)確率。番手・3番手ごと(tenkai.js の detach。hikitsugi §4-25)
+// ⑦ ラインで前について行けない(離れる)確率。番手・3番手ごと(tenkai.js の detach。hikitsugi §4-25)
 function detStep(res, L, lg, pc) {
   const det = res.det || {};
   const rowsH = L.map((x, i) => {
@@ -2851,8 +2851,53 @@ function detStep(res, L, lg, pc) {
     return '<div class="tk-sc">' + lg(i) + "<br>" + ps + (x.length >= 3 ? '<br><small style="color:var(--dim)">上から3人が切れずに続く ' + pc(res.keep3[i]) + "</small>" : "") + "</div>";
   }).join("");
   if (!rowsH) return "";
-  return '<div class="tk-step"><span class="no">⑥</span><div><h3>ラインで前について行けない（離れる）確率</h3>' + rowsH +
+  return '<div class="tk-step"><span class="no">⑦</span><div><h3>ラインで前について行けない（離れる）確率</h3>' + rowsH +
     '<p class="note" style="font-size:10px;margin-top:4px">平均は8%（番手7%・3番手12%）。15%以上を赤字。前の選手より得点が低い・年齢が高い・マークの回数が少ないほど離れやすい。離れた選手の3着以内は9%（離れなければ43%）。</p></div></div>';
+}
+// ⑥ 決まり手(逃げ・捲り・差し)の予想。tenkai.js の kimari(筋書き×1着の位置 → 決まり手。hikitsugi §4-28)
+function kimariStep(res, pc) {
+  const k = res.kimari; if (!k) return "";
+  const rows = [["逃げ", k.nige, "主導権を取ったラインの先頭がそのまま"], ["捲り", k.makuri, "後ろのラインの先頭が一気に"], ["差し", k.sashi, "番手などが最後の直線で前を抜く"]];
+  const top = rows.slice().sort((x, y) => y[1] - x[1])[0];
+  return '<div class="tk-step"><span class="no">⑥</span><div><h3>決まり手の予想（どう決まるか）</h3><p>いちばんありそうなのは <b>' + top[0] + "</b>（" + pc(top[1]) + "）。</p>" +
+    rows.map(([n, v, d]) => '<div class="frow"><span class="g" style="min-width:3.2em">' + n + '</span><span class="bar"><i style="width:' + Math.round(v * 100) + '%"></i></span><span class="pc">' + pc(v) + "</span></div>" +
+      '<div style="font-size:10px;color:var(--dim);margin:-2px 0 4px 3.4em">' + d + "</div>").join("") +
+    '<p class="note" style="font-size:10px">5年の平均は 逃げ25%・捲り28%・差し46%。2025〜26年で試すと、予想25〜35%のとき実際27%・45〜60%のとき54% と確率どおり。いちばん高い決まり手が当たるのは52%（いつも「差し」と言うと47%）。</p></div></div>';
+}
+// 展開のポイント: サイトでよく言われる展開のセオリーのうち、2022〜2026年の約11万レースで確かめて当てはまったもの(と当てはまらなかったもの)。hikitsugi §4-28
+function tkPoints(p, res, b) {
+  const L = res.lines, ent = {}; for (const e of p.entries) ent[e.car] = e;
+  const sty = (c) => (ent[c] ? TENKAI.style(ent[c].k.nige || 0, ent[c].k.makuri || 0) : 3);
+  const lg = (x) => '<span class="tk-g">' + x.map((c) => ball(c, "s")).join("") + "</span>";
+  const out = [];
+  // 1) バンク
+  if (b) {
+    const len = b[0], str = b[1];
+    if (len > 0 && len <= 335) out.push(["✅", "333バンク（みなし直線 " + str + "m）: <b>逃げの1着 30%</b>（400は24%・500は21%）。直線が短く先行が有利"]);
+    else if (len >= 500) out.push(["✅", "500バンク（みなし直線 " + str + "m）: <b>差しの1着 54%</b>（400は48%）。番手・追い込みが有利"]);
+    else if (len === 400 && str >= 59) out.push(["✅", "直線が長めの400（みなし直線 " + str + "m）: 差し49%・逃げ23%（400の平均 差し47%・逃げ24%）。少しだけ差し寄り"]);
+    else if (len === 400 && str > 0 && str < 50) out.push(["✅", "直線が短めの400（みなし直線 " + str + "m）: 逃げ26%（400の平均24%）。少しだけ先行寄り"]);
+  }
+  // 2) 逃げ型の先頭の数(2人以上のライン)
+  const heads = L.filter((x) => x.length >= 2);
+  const nige = heads.filter((x) => sty(x[0]) === 0), maku = heads.filter((x) => sty(x[0]) === 2);
+  if (L.length >= 3) {
+    if (!nige.length) out.push(["✅", "逃げ型の先頭がいない: <b>差しの1着 51%</b>（ふつう46%）。ペースが落ち着いて番手が有利"]);
+    else if (nige.length === 1) out.push(["✅", "逃げ型の先頭は " + lg(nige[0]) + " だけ（先行一車に近い）: 逃げの1着 26%（逃げ型がいないと22%）。主導権を取りやすい"]);
+    else out.push(["✅", "逃げ型の先頭が" + nige.length + "人（" + nige.map(lg).join("・") + "）: 主導権争いで脚を使い合い、<b>捲りの1着 " + (nige.length >= 3 ? "35%" : "30%") + "</b>（1人なら27%）"]);
+  }
+  // 3) 3分戦
+  if (L.length === 3 && heads.length === 3) {
+    if (maku.length === 2 && nige.length === 1) out.push(["✅", "捲り型2人と逃げ型1人の3分戦: 捲りどうしが牽制し合い、逃げ型の " + lg(nige[0]) + " の<b>1着 39%</b>（3ラインの平均33%）"]);
+    else if (nige.length === 2) { const o = heads.find((x) => sty(x[0]) !== 0); out.push(["❌", "逃げ型2人の3分戦は「残りの " + lg(o) + " が漁夫の利」とよく言われるが、5年の実際は1着 30%（平均33%）でむしろ少し低い"]); }
+  }
+  // 4) 番手に自力(逃げ+捲りの回数) → 番手捲り
+  const ban = heads.map((x) => [x, x[1], ent[x[1]] ? (ent[x[1]].k.nige || 0) + (ent[x[1]].k.makuri || 0) : 0]).filter((q) => q[2] >= 3).sort((u, v) => v[2] - u[2]).slice(0, 2);
+  for (const [x, c, n] of ban) out.push(["✅", ball(c, "s") + "（" + lg(x) + " の番手）は逃げ・捲りが計" + n + "回: 番手捲り（二段駆け）もある。番手の1着率 " + (n >= 6 ? "<b>31%</b>" : "<b>25%</b>") + "（自力0回の番手は13%）"]);
+  if (!out.length) return "";
+  return '<div class="tk-step"><span class="no">★</span><div><h3>展開のポイント（よく言われるセオリーを5年のデータで確かめたもの）</h3>' +
+    out.map(([m, t]) => '<div class="tk-sc"><span style="margin-right:4px">' + m + "</span>" + t + "</div>").join("") +
+    '<p class="note" style="font-size:10px">✅ = 2022〜26年の約11万レースで当てはまった傾向（数字はその実績）。❌ = よく言われるが当てはまらなかったもの。これらは展開予想のモデルがすでに学習しているので、上の確率にも入っています。</p></div></div>';
 }
 async function paintTenkai(p, r, b) {
   const seq = ++TK_SEQ, box = $("tkBox"), mk = $("tkMarks");
@@ -2892,7 +2937,9 @@ async function paintTenkai(p, r, b) {
     '<div class="tk-step"><span class="no">④</span><div><h3>ありそうな筋書き（上から3つ）</h3>' + scs + "</div></div>" +
     '<div class="tk-step"><span class="no">⑤</span><div><h3>ゴール前</h3><p>主導権を取ったラインからそのまま1着が出るのは <b>' + pc(leadWin) + "</b>、別のラインの捲り・差しで1着が出るのは " + pc(1 - leadWin) + "。</p>" +
       "<p>着順の予想は <b>1着 " + who(a) + "</b> → 2着 " + who(b2) + " → 3着 " + who(c3) + "。</p></div></div>" +
+    kimariStep(res, pc) +
     detStep(res, L, lg, pc) +
+    tkPoints(p, res, b) +
     '<p class="note" style="font-size:10px;color:var(--dim)">2022〜2026年の約11万レースの「スタートを取った選手」「最終バック先頭」「着順」から学習（' + esc(TENKAI.model.version || "") + "）。2025〜26年で試すと、評価値の順より3連単の的中が約2.7倍・3連複が約1.7倍。ただし倍率と組み合わせても儲けは増えないので、🔥・モデルDの買い方には使っていません。</p>";
   $("frontCard").classList.add("hidden");   // ①と同じ内容(前受け)なので畳む
   // 予想印
