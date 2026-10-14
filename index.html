@@ -392,6 +392,25 @@
   .tk-step b { color: var(--text); }
   .tk-sc { background: var(--panel2); border-radius: 8px; padding: 7px 10px; margin-top: 6px; font-size: 12.5px; line-height: 1.75; }
   .tk-sc .pc { display: inline-block; min-width: 2.8em; font-weight: 900; color: var(--gold); font-variant-numeric: tabular-nums; }
+  /* ④ 筋書きの図(隊列: 周回中 → 最終バック → ゴール。左が前。2026-10-15) */
+  .tkd { background: var(--panel2); border-radius: 10px; padding: 8px 10px 9px; margin-top: 8px; }
+  .tkd .hd { display: flex; align-items: baseline; gap: 8px; font-size: 11px; color: var(--muted); }
+  .tkd .hd b { font-size: 17px; color: var(--gold); font-variant-numeric: tabular-nums; }
+  .tkd .rw { display: flex; align-items: center; gap: 6px; margin-top: 7px; }
+  .tkd .ph { flex: 0 0 40px; font-size: 10px; color: var(--dim); line-height: 1.25; }
+  .tkd .fl { display: flex; gap: 4px; align-items: center; min-width: 0; flex-wrap: wrap; }
+  .tkd .fg { display: inline-flex; padding: 2px; border-radius: 999px; box-shadow: 0 0 0 1px var(--line) inset; flex: none; }
+  .tkd .fg.front { box-shadow: 0 0 0 1.5px var(--green) inset; }
+  .tkd .fg.lead { box-shadow: 0 0 0 1.5px var(--gold) inset; background: rgba(242,194,48,.10); }
+  .tkd .fg.mid { opacity: .5; }
+  .tkd .yd { flex: none; font-size: 9px; color: var(--dim); border: 1px dashed var(--dim); border-radius: 999px; padding: 2px 5px; }
+  .tkd .ar { margin: 4px 0 0 46px; font-size: 11px; color: var(--muted); line-height: 1.7; }
+  .tkd .ar::before { content: "↓ "; color: var(--dim); }
+  .tkd .gw { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .tkd .gw > span { display: inline-flex; align-items: center; gap: 3px; color: var(--muted); }
+  .tkd .gw > span:first-child { color: var(--text); font-weight: 900; }
+  .cb.xs { width: 19px; height: 19px; font-size: 11px; }
+  .tkd-dir { font-size: 10px; color: var(--dim); margin: 2px 0 0; }
   .tk-g { display: inline-flex; gap: 2px; vertical-align: -3px; }
   .tk-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
   .tk-list .t { display: inline-flex; align-items: center; gap: 4px; background: var(--panel2); border-radius: 8px; padding: 5px 8px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -2848,9 +2867,31 @@ async function paintTenkai(p, r, b) {
     tsup >= 0.5 ? "後ろから " + lg(ch) + " が押さえに来ても、" + lg(s0) + " は<b>突っ張る</b>見込み（" + pc(tsup) + "）。"
                : lg(ch) + " が押さえに来ると、" + lg(s0) + " は<b>引いて</b>主導権を渡しそう（突っ張るのは " + pc(tsup) + "）。";
   // ④ 筋書き
-  const scText = (x) => (x.s === x.b ? lg(x.s) + " が前受けから突っ張って先行" : lg(x.s) + " が前受け → " + lg(x.b) + " が押さえて主導権、" + lg(x.s) + " は後ろから");
-  const topWin = (x) => Object.entries(x.win).sort((a, b2) => b2[1] - a[1]).slice(0, 3).map(([c, v]) => ball(+c, "s") + pc(v)).join(" ");
-  const scs = rs.scenarios.slice(0, 3).map((x) => '<div class="tk-sc"><span class="pc">' + pc(x.p) + "</span>" + scText(x) + "<br>→ 1着候補 " + topWin(x) + "</div>").join("");
+  // 図: 周回中(前受けのラインが誘導の後ろ・押さえに来るラインがいちばん後ろ) → 最終バック(主導権のラインが先頭・引いたラインは後ろ) → ゴール(1着候補)
+  //   モデルが予想するのは 前受け(s)・主導権(b)・1着 だけ。真ん中のラインの順は前受けの確率の順の目安なので薄く出す
+  const scDiagram = (x) => {
+    const nl = L.length, rowB = res.pB[x.s];
+    let ch = -1; rowB.forEach((v, i) => { if (i !== x.s && (ch < 0 || v > rowB[ch])) ch = i; });
+    const rear = x.b !== x.s ? x.b : ch;
+    const mid = [...Array(nl).keys()].filter((i) => i !== x.s && i !== rear).sort((u, v) => res.pS[v] - res.pS[u]);
+    const lap = [x.s, ...mid].concat(rear >= 0 ? [rear] : []);
+    const back = x.b !== x.s ? [x.b, ...mid, x.s] : lap;
+    const grp = (i, cls) => '<span class="fg ' + cls + '">' + L[i].map((c) => ball(c, "xs")).join("") + "</span>";
+    const lgx = (i) => '<span class="tk-g">' + L[i].map((c) => ball(c, "xs")).join("") + "</span>";
+    const row1 = '<span class="yd">誘導</span>' + lap.map((i) => grp(i, i === x.s ? "front" : i === rear ? "" : "mid")).join("");
+    const row2 = back.map((i) => grp(i, i === x.b ? "lead" : i === x.s && x.s !== x.b ? "" : "mid")).join("");
+    const how = x.s === x.b
+      ? "打鐘 " + lgx(x.s) + " が突っ張る" + (ch >= 0 ? "（" + lgx(ch) + " は叩けない）" : "")
+      : "打鐘 " + lgx(x.b) + " が押さえ、" + lgx(x.s) + " は引く";
+    const w = Object.entries(x.win).sort((a, b2) => b2[1] - a[1]).slice(0, 3);
+    return '<div class="tkd"><div class="hd"><b>' + pc(x.p) + "</b>" + (x.s === x.b ? "突っ張り先行" : "押さえ先行") + "</div>" +
+      '<div class="rw"><span class="ph">周回中</span><span class="fl">' + row1 + "</span></div>" +
+      '<div class="ar">' + how + "</div>" +
+      '<div class="rw"><span class="ph">最終<br>バック</span><span class="fl">' + row2 + "</span></div>" +
+      '<div class="rw"><span class="ph">1着<br>候補</span><span class="gw">' + w.map(([c, v]) => "<span>" + ball(+c, "s") + pc(v) + "</span>").join("") + "</span></div></div>";
+  };
+  const scs = rs.scenarios.slice(0, 3).map(scDiagram).join("") +
+    '<p class="tkd-dir">左が前（進む向き）。<span style="color:var(--green)">緑の枠</span> = 前受け、<span style="color:var(--gold)">金の枠</span> = 主導権（最終バックで先頭）。薄いラインの順は目安（モデルが予想しているのは前受け・主導権・1着だけ）。</p>';
   // ⑤ 主導権を取ったラインから1着が出るか(捲られるか)
   let leadWin = 0; for (const x of rs.scenarios) for (const c of L[x.b]) leadWin += x.p * (x.win[c] || 0);
   const marks = TENKAI.marks(rs), [a, b2, c3] = rs.tri[0];
