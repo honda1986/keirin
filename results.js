@@ -579,7 +579,7 @@ function evForEntry(dir, e, d, ticket) {
 // それより後は history の riders(府県つき)と倍率(締切前の記録があればそれ、無ければ確定オッズ)から毎晩計算する
 const EVD = require("./evd.js");
 let D_PAST = null;
-// 🔥9車の過去分の [買い目, 切れる確率, B率1位](hot-past.json。2025-01〜2026-09・作り直した出走表)。history に brk が無い日に使う
+// 🔥9車の過去分の [買い目, 切れる確率, B率1位](hot-past.json。2025-01〜2026-10-13・作り直した出走表で、アプリの🔥と同じ買い目)。history に brk・b1 が無い日に使う
 let HOT_PAST = null;
 function hotPastOf(dir, id) {
   if (HOT_PAST == null) { try { HOT_PAST = JSON.parse(fs.readFileSync(path.join(dir, "hot-past.json"), "utf8")).hot || {}; } catch (x) { HOT_PAST = {}; } }
@@ -627,9 +627,12 @@ function writeDaily(dir, byDate, rankedOf) {
         hit === 1 ? (e.p3fpay != null ? e.p3fpay : null) : 0, oddsOf(dir, e.id || (d + "_" + e.place + "_" + e.raceNo), trio),
         null, ev, evSrc];
       // 12番目: 本命ラインが切れる確率(null = 分からない → アプリは見送らない)・13番目: 先頭のB率1位(1/0。分からなければ付けない)。
-      // 買い目が同じときだけ。history に無い日は hot-past.json(2025-01〜2026-09)
+      // 買い目が同じときだけ。history に無い日(切れる確率だけあって B率1位が無い 2026-10-14 朝の出走表も)は hot-past.json
       let hb = Array.isArray(e.brk) && e.brk[0] === pl.ticket ? e.brk : null;
-      if (!hb && pl.cars >= 8) { const hp = hotPastOf(dir, e.id || (d + "_" + e.place + "_" + e.raceNo)); if (hp && hp[0] === pl.ticket) hb = hp; }
+      if ((!hb || hb[2] == null) && pl.cars >= 8) {
+        const hp = hotPastOf(dir, e.id || (d + "_" + e.place + "_" + e.raceNo));
+        if (hp && hp[0] === pl.ticket) hb = hb ? [hb[0], hb[1] != null ? hb[1] : hp[1], hp[2]] : hp;
+      }
       if (hb) { row.push(hb[1] != null ? hb[1] : null); if (hb[2] != null) row.push(hb[2] ? 1 : 0); }
       h.push(row);
     }
