@@ -99,6 +99,10 @@ function loadRaces(today, notes) {
 }
 
 // ---- 倍率(レースごとにいちばん新しい記録) ----
+// 買うかは「締切 DECIDE_MIN 分前より前で、いちばん新しい記録」で決める(2026-10-19〜)。倍率は締切まで取るようになったので
+//   (snap.js)、それより後の記録で決めると、アプリと夜の成績(同じ決まり。index.html・results.js・snap_live.js の d)と組がずれる。
+//   bet/ は締切 decide_at_minutes(既定 2.5)分前に1回だけ決めるので、ふつうは今までと同じ記録になる
+const DECIDE_MIN = 2.5;
 function localSnaps(today) {
   const f = arg("snaps") || path.join(WORK, today + ".jsonl");
   const out = {};
@@ -108,8 +112,10 @@ function localSnaps(today) {
     if (!l.trim()) continue;
     let r; try { r = JSON.parse(l); } catch (e) { continue; }
     if (!r.k || !Array.isArray(r.o)) continue;
+    const rec = { t: r.t, left: r.left, upd: r.upd, n: r.n, o: r.o, src: "PC" };
     const old = out[r.k];
-    if (!old || r.t > old.t) out[r.k] = { t: r.t, left: r.left, upd: r.upd, n: r.n, o: r.o, src: "PC" };
+    if (!old || r.t > old.t) out[r.k] = Object.assign(rec, old && old.dec ? { dec: old.dec } : {});
+    if (r.left != null && r.left >= DECIDE_MIN) { const cur = out[r.k]; if (!cur.dec || r.t > cur.dec.t) cur.dec = { ...rec }; delete cur.dec.dec; }
   }
   return out;
 }
@@ -187,11 +193,12 @@ function main() {
   let oddsFrom = Object.keys(local).length ? "手元" : "";
   if (remote) oddsFrom += (oddsFrom ? "+" : "") + "odds-live(" + (remote.source || "?") + ")";
 
+  // 締切 DECIDE_MIN 分前より前の記録のうちいちばん新しいもの(無ければ、いちばん新しい記録)
   const snapOf = (r) => {
-    let s = local[r.key] || null;
-    const rs = remote && remote.races && remote.races[r.key];
-    if (rs && (!s || rs.t > s.t)) s = { ...rs, src: "odds-live" };
-    return s;
+    const l = local[r.key] || null, rs = remote && remote.races && remote.races[r.key];
+    const cands = [l, l && l.dec, rs && { ...rs, src: "odds-live" }, rs && rs.d && { ...rs.d, src: "odds-live" }].filter(Boolean).map((x) => { const y = { ...x }; delete y.dec; delete y.d; return y; });
+    const newest = (xs) => xs.reduce((a, b) => (!a || b.t > a.t ? b : a), null);
+    return newest(cands.filter((x) => x.left != null && x.left >= DECIDE_MIN)) || newest(cands);
   };
   const base = (r, c, s) => ({
     key: r.key, date: today, place: r.place, rno: parseInt(r.raceNo, 10) || null, raceNo: r.raceNo,

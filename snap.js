@@ -4,7 +4,10 @@
 // 手元の過去オッズ(odds-YYYYMM.json)は確定オッズだけ。買い目をオッズで選ぶ改善は
 // 「確定オッズで選んで確定オッズで払う」形でしか測れておらず、実際に買う時点
 // (締切の数分前)のオッズで同じになるかが分からない(hikitsugi §4-3・§5-H)。
-// その差を測るため、締切15〜2分前のレースを3分おきに見て、3連複の全組を残す。
+// その差を測るため、締切15分前〜締切のレースを3分おき(締切6分前からは1分おき)に見て、3連複の全組を残す。
+// 2026-10-19 から締切まで(それまでは締切2分前まで)。アプリのⒹ・🔥の「今の倍率」を締切直前まで動かすため(はむさん)。
+//   自動投票(bet/)は今まで通り締切2.5分前に、そのときいちばん新しい倍率で決める。決めた後の記録は判定には使わない
+//   (snap_live.js が「決めたときの倍率」を d に残し、アプリと夜の成績はそれで買う/見送るを決める)
 // 競艇 v24 の snap_odds / snap_pack と同じ考え方(引き継ぎ資料 §2-4・§2-5)。
 //
 // ・取得元: Kドリームスのレース詳細のオッズ画面。3連複は「人気順」の一覧に全組が出る
@@ -37,7 +40,7 @@ const STATE = path.join(DIR, "state.json");
 const argv = process.argv.slice(2);
 const DRY = argv.includes("--dry");
 const winArg = (argv.find((a) => a.startsWith("--win=")) || "").slice(6);
-const [WIN_LO, WIN_HI] = winArg ? winArg.split(",").map(Number) : [2, 15];   // 締切まで何分のレースを見るか
+const [WIN_LO, WIN_HI] = winArg ? winArg.split(",").map(Number) : [0, 15];   // 締切まで何分のレースを見るか(締切まで)
 const DAY_ARG = (argv.find((a) => a.startsWith("--day=")) || "").slice(6);    // 動作確認用: races.json のこの日を今日とみなす
 const HAS_RACES = argv.includes("--has-races");   // 今日の出走表があれば終了コード0、無ければ1(何も取りに行かない)
 const EVERY_SEC = 170;          // 同じレースを見る間隔(3分弱。1分おきに呼ばれる前提)

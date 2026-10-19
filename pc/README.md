@@ -8,7 +8,7 @@ Windows PC（C:\keirin）── タスクスケジューラ keirin_snap ──�
   07:50〜翌01:00  1分おきに1回ずつ（pc\task.bat → node pc\runner.js snap）
                     ・10分おきに GitHub(main) を取り込む（出走表 races.json とコード）
                     ・races.json が今日の分でなければ、自分で出走表を取る（fetch.js → snapwork\races-local.json）
-                    ・締切15〜2分前のレースの3連複（全組）を読んで snapwork\日付.jsonl に1行足す（snap.js）
+                    ・締切15分前〜締切のレースの3連複（全組）を読んで snapwork\日付.jsonl に1行足す（snap.js。2026-10-19 から締切まで）
                     ・10分おきに odds-snap ブランチへ送る（snap\日付.json.gz と 心拍 pc\heartbeat.json）
        │
        ▼

@@ -6,7 +6,11 @@
 //   node snap_live.js                          … 作るだけ(snapwork/latest.json)
 //
 // ・中身: 今日の各レースの「いちばん新しい記録」1件ずつ
-//     { updatedAt, date, source, races: { "熊本_7R": { t, left, upd, n, o:[3連複の倍率…] } } }
+//     { updatedAt, date, source, races: { "熊本_7R": { t, left, upd, n, o:[3連複の倍率…], d:{ t, left, upd, n, o } } } }
+//   d = 自動投票が買うかを決めたときの倍率 = 締切 DECIDE_MIN 分前より前で、いちばん新しい記録(2026-10-19〜)。
+//     倍率は締切まで取るようになったので(snap.js)、いちばん新しい記録は自動投票が決めた後のものになることがある。
+//     アプリと夜の成績は、締切 DECIDE_MIN 分前を過ぎたレースは d で買う/見送るを決める(自動投票と同じ組になる)。
+//     いちばん新しい記録がまだ DECIDE_MIN 分前より前なら d は付けない(o がそのまま決める倍率)
 // ・odds-live ブランチは**履歴を残さない**(毎回1コミットだけの枝を作って上書き)。1分おきに送っても膨らまない。
 //   記録の保存は odds-snap ブランチ(10分おき・履歴あり)の仕事で、こちらはアプリに今の倍率を見せるためだけ
 // ・git の作業フォルダは使わない(hash-object → mktree → commit-tree → push)。本体の作業を邪魔しない
@@ -32,6 +36,7 @@ const argv = process.argv.slice(2);
 const PUSH = argv.includes("--push");
 const FORCE = argv.includes("--force");
 const HEARTBEAT_MIN = 5;
+const DECIDE_MIN = 2.5;   // 自動投票(bet/)が買うかを決める締切何分前(decide_at_minutes の既定)。index.html・results.js と同じ
 const SOURCE = (() => { const i = argv.indexOf("--source"); return i >= 0 ? argv[i + 1] : "?"; })();
 const GIT_ENV = { GIT_TERMINAL_PROMPT: "0", GCM_INTERACTIVE: "never", GIT_ASKPASS: "", SSH_ASKPASS: "",
   GIT_AUTHOR_NAME: "odds-live", GIT_AUTHOR_EMAIL: "odds-live@users.noreply.github.com",
@@ -48,18 +53,21 @@ function readLines(day) {
 }
 // その日の各レースの「いちばん新しい記録」: 手元の記録 + odds-snap の snap/YYYYMMDD.json.gz(snapbr/) + 今の latest.json(同じ日なら)
 function collect(day, lines, cur) {
-  const races = {};
+  const races = {}, dec = {};
   const add = (r) => {
     if (!r || !r.k || !Array.isArray(r.o)) return;
+    const rec = { t: r.t, left: r.left, upd: r.upd, n: r.n, o: r.o };
     const old = races[r.k];
-    if (!old || r.t > old.t) races[r.k] = { t: r.t, left: r.left, upd: r.upd, n: r.n, o: r.o };
+    if (!old || r.t > old.t) races[r.k] = rec;
+    if (r.left != null && r.left >= DECIDE_MIN && (!dec[r.k] || r.t > dec[r.k].t)) dec[r.k] = rec;   // 決めたときの倍率の候補
   };
   for (const l of lines) { let r; try { r = JSON.parse(l); } catch (e) { continue; } add(r); }
   try {
     const j = JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(__dirname, "snapbr", "snap", day + ".json.gz"))).toString("utf8"));
     if (j.date === day) (j.rows || []).forEach(add);
   } catch (e) {}
-  if (cur && cur.date === day) for (const [k, v] of Object.entries(cur.races || {})) add({ k, ...v });
+  if (cur && cur.date === day) for (const [k, v] of Object.entries(cur.races || {})) { add({ k, ...v }); if (v && v.d) add({ k, ...v.d }); }
+  for (const [k, v] of Object.entries(races)) if (v.left != null && v.left < DECIDE_MIN && dec[k] && dec[k].t !== v.t) v.d = dec[k];
   return races;
 }
 const dayBefore = (d8) => new Date(Date.UTC(+d8.slice(0, 4), +d8.slice(4, 6) - 1, +d8.slice(6, 8)) - 86400e3).toISOString().slice(0, 10).replace(/-/g, "");
@@ -105,3 +113,4 @@ function main() {
 }
 
 if (require.main === module) main();
+module.exports = { collect, DECIDE_MIN };
