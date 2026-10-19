@@ -11,4 +11,6 @@ python3 ev2.py f ; python3 ev2.py t     # 1番人気・モデル最有力・期�
 cd ../rv && python3 ../hit/multi3.py    # 3連複を1レース複数点（モデルD）
 python3 ../hit/topk.py                  # 3連複 確率上位k点の組み合わせ
 PYTHONPATH=. python3 ../hit/dall.py 1.05 20   # 採用した「期待値1.05以上・20倍以下を全部」の年ごと・倍率帯ごと
+PYTHONPATH=. python3 ../hit/band.py          # 期待値1.10以上で、買う倍率の帯（いま0〜20倍・案2〜18倍など）を変えたら（§4-43）
+node ../hit/band_live.js <snap/ のフォルダ>    # 9/27〜10/18 を締切2分前の倍率で決めたら、帯ごとに（§4-43）
 ```
