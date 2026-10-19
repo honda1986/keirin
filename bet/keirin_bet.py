@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""keirin_bet.py -- アプリの🔥（9車・5〜15倍）とモデルD（全レース・期待値1.1以上・10〜30倍）を、オッズパークで自動購入する
+"""keirin_bet.py -- アプリの🔥（9車・5〜15倍）とモデルD（全レース・期待値1.10以上・20倍以下。条件は evd.js の PICK）を、オッズパークで自動購入する
 
   python keirin_bet.py --mode check   ブラウザを開かず、買う／見送るの判定を並べるだけ
   python keirin_bet.py --mode dry     ブラウザを開き、確認画面まで進んで押さない
