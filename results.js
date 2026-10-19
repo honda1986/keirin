@@ -545,7 +545,7 @@ const SNAP_CACHE = {};
 // 締切前の記録から、自動投票が買うかを決めたときの倍率 = 締切 DECIDE_MIN 分前より前で、いちばん締切に近い記録。
 //   2026-10-19 から倍率は締切まで取る(snap.js)。決めた後の記録で組を選ぶと、自動投票が買った組とずれるので使わない
 //   (その前より前の記録が無いレースだけ、いちばん締切に近い記録)
-const DECIDE_MIN = 2.5;   // bet/ の decide_at_minutes の既定。snap_live.js・index.html と同じ
+const DECIDE_MIN = 2.0;   // bet/ の decide_at_minutes の既定(2026-10-19 に 2.5 から)。snap_live.js・index.html・betplan.js と同じ
 function snapOdds(d8, key) {
   const sd = process.env.SNAP_DIR;
   if (!sd) return null;

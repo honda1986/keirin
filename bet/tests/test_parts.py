@@ -23,9 +23,9 @@ NOW = datetime(2026, 9, 26, 15, 0, 0, tzinfo=JST)
 
 
 def cfg(**over):
-    # 選び方のテストは「締切5分前(15:05)の時点で決める」形で書いてあるので、既定の2.5分ではなく6分にする。
-    # 決める時刻そのもののテストは decide_at_minutes=2.5 を渡す
-    d = {"decide_at_minutes": 6}
+    # 選び方のテストは「締切5分前(15:05)の時点で決める」形で書いてあるので、既定の2分ではなく6分にする。
+    # 決める時刻そのもののテストは decide_at_minutes=2.5 を渡す(_config_v を付けて、見本のままの値の読み替えをしない)
+    d = {"decide_at_minutes": 6, "_config_v": config_mod.CONFIG_V}
     d.update(over)
     return config_mod.from_dict(d, base_dir=tempfile.gettempdir())
 
@@ -106,8 +106,9 @@ class TestSelector(unittest.TestCase):
         self.assertEqual(r.bets, [])
         self.assertIn("届かない", r.skips[0][1])
 
-    def test_締切まで1分半を切ったら間に合わない(self):
-        r = self.sel(plan(race(close="15:01")))
+    def test_締切まで1分を切ったら間に合わない(self):
+        # close_min_minutes の既定は 1.0(2026-10-19 に 1.5 から)。締切15:01・いま15:00:10 = あと0.8分
+        r = self.sel(plan(race(close="15:01")), at=NOW.replace(second=10))
         self.assertEqual((r.bets, r.skips), ([], []))
         self.assertEqual(len(r.late), 1)
 
@@ -601,3 +602,31 @@ class TestStoreAndConfig(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestConfigMigrate(unittest.TestCase):
+    """2026-10-19: 決める時刻 2.5→2.0 分前・買わない線 1.5→1.0 分前。見本から写したままの config.json は読み替える"""
+
+    def test_見本のままの値は今の既定で読む(self):
+        c = config_mod.from_dict({"decide_at_minutes": 2.5, "close_min_minutes": 1.5})
+        self.assertEqual((c.decide_at_minutes, c.close_min_minutes), (2.0, 1.0))
+
+    def test_買わない線を変えていればそのまま(self):
+        c = config_mod.from_dict({"decide_at_minutes": 2.5, "close_min_minutes": 1.2})
+        self.assertEqual((c.decide_at_minutes, c.close_min_minutes), (2.0, 1.2))
+
+    def test_設定画面で保存したものは読み替えない(self):
+        c = config_mod.from_dict({"decide_at_minutes": 2.5, "close_min_minutes": 1.5, "_config_v": config_mod.CONFIG_V})
+        self.assertEqual((c.decide_at_minutes, c.close_min_minutes), (2.5, 1.5))
+
+    def test_書いていなければ既定(self):
+        c = config_mod.from_dict({})
+        self.assertEqual((c.decide_at_minutes, c.close_min_minutes), (2.0, 1.0))
+
+    def test_ほかの値は読み替えない(self):
+        c = config_mod.from_dict({"decide_at_minutes": 3, "close_min_minutes": 1.5})
+        self.assertEqual((c.decide_at_minutes, c.close_min_minutes), (3, 1.5))
+
+    def test_買わない線が2分以上なら読み替えない(self):
+        c = config_mod.from_dict({"decide_at_minutes": 2.5, "close_min_minutes": 2.0})
+        self.assertEqual((c.decide_at_minutes, c.close_min_minutes), (2.5, 2.0))

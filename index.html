@@ -2662,9 +2662,9 @@ async function loadLiveOdds(force) {
   if (j && RACE_DAY && j.date === RACE_DAY.replace(/-/g, "")) { LIVE_ODDS = j; LIVE_ERR = ""; }
   paintShoubu();
 }
-// 倍率は締切まで届く(2026-10-19〜。PC の snap.js)。買う/見送るは自動投票と同じく「締切2.5分前より前でいちばん新しい倍率」で決める。
-//   latest.json の d = その倍率(締切2.5分前を過ぎたレースだけ付く)。o はいちばん新しい倍率(表示用の「今」)
-const DECIDE_MIN = 2.5;   // bet/ の decide_at_minutes の既定。snap_live.js・betplan.js・results.js と同じ
+// 倍率は締切まで届く(2026-10-19〜。PC の snap.js)。買う/見送るは自動投票と同じく「締切 DECIDE_MIN(2)分前より前でいちばん新しい倍率」で決める。
+//   latest.json の d = その倍率(締切2分前を過ぎたレースだけ付く)。o はいちばん新しい倍率(表示用の「今」)
+const DECIDE_MIN = 2.0;   // bet/ の decide_at_minutes の既定(2026-10-19 に 2.5 から)。snap_live.js・betplan.js・results.js と同じ
 const decSnap = (snap) => (snap && snap.d && Array.isArray(snap.d.o) ? { n: snap.n, ...snap.d } : snap);
 function oddsOfTicket(snap, ticket) {
   if (!snap || !Array.isArray(snap.o)) return null;
@@ -2737,7 +2737,7 @@ function raceCard(g, isNext) {
     lineViz(g.hot ? g.hot.lines : x.lines, trio, g.hot ? g.hot.front : x.front, !g.hot, g.hot ? g.hot.seri : x.seri) +
     rows.join("") + (done ? resBlockOrder(res) : "") + "</div>";
 }
-// 決めたとき(締切2.5分前)より後の、今の倍率(締切まで届く)。同じなら出さない
+// 決めたとき(締切2分前)より後の、今の倍率(締切まで届く)。同じなら出さない
 const nowOdds = (cur, odds) => (cur != null && cur !== odds ? ' <span style="color:var(--dim);font-size:11px">→ 今' + cur + "倍</span>" : "");
 // 着順だけ(払戻は買い目の行に出す)
 function resBlockOrder(res) {
@@ -2775,7 +2775,7 @@ function dRows() {
   const out = [];
   for (const x of raceList) {
     if (!Array.isArray(x.riders) || x.riders.length < 5) continue;
-    const all = LIVE_ODDS.races[x.key], snap = decSnap(all), decided = snap !== all;   // 締切2.5分前を過ぎたら、自動投票が決めたときの倍率で選ぶ
+    const all = LIVE_ODDS.races[x.key], snap = decSnap(all), decided = snap !== all;   // 締切2分前を過ぎたら、自動投票が決めたときの倍率で選ぶ
     if (!snap || !Array.isArray(snap.o) || (snap.n && snap.n !== x.riders.length)) continue;
     const ps = EVD.picks(EVD.evAll(x.riders, x.lines, x.place, snap.o, x.riders.length, x.seri));
     ps.forEach((p, i) => out.push({ key: x.key, place: x.place, raceNo: x.raceNo, startTime: x.startTime, cars: x.riders.length, ticket: p.ticket, ev: p.ev, odds: p.odds, snap,
@@ -2961,7 +2961,7 @@ function evTopHtml(x) {
   if (snap.n && snap.n !== x.riders.length) return '<div class="evbox wait">倍率の組数が出走表と合わないので出しません</div>';
   const all = EVD.evAll(x.riders, x.lines, x.place, snap.o, x.riders.length, x.seri);
   if (!all) return '<div class="evbox wait">票がまだ薄く、期待値を計算できません</div>';
-  // Ⓓ買いの印は、締切2.5分前を過ぎたら自動投票が決めたときの倍率で(一覧の期待値と倍率は今の倍率)
+  // Ⓓ買いの印は、締切2分前を過ぎたら自動投票が決めたときの倍率で(一覧の期待値と倍率は今の倍率)
   const ds = decSnap(snap), decided = ds !== snap, dAll = decided ? EVD.evAll(x.riders, x.lines, x.place, ds.o, x.riders.length, x.seri) : all;
   const pk = new Set(dAll ? EVD.picks(dAll).map((r) => r.ticket) : []);
   const hot = (SHOUBU_ROWS.find((h) => h.key === x.key) || {}).ticket;
@@ -3112,7 +3112,7 @@ function paintBuy(p, r, b) {
   const pk = typeof EVD !== "undefined" ? EVD.PICK : { minEv: 1.10, oddsHi: 20 };
   let dh = "", dOn = false;
   if (today) {
-    const allS = LIVE_ODDS && LIVE_ODDS.races ? LIVE_ODDS.races[today.key] : null, snap = decSnap(allS), decided = !!allS && snap !== allS;   // 締切2.5分前を過ぎたら決めたときの倍率
+    const allS = LIVE_ODDS && LIVE_ODDS.races ? LIVE_ODDS.races[today.key] : null, snap = decSnap(allS), decided = !!allS && snap !== allS;   // 締切2分前を過ぎたら決めたときの倍率
     if (typeof EVD === "undefined" || !Array.isArray(today.riders) || today.riders.length < 5) dh = '<div class="buynote">選手データが足りず計算できません</div>';
     else if (!snap || !Array.isArray(snap.o)) dh = '<div class="buynote" style="font-size:12px;color:var(--muted)">締切前の倍率が届くと出ます（締切20分前ごろから）</div>';
     else if (snap.n && snap.n !== today.riders.length) dh = '<div class="buynote">倍率の組数が出走表と合わないので出しません</div>';

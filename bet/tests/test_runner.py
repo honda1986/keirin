@@ -129,7 +129,7 @@ class TestCycle(Base):
         self.assertIn("場が見当たらない", self.store.bets["20260926_岐阜_3R"]["note"])
 
     def test_サイトの締切が早くて間に合わなければ買わない(self):
-        site = FakeSite(site_close="15:01")          # 予定は15:05、画面は15:01（あと1分）
+        site = FakeSite(site_close="15:00")          # 予定は15:05、画面は15:00（あと0分。買わない線は既定で締切1分前）
         r = self.runner("live", plan(race()), site)
         self.assertEqual(r.cycle(), "ok")
         self.assertEqual(site.pressed, [])

@@ -36,7 +36,7 @@ const argv = process.argv.slice(2);
 const PUSH = argv.includes("--push");
 const FORCE = argv.includes("--force");
 const HEARTBEAT_MIN = 5;
-const DECIDE_MIN = 2.5;   // 自動投票(bet/)が買うかを決める締切何分前(decide_at_minutes の既定)。index.html・results.js と同じ
+const DECIDE_MIN = 2.0;   // 自動投票(bet/)が買うかを決める締切何分前(decide_at_minutes の既定。2026-10-19 に 2.5 から)。index.html・results.js・betplan.js と同じ
 const SOURCE = (() => { const i = argv.indexOf("--source"); return i >= 0 ? argv[i + 1] : "?"; })();
 const GIT_ENV = { GIT_TERMINAL_PROMPT: "0", GCM_INTERACTIVE: "never", GIT_ASKPASS: "", SSH_ASKPASS: "",
   GIT_AUTHOR_NAME: "odds-live", GIT_AUTHOR_EMAIL: "odds-live@users.noreply.github.com",

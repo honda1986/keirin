@@ -40,7 +40,7 @@ class TestBetplan(unittest.TestCase):
         self.dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.dir, True)
 
-    def run_plan(self, races, snaps, live=None, now="2026-09-26T15:01:00+09:00"):
+    def run_plan(self, races, snaps, live=None, now="2026-09-26T15:01:00+09:00", extra=None):
         rf = os.path.join(self.dir, "races.json")
         with open(rf, "w", encoding="utf-8") as f:
             json.dump({"races": races}, f, ensure_ascii=False)
@@ -49,6 +49,7 @@ class TestBetplan(unittest.TestCase):
             for s in snaps:
                 f.write(json.dumps(s, ensure_ascii=False) + "\n")
         args = [NODE, SCRIPT, "--now=" + now, "--races=" + rf, "--snaps=" + sf, "--no-remote"]
+        args += list(extra or [])
         if live is not None:
             lf = os.path.join(self.dir, "live.json")
             with open(lf, "w", encoding="utf-8") as f:
@@ -145,20 +146,24 @@ class TestBetplan(unittest.TestCase):
         x = self.hot(self.run_plan([race()], [local], live=live))[0]
         self.assertEqual((x["snap"]["src"], x["odds"]), ("odds-live", 6.0))
 
-    def test_締切2_5分前より後の記録では決めない(self):
-        # 倍率は締切まで取る(snap.js・2026-10-19〜)。決めるのは締切2.5分前より前でいちばん新しい記録(アプリ・夜の成績と同じ)
+    def test_締切2分前より後の記録では決めない(self):
+        # 倍率は締切まで取る(snap.js・2026-10-19〜)。決めるのは締切2分前(既定。--decide で変わる)より前でいちばん新しい記録(アプリ・夜の成績と同じ)
         snaps = [{"t": "15:02:00", "k": "岐阜_3R", "left": 3.0, "n": 9, "o": self.odds(9, 9.0, base=300.0)},
-                 {"t": "15:02:50", "k": "岐阜_3R", "left": 2.2, "n": 9, "o": self.odds(9, 4.0, base=300.0)}]
-        x = self.hot(self.run_plan([race()], snaps, now="2026-09-26T15:03:00+09:00"))[0]
+                 {"t": "15:03:20", "k": "岐阜_3R", "left": 1.7, "n": 9, "o": self.odds(9, 4.0, base=300.0)}]
+        x = self.hot(self.run_plan([race()], snaps, now="2026-09-26T15:03:30+09:00"))[0]
         self.assertEqual((x["odds"], x["snap"]["left"]), (9.0, 3.0))
         # odds-live の latest.json は o(いちばん新しい)と d(決めたときの倍率)を持つ
-        live = {"date": "20260926", "source": "GitHub", "races": {"岐阜_3R": {"t": "15:02:50", "left": 2.2, "n": 9, "o": self.odds(9, 4.0, base=300.0),
+        live = {"date": "20260926", "source": "GitHub", "races": {"岐阜_3R": {"t": "15:03:20", "left": 1.7, "n": 9, "o": self.odds(9, 4.0, base=300.0),
                 "d": {"t": "15:02:10", "left": 2.9, "n": 9, "o": self.odds(9, 11.0, base=300.0)}}}}
-        x = self.hot(self.run_plan([race()], [], live=live, now="2026-09-26T15:03:00+09:00"))[0]
+        x = self.hot(self.run_plan([race()], [], live=live, now="2026-09-26T15:03:30+09:00"))[0]
         self.assertEqual((x["odds"], x["snap"]["left"], x["snap"]["src"]), (11.0, 2.9, "odds-live"))
-        # 締切2.5分前より前の記録が無ければ、いちばん新しい記録
-        x = self.hot(self.run_plan([race()], snaps[1:], now="2026-09-26T15:03:00+09:00"))[0]
+        # 締切2分前より前の記録が無ければ、いちばん新しい記録
+        x = self.hot(self.run_plan([race()], snaps[1:], now="2026-09-26T15:03:30+09:00"))[0]
         self.assertEqual(x["odds"], 4.0)
+        # bet/ が --decide で決める時刻を渡す(config の decide_at_minutes)。2.5 なら締切2.2分前の記録は使わない
+        snaps2 = [snaps[0], {"t": "15:02:48", "k": "岐阜_3R", "left": 2.2, "n": 9, "o": self.odds(9, 4.0, base=300.0)}]
+        self.assertEqual(self.hot(self.run_plan([race()], snaps2, now="2026-09-26T15:03:00+09:00"))[0]["odds"], 4.0)
+        self.assertEqual(self.hot(self.run_plan([race()], snaps2, now="2026-09-26T15:03:00+09:00", extra=["--decide=2.5"]))[0]["odds"], 9.0)
 
     def test_ほかの日の出走表は使わない(self):
         r = race()

@@ -46,9 +46,9 @@
     "倍率が max_snap_age_minutes 分より古ければ注記付きで使い、その2倍より古ければ見送り。",
     "締切まで close_min_minutes 分を切ったら、決めていなくても買わない。"
   ],
-  "decide_at_minutes": 2.5,
+  "decide_at_minutes": 2.0,
   "max_snap_age_minutes": 4,
-  "close_min_minutes": 1.5,
+  "close_min_minutes": 1.0,
   "_5_締切": [
     "締切は発走の5分前として動く。オッズパークの「レースまとめ投票」にそのレースのチェック欄が無ければ（締め切った・売っていない）買わない。",
     "require_site_close は、画面で発売中を確かめられないときに買わないかどうか（true のままでよい）。"
