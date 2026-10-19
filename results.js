@@ -542,15 +542,24 @@ function evPast(dir) {
   return EV_PAST;
 }
 const SNAP_CACHE = {};
+// 締切前の記録から、自動投票が買うかを決めたときの倍率 = 締切 DECIDE_MIN 分前より前で、いちばん締切に近い記録。
+//   2026-10-19 から倍率は締切まで取る(snap.js)。決めた後の記録で組を選ぶと、自動投票が買った組とずれるので使わない
+//   (その前より前の記録が無いレースだけ、いちばん締切に近い記録)
+const DECIDE_MIN = 2.5;   // bet/ の decide_at_minutes の既定。snap_live.js・index.html と同じ
 function snapOdds(d8, key) {
   const sd = process.env.SNAP_DIR;
   if (!sd) return null;
   if (!(d8 in SNAP_CACHE)) {
-    SNAP_CACHE[d8] = {};
+    const dec = {}, any = {};
     try {
       const rows = JSON.parse(require("zlib").gunzipSync(fs.readFileSync(path.join(sd, d8 + ".json.gz"))).toString("utf8")).rows || [];
-      for (const r of rows) { const o = SNAP_CACHE[d8][r.k]; if (r.left >= 0 && (!o || r.left < o.left)) SNAP_CACHE[d8][r.k] = r; }
+      for (const r of rows) {
+        if (!(r.left >= 0)) continue;
+        if (!any[r.k] || r.left < any[r.k].left) any[r.k] = r;
+        if (r.left >= DECIDE_MIN && (!dec[r.k] || r.left < dec[r.k].left)) dec[r.k] = r;
+      }
     } catch (e) {}
+    SNAP_CACHE[d8] = Object.assign({}, any, dec);
   }
   return SNAP_CACHE[d8][key] || null;
 }
