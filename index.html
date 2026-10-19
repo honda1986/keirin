@@ -182,10 +182,6 @@
   details.more summary::before { content: "▸ "; }
   details.tkmore { margin: 4px 0 8px; } details.tkmore > summary { padding: 8px 0; font-size: 12px; font-weight: 700; color: var(--muted); }
   details.more[open] summary::before { content: "▾ "; }
-  .hs { display: inline-block; font-size: 11px; font-weight: 900; padding: 2px 8px; border-radius: 999px; margin-top: 8px; }
-  .hs.nige { background: rgba(95,192,139,.16); color: var(--green); }
-  .hs.both { background: var(--panel2); color: var(--muted); }
-  .hs.maku, .hs.weak { background: rgba(228,114,107,.14); color: var(--red); }
   .resbox { margin-top: 9px; padding: 8px 10px; border-radius: 10px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; background: rgba(0,0,0,.25); }
   .resbox .pay { margin-left: auto; font-weight: 900; font-size: 14px; }
   .pos { color: var(--green); } .neg { color: var(--red); }
@@ -477,8 +473,8 @@
     </details>
     <details class="fold"><summary>この画面の見方</summary>
       <div class="howto">
-        <p><b>🔥</b> 9車立て・単騎1人以下の「本命ライン3人」の3連複。締切前のオッズが <b>5〜15倍</b> のときだけ買う（5年とも回収100%超え）。さらに、本命ラインの番手か3番手が前について行けない（離れる）確率が <b>17%以上</b> のときだけ（切れやすいレースほど市場がライン決着を安く見ない。5年で回収125%・17%未満は99%）。S級S班がいるレースは見送り。</p>
-        <p><b>Ⓓ モデルD</b> 全レースの3連複の全組から「期待値1.10以上・20倍以下」の組を全部（2026/10/14〜。4年とも回収108%以上）。締切20分前から、PC が1分おきに送る倍率で計算して出ます。</p>
+        <p><b>🔥</b> 9車立て・単騎1人以下の「本命ライン3人」の3連複1点。<b>締切2分前の倍率</b>が <b>5〜15倍</b> のときだけ買う（5年とも回収100%超え）。さらに、本命ラインの番手か3番手が前について行けない（離れる）確率が <b>17%以上</b> のときだけ（5年で回収125%・17%未満は99%）。本命ラインの先頭のB率がレースでいちばんなら <b>B率1位</b> の札（5年で139%・それ以外116%。金額を分けられる）。S級S班がいるレースは見送り。</p>
+        <p><b>Ⓓ モデルD</b> 全レースの3連複の全組から「期待値1.10以上・20倍以下」の組を全部（2026/10/14〜。4年とも回収108%以上）。締切15分前から、PC が送る倍率で計算して出ます（締切6分前からは1分おき）。買うかは<b>締切2分前の倍率</b>で決めます（自動投票と同じ）。</p>
         <p><b>前受け</b> 初手でどのラインが前を取るかの予想（ラインの選手のスタート率などから）。並び予想の先頭ラインのままだと61〜64%、この予想は64〜67%当たる。本命ラインが前受けしそう（50%以上）な🔥は5年で的中15.9%・回収119%。</p>
         <p><b>カードは1レース1枚</b>。🔥とⒹの買い目を1行ずつ、<b>✓ 買う ○円 / ✗ 見送り（理由）</b>で出します。金額は右上の <b>💴 買い方</b> で変えられます（自動投票の金額は PC の設定）。</p>
         <p>大きい時刻は<b>発売の締切</b>（発走の5分前）。カードを押すとそのレースのページを開き、いちばん上に「買い目」の結論、その下に展開予想が出ます。上の「‹ 戻る」かスマホの戻る操作で元の画面に戻ります。</p>
@@ -629,90 +625,6 @@ const T = {
 };
 
 const TRACK_NAMES = Object.keys(T);
-
-// ============================================================
-// ローカル予想エンジン(API不使用・純粋JS)
-// 1) WINTICKET形式の出走表テキストをパース
-// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
-// ============================================================
-
-// ============================================================
-// ローカル予想エンジン(API不使用・純粋JS)
-// 1) WINTICKET形式の出走表テキストをパース
-// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
-// ============================================================
-
-// ============================================================
-// ローカル予想エンジン(API不使用・純粋JS)
-// 1) WINTICKET形式の出走表テキストをパース
-// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
-// ============================================================
-
-// ============================================================
-// ローカル予想エンジン(API不使用・純粋JS)
-// 1) WINTICKET形式の出走表テキストをパース
-// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
-// ============================================================
-
-// ============================================================
-// ローカル予想エンジン(API不使用・純粋JS)
-// 1) WINTICKET形式の出走表テキストをパース
-// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
-// ============================================================
-
-// ============================================================
-// ローカル予想エンジン(API不使用・純粋JS)
-// 1) WINTICKET形式の出走表テキストをパース
-// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
-// ============================================================
-
-// ============================================================
-// ローカル予想エンジン(API不使用・純粋JS)
-// 1) WINTICKET形式の出走表テキストをパース
-// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
-// ============================================================
-
-// ============================================================
-// ローカル予想エンジン(API不使用・純粋JS)
-// 1) WINTICKET形式の出走表テキストをパース
-// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
-// ============================================================
-
-// ============================================================
-// ローカル予想エンジン(API不使用・純粋JS)
-// 1) WINTICKET形式の出走表テキストをパース
-// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
-// ============================================================
-
-// ============================================================
-// ローカル予想エンジン(API不使用・純粋JS)
-// 1) WINTICKET形式の出走表テキストをパース
-// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
-// ============================================================
-
-// ============================================================
-// ローカル予想エンジン(API不使用・純粋JS)
-// 1) WINTICKET形式の出走表テキストをパース
-// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
-// ============================================================
-
-// ============================================================
-// ローカル予想エンジン(API不使用・純粋JS)
-// 1) WINTICKET形式の出走表テキストをパース
-// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
-// ============================================================
-
-// ============================================================
-// ローカル予想エンジン(API不使用・純粋JS)
-// 1) WINTICKET形式の出走表テキストをパース
-// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
-// ============================================================
-
-// ============================================================
-// ローカル予想エンジン(API不使用・純粋JS)
-// 1) WINTICKET形式の出走表テキストをパース
-// 2) バンク特性×選手データで採点し、印・展開・買い目を生成
-// ============================================================
 
 // ============================================================
 // ローカル予想エンジン(API不使用・純粋JS)
@@ -1028,7 +940,6 @@ function parseGamboo(text, trackNames) {
   return { ...meta, entries, lines: linesArr, narabi: linesArr.flat() };
 }
 
-// 形式自動判別ディスパッチャ(WINTICKET / Gamboo基本出走データ)
 // ---- kdreams(楽天Kドリームス)のレース詳細ページ用パーサー ----
 // 目印は「府県/年齢/期別」の行(例: 静　岡/24/121)。そこから前後を読む。
 //   -2行: 車番   -1行: 選手名
@@ -1164,6 +1075,7 @@ function looksKdreams(text) {
   return false;
 }
 
+// 形式自動判別ディスパッチャ(Gamboo基本出走データ / Kドリームス / WINTICKET)
 function parseCard(text, trackNames) {
   // 判定の順序が大事: Gamboo → kdreams → WINTICKET。
   // Gamboo の生データにも「県/数字/数字」に見える行があるので、Gamboo を先に確かめる。
@@ -1643,36 +1555,7 @@ function predict(parsed, bank, trackName, learnW) {
     mainLine, planNote, strongTanki, inTankis, betFirst: first, betSecond: second, betThird: third, rankBase, front };
 }
 
-// ---------- スジ決着期待度(1・2着がラインで決まりそうか) ----------
-// 場のスジ率を基準に、隊形・クラス・主導権の明確さ・単騎数で加減点(研究所020/027/029)
-function sujiExpect(parsed, r, bankSuji) {
-  if (r.klass === "girls") return null; // ガールズはライン無し=対象外
-  const reasons = [];
-  let s = bankSuji != null ? bankSuji : 53;
-  reasons.push("場のスジ率" + s + "%");
-  if (r.lpInfo) {
-    const d = (r.lpInfo.suji - 54.1) * 0.8;
-    s += d;
-    reasons.push(r.linePattern + "型(実測スジ率" + r.lpInfo.suji + "%)" + (d >= 0 ? "+" : "") + d.toFixed(1));
-  } else if (r.formation === 2) { s += 2; reasons.push("二分戦+2"); }
-  else if (r.formation >= 4) { s -= 2; reasons.push("四分戦以上-2"); }
-  if (r.klass === "challenge") { s += 3; reasons.push("チャレンジ戦(先→二が全クラス最多)+3"); }
-  if (r.klass === "s") { s -= 1; reasons.push("S級-1"); }
-  const pb = r.backProbs && r.backProbs[0] ? r.backProbs[0].p : 0;
-  if (r.backBalanced) { s -= 4; reasons.push("主導権拮抗-4"); }
-  else if (pb >= 0.35) { s += 3; reasons.push("主導権明確(Pbk" + (pb * 100).toFixed(0) + "%)+3"); }
-  const tankis = (parsed.lines || []).filter((l) => l.length === 1).length;
-  if (tankis) { s -= tankis * 1.5; reasons.push("単騎" + tankis + "名-" + (tankis * 1.5).toFixed(1)); }
-  if (r.topIsTanki) { s -= 4; reasons.push("本命が単騎-4"); }
-  s = Math.max(20, Math.min(78, s));
-  const verdict = s >= 60 ? "◎スジ堅い" : s >= 54 ? "○スジ寄り" : s >= 48 ? "△互角" : "×荒れ含み";
-  return { score: +s.toFixed(1), verdict, reasons };
-}
-
 // ---------- UI ----------
-// ===== 学習した勝ちパターン(sim.json)関連 =====
-let WINNERS = [];      // 回収率100%超のパターン
-let ALL_PATTERNS = [];  // 学習した全構成(回収率降順)
 // 本日の確定結果。loadResults()(画面の組み立ての節)が、レース日が合うときだけ入れる。
 // 以前は stats.json の todayRaces を日付を確かめずに使っていて、前日の結果が混ざりえた。
 let TODAY_RESULTS = [];
@@ -1682,149 +1565,6 @@ let LEARN_W = null; // 学習補正(learn.jsが生成したweights.json)
 // 読み込み前に予想すると scoreDiff が0になるので、使う側は SCORES_READY を待つ。
 let SCORES = null;
 const SCORES_READY = (async () => { try { const r = await fetch("./scores.json", { cache: "no-store" }); if (r.ok) SCORES = await r.json(); } catch (e) {} })();
-// 買い目タイプID → 3連単の目リストを生成(simulate.jsのPATTERNSと一致させること)
-const perms3App = (fs, ss, ts) => { const o = new Set(); for (const a of fs) for (const b of ss) for (const c of ts) { if (a === b || b === c || a === c) continue; o.add(a + "-" + b + "-" + c); } return [...o]; };
-const lineOfApp = (lines, c) => (lines || []).find((l) => l.includes(c)) || null;
-const sujiMatesApp = (lines, c) => {
-  const l = lineOfApp(lines, c);
-  if (!l || l.length < 2) return [];
-  const i = l.indexOf(c); const out = [];
-  if (i > 0) out.push(l[i - 1]);
-  if (i < l.length - 1) out.push(l[i + 1]);
-  return out;
-};
-const perms2App = (fs, ss) => { const o = new Set(); for (const a of fs) for (const b of ss) { if (a === b) continue; o.add(a + "-" + b); } return [...o]; };
-const BET_BUILDERS = {
-  p_1_234: (r) => perms3App([r[0]], [r[1], r[2], r[3]], [r[1], r[2], r[3]]),
-  // 2車単(1着-2着)
-  n2_1_23: (r) => perms2App([r[0]], [r[1], r[2]]),
-  n2_1_234: (r) => perms2App([r[0]], [r[1], r[2], r[3]]),
-  n2_box12: (r) => perms2App([r[0], r[1]], [r[0], r[1]]),
-  n2_1_2: (r) => perms2App([r[0]], [r[1]]),
-  n2_suji: (r, lines) => { const m = sujiMatesApp(lines, r[0]); return m.length ? perms2App([r[0]], m) : []; },
-  n2_ana_567: (r) => perms2App([r[0]], [r[4], r[5], r[6]].filter(Boolean)),
-  n2_ana_4567: (r) => perms2App([r[0]], [r[3], r[4], r[5], r[6]].filter(Boolean)),
-  n2_ana_nonsuji: (r, lines) => { const m = sujiMatesApp(lines, r[0]); const o = r.slice(1).filter((c) => !m.includes(c)); return o.length ? perms2App([r[0]], o) : []; },
-  n2_ana_head456: (r) => perms2App([r[3], r[4], r[5]].filter(Boolean), [r[0], r[1]]),
-  n2_ana_23_1: (r) => perms2App([r[1], r[2]], [r[0]]),
-  p_ana_4567: (r) => perms3App([r[0]], [r[3], r[4], r[5], r[6]].filter(Boolean), [r[3], r[4], r[5], r[6]].filter(Boolean)),
-  p_ana_23_567: (r) => perms3App([r[0]], [r[1], r[2]], [r[4], r[5], r[6]].filter(Boolean)),
-  p_ana_nonsuji: (r, lines) => { const m = sujiMatesApp(lines, r[0]); const o = r.slice(1).filter((c) => !m.includes(c)); return o.length >= 2 ? perms3App([r[0]], o, r.slice(1)) : []; },
-  n2_suji_both: (r, lines) => { const m = sujiMatesApp(lines, r[0]); if (!m.length) return []; return [...new Set([...perms2App([r[0]], m), ...perms2App(m, [r[0]])])]; },
-  // ライン考慮(第2引数にlinesを受け取る)
-  p_suji_main: (r, lines) => { const m = sujiMatesApp(lines, r[0]); return m.length ? perms3App([r[0]], m, [r[1], r[2], r[3]]) : []; },
-  p_suji_plus: (r, lines) => { const m = sujiMatesApp(lines, r[0]); const s = [...new Set([...m, r[1]])]; return perms3App([r[0]], s, [r[1], r[2], r[3]]); },
-  p_line12: (r, lines) => { const l = lineOfApp(lines, r[0]); if (!l || l.length < 2) return []; const o = new Set(); for (const a of l) for (const b of l) { if (a === b) continue; for (const c of [r[1], r[2], r[3]]) if (c !== a && c !== b) o.add(a + "-" + b + "-" + c); } return [...o]; },
-  p_suji_wide: (r, lines) => { const m = sujiMatesApp(lines, r[0]); return m.length ? perms3App([r[0]], m, [r[1], r[2], r[3], r[4]]) : []; },
-  p_suji_rev: (r, lines) => { const m = sujiMatesApp(lines, r[0]); return m.length ? perms3App(m, [r[0]], [r[1], r[2], r[3]]) : []; },
-  p_suji_both: (r, lines) => { const m = sujiMatesApp(lines, r[0]); if (!m.length) return []; return [...new Set([...perms3App([r[0]], m, [r[1], r[2], r[3]]), ...perms3App(m, [r[0]], [r[1], r[2], r[3]])])]; },
-  p_1_2345: (r) => perms3App([r[0]], [r[1], r[2], r[3], r[4]], [r[1], r[2], r[3], r[4]]),
-  p_1_234_2345: (r) => perms3App([r[0]], [r[1], r[2], r[3]], [r[1], r[2], r[3], r[4]]),
-  p_12_1234: (r) => perms3App([r[0], r[1]], [r[0], r[1], r[2], r[3]], [r[0], r[1], r[2], r[3]]),
-  p_box123: (r) => perms3App([r[0], r[1], r[2]], [r[0], r[1], r[2]], [r[0], r[1], r[2]]),
-  p_1_23: (r) => perms3App([r[0]], [r[1], r[2]], [r[1], r[2]]),
-  p_1_23_234: (r) => perms3App([r[0]], [r[1], r[2]], [r[1], r[2], r[3]]),
-  p_12_123_12345: (r) => perms3App([r[0], r[1]], [r[0], r[1], r[2]], [r[0], r[1], r[2], r[3], r[4]]),
-  p_box1234: (r) => perms3App([r[0], r[1], r[2], r[3]], [r[0], r[1], r[2], r[3]], [r[0], r[1], r[2], r[3]]),
-};
-// レースが勝ちパターンの条件に合致するか判定。合致した中で最も回収率が高いものを返す
-// 条件に合致し、かつ実際に買い目が生成できる構成のうち最も回収率が高いものを返す
-function matchBest(ctx, ranked, lines) {
-  const ok = (cond) => {
-    if (cond.scoreMin != null && !(ctx.score >= cond.scoreMin)) return false;
-    if (cond.gapMin != null && !(ctx.gap != null && ctx.gap >= cond.gapMin)) return false;
-    if (cond.klass && ctx.klass !== cond.klass) return false;
-    if (cond.notKlass && ctx.klass === cond.notKlass) return false;
-    if (cond.verdict && ctx.verdict !== cond.verdict) return false;
-    if (cond.notVerdict && ctx.verdict === cond.notVerdict) return false;
-    if (cond.scoreMax != null && !((ctx.score || 0) < cond.scoreMax)) return false;
-    if (cond.gapMax != null && !(ctx.gap != null && ctx.gap < cond.gapMax)) return false;
-    if (cond.patternRe && !(ctx.pattern && new RegExp(cond.patternRe).test(ctx.pattern))) return false;
-    if (cond.lineSizeMin != null || cond.lineSizeEq != null || cond.topIsHead != null || cond.topNotTail != null) {
-      const rk = ranked || [], ln = lines || [];
-      if (!rk.length || !ln.length) return false; // ライン情報が無ければ判定不能→不成立
-      const l0 = ln.find((x) => x.includes(rk[0]));
-      if (cond.lineSizeMin != null && !(l0 && l0.length >= cond.lineSizeMin)) return false;
-      if (cond.lineSizeEq != null && !(l0 && l0.length === cond.lineSizeEq)) return false;
-      if (cond.topIsHead != null) {
-        const isHead = !!(l0 && l0.length >= 2 && l0[0] === rk[0]);
-        if (isHead !== cond.topIsHead) return false;
-      }
-      if (cond.topNotTail === true) {
-        const isTail = !!(l0 && l0.length >= 2 && l0[l0.length - 1] === rk[0]);
-        if (isTail) return false;
-      }
-    }
-    if (cond.gradeRe && !(ctx.grade && new RegExp(cond.gradeRe).test(ctx.grade))) return false;
-    if (cond.notGradeRe && ctx.grade && new RegExp(cond.notGradeRe).test(ctx.grade)) return false;
-    if (cond.verdictIn && !cond.verdictIn.includes(ctx.verdict)) return false;
-    return true;
-  };
-  for (const w of ALL_PATTERNS) {
-    const b = BET_BUILDERS[w.patternId];
-    if (!b || !ok(w.cond)) continue;
-    const tickets = b(ranked, lines) || [];
-    if (tickets.length) return { ...w, tickets };
-  }
-  return null;
-}
-// 🔥勝負レース用: sim.jsonで「勝負採用」と判定された構成のみを対象に最良を選ぶ
-const isShoubuPat = (w) => (w.shoubu != null ? !!w.shoubu : (w.roi >= 105 && w.races >= 300));
-function matchBestShoubu(ctx, ranked, lines) {
-  const saved = ALL_PATTERNS;
-  try { ALL_PATTERNS = saved.filter(isShoubuPat); return matchBest(ctx, ranked, lines); }
-  finally { ALL_PATTERNS = saved; }
-}
-function matchWinner(ctx) {
-  // ctx: { score, gap, klass, verdict, grade, pattern, ranked, lines }
-  const ok = (cond) => {
-    if (cond.scoreMin != null && !(ctx.score >= cond.scoreMin)) return false;
-    if (cond.gapMin != null && !(ctx.gap != null && ctx.gap >= cond.gapMin)) return false;
-    if (cond.klass && ctx.klass !== cond.klass) return false;
-    if (cond.notKlass && ctx.klass === cond.notKlass) return false;
-    if (cond.verdict && ctx.verdict !== cond.verdict) return false;
-    if (cond.notVerdict && ctx.verdict === cond.notVerdict) return false;
-    if (cond.scoreMax != null && !((ctx.score || 0) < cond.scoreMax)) return false;
-    if (cond.gapMax != null && !(ctx.gap != null && ctx.gap < cond.gapMax)) return false;
-    if (cond.patternRe && !(ctx.pattern && new RegExp(cond.patternRe).test(ctx.pattern))) return false;
-    if (cond.lineSizeMin != null || cond.lineSizeEq != null || cond.topIsHead != null || cond.topNotTail != null) {
-      const rk = ctx.ranked || [], ln = ctx.lines || [];
-      if (!rk.length || !ln.length) return false; // ライン情報が無ければ判定不能→不成立
-      const l0 = ln.find((x) => x.includes(rk[0]));
-      if (cond.lineSizeMin != null && !(l0 && l0.length >= cond.lineSizeMin)) return false;
-      if (cond.lineSizeEq != null && !(l0 && l0.length === cond.lineSizeEq)) return false;
-      if (cond.topIsHead != null) {
-        const isHead = !!(l0 && l0.length >= 2 && l0[0] === rk[0]);
-        if (isHead !== cond.topIsHead) return false;
-      }
-      if (cond.topNotTail === true) {
-        const isTail = !!(l0 && l0.length >= 2 && l0[l0.length - 1] === rk[0]);
-        if (isTail) return false;
-      }
-    }
-    if (cond.gradeRe && !(ctx.grade && new RegExp(cond.gradeRe).test(ctx.grade))) return false;
-    if (cond.notGradeRe && ctx.grade && new RegExp(cond.notGradeRe).test(ctx.grade)) return false;
-    if (cond.verdictIn && !cond.verdictIn.includes(ctx.verdict)) return false;
-    return true;
-  };
-  const hits = WINNERS.filter((w) => BET_BUILDERS[w.patternId] && ok(w.cond));
-  return hits.length ? hits[0] : null; // WINNERSは回収率降順なので先頭が最良
-}
-async function loadWinners() {
-  if (WINNERS.length) return WINNERS;
-  try {
-    const res = await fetch("./sim.json", { cache: "no-store" });
-    if (res.ok) {
-      const d = await res.json();
-      WINNERS = (d.winners || []).sort((a, b) => b.roi - a.roi);
-      ALL_PATTERNS = (d.allPatterns || []).sort((a, b) => b.roi - a.roi);
-      if (raceList.length) renderSearch(); // パターン読込後に勝負レースカードを更新
-    }
-  } catch (e) { /* ローカル利用時などは勝ちパターン無しで続行 */ }
-  return WINNERS;
-}
-loadWinners();
-
 const $ = (id) => document.getElementById(id);
 let lastParsed = null, lastTrack = "";
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -1878,10 +1618,8 @@ $("addRace").addEventListener("click", () => {
     const tn = T[$("track").value] ? $("track").value : p.place;
     const bank = T[tn];
     const r = predict(p, bank, tn, LEARN_W);
-    const sx = sujiExpect(p, r, bank ? bank[10] : null);
-    const gap = r.scores && r.scores[1] ? +(r.scores[0].total - r.scores[1].total).toFixed(1) : null;
     const key = (p.place || "?") + (p.raceNo || "?");
-    const item = { key, startTime: p.startTime || "", label: (p.place || "?") + " " + (p.raceNo || ""), sub: (r.fLabel || "") + " " + patLabel(r.linePattern), klass: r.klass, sx, gap, shoubu: isShoubu(sx, gap, r.klass, r.scores.map((sc) => sc.car), p.lines, p.grade || "", r.linePattern || "", (p.entries || []).some((e) => e.grade === "SS"), p.seri), raw: text };
+    const item = { key, startTime: p.startTime || "", label: (p.place || "?") + " " + (p.raceNo || ""), sub: (r.fLabel || "") + " " + patLabel(r.linePattern), klass: r.klass, shoubu: isShoubu(r.scores.map((sc) => sc.car), p.lines, (p.entries || []).some((e) => e.grade === "SS"), p.seri), raw: text };
     const i = raceList.findIndex((x) => x.key === key);
     if (i >= 0) raceList[i] = item; else raceList.push(item);
     renderSearch();
@@ -1892,14 +1630,11 @@ $("addRace").addEventListener("click", () => {
   }
 });
 $("clearList").addEventListener("click", () => { raceList = []; renderSearch(); });
-// ===== 3連複「本命ライン3人」= 主戦略 =====
-// 実測(2025/01〜2026/08・42,891レース・全レースの確定オッズで検証):
-//   全体          回収 87.3%
-//   9車立て        回収103.2%(2,278R / 誤差幅92〜114% / 前半107%→後半100%)
-//   7車・順位合計12以上 かつ オッズ4〜15倍  回収103.5%(2,427R / 誤差幅95〜112% / 前半105%→後半102%)
-//   7車・上記以外    回収 85.7%
-// 市場は「30倍まではほぼ正確・50倍超は買われすぎ(回収55%以下)」なので、
-// 7車はオッズ帯を外れたら見送る。9車は市場がライン決着を過小評価している(実力/市場 1.34倍)。
+// ===== 3連複「本命ライン3人」(🔥) =====
+// いまの買い方(2022〜2026年・確定オッズ): 9車立て・単騎1人以下・5〜15倍・本命ラインが切れる確率17%以上・S班なし
+//   1,126R 回収125.5%(5年とも115%以上)。先頭のB率1位は139%・それ以外116%(hikitsugi §4-31・§4-32)
+//   7車立て(評価順位の合計12以上・4〜15倍)は5年とも90〜96%なので既定では買わない
+//   9車で帯を20倍以下に広げても収支は増えず回収が下がる(15倍超〜20倍は約80%。§4-44)
 // 全員が単騎(ガールズ等)の隊形表記「1-1-1-1-1-1」は横に長く画面が崩れるので出さない
 function patLabel(pat) {
   if (!pat) return "";
@@ -1980,121 +1715,8 @@ function f3Plan(p, r) {
   return f3PlanFrom(r.scores.map((sc) => sc.car), p.lines || [], { ss: (p.entries || []).some((e) => e.grade === "SS"), seri: p.seri });
 }
 
-// 買う前のオッズ確認を促す帯。🔥カードと個別レース表示の両方で使う。
-// 確定後は助言として意味が無いので出さない(x.result があるとき)。
-// 7車立ては帯(4〜15倍)を外すと実測87.7%で、確認しないなら買わない方が良い水準。
-// 引数: { tickets:[買い目], needOdds, bandLo, bandHi, bandNote, result }
-// 本命ライン先頭の脚質(出走表の決まり手欄＝直近の逃げ・捲りの回数から判定)。表示だけで、買う/買わないには使わない。
-// 2026-09 の検証: furoito/keirin-data の決まり手から「直前120日」の回数を作り 2025/1〜2026/4 を測り、
-// 出走表そのものの回数(2026/7〜9)でも同じ向きを確かめた。3複「本命ライン3人」の的中は
-//   逃げ型 32% / 両立型 27〜31% / 捲り型 19〜24% / 自力弱 20%前後(全レース)。
-// 市場もかなり織り込んでいて、回収率の差は数ポイントしかない。
-// レース後の短評で見ると、捲り型が崩れるのは番手が千切れるからではなく(離れた率は型によらず6%台)、
-// 先頭自身が後ろに置かれて捲りきれないことが多いため。
-function headStyleOf(p, trio) {
-  if (!p || !Array.isArray(p.entries) || !Array.isArray(trio) || trio.length < 3) return null;
-  // 決まり手欄が無い形式の出走表では全員0回になる。それを「自力弱」と出さないよう、何も出さない
-  const hasK = p.entries.some((e) => e.k && ((+e.k.nige || 0) + (+e.k.makuri || 0) + (+e.k.sashi || 0) + (+e.k.mark || 0)) > 0);
-  if (!hasK) return null;
-  const h = p.entries.find((e) => e.car === trio[0]);
-  if (!h || !h.k) return null;
-  const n = +h.k.nige || 0, m = +h.k.makuri || 0, J = n + m;
-  const type = J <= 2 ? "自力弱" : n / J >= 0.6 ? "逃げ型" : n / J <= 0.4 ? "捲り型" : "両立型";
-  return { type, n, m, head: trio[0], ban: trio[1], third: trio[2] };
-}
-function headStyleBox(p, trio) {
-  const s = headStyleOf(p, trio);
-  if (!s) return "";
-  const TXT = {
-    "逃げ型": ["#5FC08B", "主導権を取って押し切る形が多く、ライン3人で決まりやすい(3複の的中 実測32%)。"],
-    "両立型": ["#8CA3A0", "逃げと捲りの両方で勝つ。ライン3人の決まりやすさは中くらい(実測27〜31%)。"],
-    "捲り型": ["#E4726B", "後方に置かれて捲りきれないことが多く、ライン3人で決まりにくい(実測19〜24%)。"],
-    "自力弱": ["#E4726B", "直近で自力(逃げ・捲り)で勝った回数が2回以下。ライン3人で決まりにくい(実測20%前後)。"],
-  };
-  const [col, msg] = TXT[s.type];
-  return '<div style="font-size:11px;color:#8CA3A0;margin-top:6px;line-height:1.6">' +
-    "先頭 " + s.head + '番: <b style="color:' + col + '">' + s.type + "</b>(直近 逃げ" + s.n + "・捲り" + s.m + ") " + msg +
-    // 3単「先頭-番手-3番手」は、先頭が逃げ型のときだけ 2025年 / 2026年1〜4月 / 2026年7〜9月 の3期間とも
-    // 3複1点より6〜9pt良かった(95.7 / 98.1 / 97.3% 対 88.4 / 89.4 / 91.6%)。どれも100%未満なので参考表示に留める。
-    // 捲り型の「番手-先頭-3番手」は3期間目で崩れた(70.6%)ので出さない。
-    (s.type === "逃げ型"
-      ? '<br>参考: 3単 <b style="color:#EAF2EF">' + s.head + "-" + s.ban + "-" + s.third + "</b> 1点。先頭が逃げ型のときは、調べた3つの期間とも3複1点より6〜9ポイント良かった(実測96〜98%)。ただし100%は超えていない。"
-      : "") +
-    "</div>";
-}
-// 本命ライン3人(3連複)がこのレースで当たる確率の推定。表示だけで、買う/見送るの判定には使わない。
-// 2026-09 に作成: 2025年(13,908R)でロジスティック回帰を学習し、使っていない2期間で確認した。
-//   2026年1〜4月(furoito/keirin-data 由来の値)・2026年7〜9月(出走表そのものの値) とも、
-//   推定と実際の的中がよく合う(例: 🔥 7〜9月 推定7.5→実際8.3% / 21.2→23.4% / 30.6→30.3%)。
-//   🔥の中で当たるレースを上に並べる力(AUC)は 固定値0.49〜0.52 → 0.65〜0.67。
-// ただし「推定 × 確定オッズ」の期待値で買う/見送るを決めても成績は上がらなかった
-//   (期待値1.2以上: 2025年 109% / 2026年1〜4月 86% / 7〜9月 68%)。市場も同じことを見ているため。
-//   だから損益分岐オッズやオッズ帯は、今まで通り条件全体の実測値のまま出す。
-// 特徴量(並び順を変えないこと): 9車立て, 単騎の人数(上限3), 競走得点のレース内z(先頭/番手/3番手/別線で最強),
-//   3連対率のレース平均との差(3番手/別線で最強), 評価点の差(トリオの最低−トリオ以外の最高),
-//   先頭の脚質(逃げ型/捲り型/自力弱), 2人以上の別線の数, 評価順位の合計÷車数
-const F3_HIT_MODEL = {"mu": [0.102819, 0.631507, 0.899169, 0.760535, -0.458099, 0.697053, -0.062477, 0.103791, -25.25348, 0.468651, 0.253523, 0.070966, 1.434139, 1.411311], "sd": [0.303722, 0.764773, 0.882202, 0.815698, 0.79955, 0.573223, 0.127158, 0.083853, 14.535727, 0.499016, 0.435028, 0.256769, 0.596743, 0.278592], "w": [-0.17928, 0.011385, 0.329515, 0.194859, 0.256899, -0.12321, 0.076752, -0.17979, 0.118987, 0.027343, -0.147415, -0.130943, -0.03242, -0.084418], "b": -1.005805};
-function f3HitProb(p, r, lines, trio) {
-  if (!p || !Array.isArray(p.entries) || !r || !Array.isArray(r.scores) || !Array.isArray(lines) || !Array.isArray(trio) || trio.length < 3) return null;
-  const E = {}; for (const e of p.entries) E[e.car] = e;
-  const ranked = r.scores.map((x) => x.car), n = ranked.length;
-  if (n < 5) return null;
-  // 競走得点・3連対率・決まり手のどれかが無い出走表では推定しない(固定値の表示に戻す)
-  for (const c of ranked) {
-    const e = E[c];
-    if (!e || !(+e.score > 0) || !e.rate || !isFinite(+e.rate.sanren) || !e.k) return null;
-  }
-  if (!p.entries.some((e) => e.k && ((+e.k.nige || 0) + (+e.k.makuri || 0) + (+e.k.sashi || 0) + (+e.k.mark || 0)) > 0)) return null;
-  const hl = lines.find((l) => Array.isArray(l) && l.includes(trio[0]));
-  if (!hl || hl.length < 3) return null;
-  const [a, b, c] = trio, inTrio = new Set(trio);
-  const out = ranked.filter((k) => !hl.includes(k));
-  if (!out.length) return null;
-  const sc = {}; for (const k of ranked) sc[k] = +E[k].score;
-  const mu = ranked.reduce((t, k) => t + sc[k], 0) / n;
-  const sd = Math.sqrt(ranked.reduce((t, k) => t + (sc[k] - mu) ** 2, 0) / n) || 1;
-  const z = (k) => (sc[k] - mu) / sd;
-  const p3 = {}; for (const k of ranked) p3[k] = +E[k].rate.sanren / 100;
-  const pm = ranked.reduce((t, k) => t + p3[k], 0) / n;
-  const ev = {}; for (const x of r.scores) ev[x.car] = +x.total;
-  const nh = +E[a].k.nige || 0, mh = +E[a].k.makuri || 0, J = nh + mh, sh = J ? nh / J : 0;
-  const x = [
-    n >= 8 ? 1 : 0,
-    Math.min(lines.filter((l) => Array.isArray(l) && l.length === 1).length, 3),
-    z(a), z(b), z(c), Math.max(...out.map(z)),
-    p3[c] - pm, Math.max(...out.map((k) => p3[k])) - pm,
-    Math.min(...trio.map((k) => ev[k])) - Math.max(...ranked.filter((k) => !inTrio.has(k)).map((k) => ev[k])),
-    J > 2 && sh >= 0.6 ? 1 : 0, J > 2 && sh <= 0.4 ? 1 : 0, J <= 2 ? 1 : 0,
-    lines.filter((l) => Array.isArray(l) && l !== hl && l.length >= 2).length,
-    trio.reduce((t, k) => t + ranked.indexOf(k) + 1, 0) / n,
-  ];
-  if (x.some((v) => !isFinite(v))) return null;
-  const m = F3_HIT_MODEL;
-  const t = m.b + x.reduce((acc, v, j) => acc + m.w[j] * (v - m.mu[j]) / m.sd[j], 0);
-  return 1 / (1 + Math.exp(-t));
-}
-function oddsGate(x) {
-  if (x.result) return "";
-  if (x.needOdds) {
-    return '<div style="margin-top:7px;padding:8px 9px;border-radius:6px;background:rgba(228,114,107,.12);border:1px solid #E4726B">' +
-      '<div style="font-size:12px;font-weight:900;color:#E4726B">⚠ 買う前にオッズを確認</div>' +
-      '<div style="font-size:12px;color:#EAF2EF;margin-top:3px">三連複 <b>' + esc(x.tickets[0]) + '</b> が ' +
-        '<b style="color:#F2C230">' + x.bandLo + '〜' + x.bandHi + '倍</b> のときだけ買う。外れていたら<b>見送り</b>。</div>' +
-      (x.bandNote ? '<div style="font-size:11px;color:#8CA3A0;margin-top:4px">' + esc(x.bandNote) + "</div>" : "") +
-    "</div>";
-  }
-  return x.bandNote
-    ? '<div style="margin-top:7px;padding:7px 9px;border-radius:6px;background:rgba(95,192,139,.10);border:1px solid #26363B">' +
-        '<div style="font-size:12px;color:#5FC08B;font-weight:700">オッズ確認なしで買える</div>' +
-        '<div style="font-size:11px;color:#8CA3A0;margin-top:3px">' + esc(x.bandNote) + "</div>" +
-      "</div>"
-    : "";
-}
-
-// 勝負レース判定: バックテストで回収率100%超だった勝ちパターンのいずれかに合致するか
-function isShoubu(sx, gap, klass, ranked, lines, grade, pattern, ss, seri) {
-  // 判定は3連複「本命ライン3人」の実測成績のみ(sim.jsonの総当たり構成は
-  // 未使用データで再現しなかったため使わない)。
+// 🔥かどうか(3連複「本命ライン3人」。f3PlanFrom の hot)
+function isShoubu(ranked, lines, ss, seri) {
   const pl = f3PlanFrom(ranked || [], lines || [], { ss, seri });
   return !!(pl && pl.hot);
 }
@@ -2102,7 +1724,7 @@ function renderShoubu() {
   if (!$("shoubuCard")) return;
   const rows = [];
   for (const x of raceList) {
-    if (!x.raw || !ALL_PATTERNS.length) continue;
+    if (!x.raw) continue;
     let p, r, pl;
     try {
       p = parseCard(x.raw, TRACK_NAMES);
@@ -2116,14 +1738,12 @@ function renderShoubu() {
       key: x.key, startTime: x.startTime || p.startTime || "",
       place: p.place || "?", raceNo: p.raceNo || "",
       cars: pl.cars, rankSum: pl.rankSum, trio: pl.trio, lines: p.lines || [],
-      ticket: pl.ticket, tickets: [pl.ticket], roi: pl.roi, hitRate: pl.hitRate, beOdds: (100 / pl.hitRate).toFixed(1),
+      ticket: pl.ticket, tickets: [pl.ticket],
       // 2026-09-27 の見直し(hikitsugi §4-12): 9車も帯 5〜15倍の中だけ買う・7車は5年とも100%未満なので見送り
       needOdds: pl.cars >= 8 ? true : !!pl.needOdds, bandLo: pl.cars >= 8 ? 5 : pl.bandLo, bandHi: pl.cars >= 8 ? 15 : pl.bandHi,
       bandNote: pl.cars >= 8 ? "9車立ては5〜15倍のときだけ（2022〜2026年の5年とも回収100%超えだったのはこの帯だけ）" : pl.bandNote, note: pl.note,
       skip7: pl.cars < 8,
       isTop: pl.cars >= 8,
-      hs: headStyleOf(p, pl.trio), headStyle: headStyleBox(p, pl.trio),
-      estHit: f3HitProb(p, r, p.lines || [], pl.trio),
       delta: evDelta(p, r, SCORES),
       front: x.front && x.lines && x.lines.length === (p.lines || []).length ? x.front : null,
       seri: x.seri || null,
@@ -2141,8 +1761,6 @@ function renderShoubu() {
 
 let searchFilter = "all";          // 既定はすべて(場ごとにたためる)
 document.addEventListener("DOMContentLoaded", () => {
-  const lt2 = document.getElementById("loadTodayTop");
-  if (lt2) lt2.addEventListener("click", () => { const b = document.getElementById("loadToday"); if (b) b.click(); });
   document.querySelectorAll(".sfBtn").forEach((b) => b.addEventListener("click", () => { searchFilter = b.dataset.f; renderRaceList(); }));
   const fa = document.getElementById("foldAll");
   if (fa) fa.addEventListener("click", () => {
@@ -2195,7 +1813,7 @@ function renderRaceList() {
       '<span class="rno">' + rnoOf(x) + 'R</span><span class="rt">' + (x.startTime || "") + '</span><span class="rl">' + mini(x) + "</span>" +
       '<span class="rr">' + (x.shoubu ? '<span class="kb hot">🔥</span>' : "") + (D_KEYS.has(x.key) ? '<span class="kb d">Ⓓ</span>' : "") + resultChip(x) + "</span></div>").join("") + "</div>";
   }
-  box.innerHTML = html || '<div class="empty">' + (searchFilter === "shoubu" ? "🔥・Ⓓ のレースは今のところありません（「すべて」で全レース。Ⓓは締切20分前から）" : "該当なし") + "</div>";
+  box.innerHTML = html || '<div class="empty">' + (searchFilter === "shoubu" ? "🔥・Ⓓ のレースは今のところありません（「すべて」で全レース。Ⓓは締切15分前から）" : "該当なし") + "</div>";
 }
 window.loadRace = (key) => {
   const x = raceList.find((y) => y.key === key);
@@ -2272,11 +1890,9 @@ $("loadToday").addEventListener("click", async () => {
     try { data = await openData(sealed); } catch (e) { if (e.lock) { showLock(sealed, e.message); return; } throw e; }
     if (!data.races || !data.races.length) throw new Error("レースデータが空です");
     data.races.forEach((x) => {
-      const sx = x.score != null ? { score: x.score, verdict: x.verdict, reasons: x.reasons || [] } : null;
-      const gap = x.gap != null ? x.gap : null;
       const item = { key: x.key, startTime: x.startTime || "", label: (x.place || "?") + " " + (x.raceNo || ""),
         sub: (x.fLabel || "") + " " + patLabel(x.pattern), klass: x.klass,
-        sx, gap, shoubu: isShoubu(sx, gap, x.klass, rankedOfRow(x), x.lines || [], x.grade || "", x.pattern || "", !!x.ss, x.seri),
+        shoubu: isShoubu(rankedOfRow(x), x.lines || [], !!x.ss, x.seri),
         raw: x.raw || "", riders: x.riders || null, lines: x.lines || [], place: x.place || "", raceNo: x.raceNo || "",
         front: Array.isArray(x.front) && Array.isArray(x.lines) && x.front.length === x.lines.length ? x.front : null,
         seri: Array.isArray(x.seri) ? x.seri : null,
@@ -2455,11 +2071,11 @@ function render(p, tName) {
   paintBuy(p, r, b);   // 買い目(いまの買い方: 🔥・Ⓓ。2026-10-15 に作り直し・hikitsugi §4-35)
 }
 // ===================================================================
-// 2026-09 作り直し: 画面の組み立て(予想の計算は既存の関数を呼ぶだけ)
-//   ・下のタブ(🔥勝負 / 📋全レース / 📈成績 / 🔎分析)
+// 画面の組み立て(予想の計算は上の関数を呼ぶだけ。構成は 2026-10-15 に見直し・hikitsugi §4-36)
+//   ・下のタブ(今日 / レース / 成績)。レースを押すとレースのページ(上の「‹ 戻る」で元の画面へ)
 //   ・開いたら今日のレースを自動で読み込む
-//   ・🔥カード: 枠色の車番・推定的中率の棒・並び図・状態(あと○分/締切間近/結果待ち/的中/不的中)
-//   ・結果: results-today.json(日中1時間おき) と stats.json の todayRaces を、レース日が合うときだけ使う
+//   ・今日: 1レース1枚(🔥とⒹの買い目・並び図・状態 あと○分/締切間近/結果待ち/的中/不的中)
+//   ・結果: results-today.json(日中10分おき) と stats.json の todayRaces を、レース日が合うときだけ使う
 // ===================================================================
 let RACE_DAY = null;       // races.json のレース日 "YYYY-MM-DD"
 let RESULTS_AT = "";       // results-today.json の更新時刻(表示用)
@@ -2638,11 +2254,8 @@ function evOfRow(row, snap) {
   return { ev: prob * mineOdds, prob, odds: mineOdds, snap };
 }
 let LIVE_ODDS = null, LIVE_AT = 0, LIVE_ERR = "";
-let EV_FILTER = true;
-try { EV_FILTER = localStorage.getItem("keirinEV") !== "off"; } catch (e) {}
-function setEvFilter(on) { EV_FILTER = on; try { localStorage.setItem("keirinEV", on ? "on" : "off"); } catch (e) {} paintShoubu(); }
 // 最新の倍率を読む。raw.githubusercontent.com はブランチを書き換えても数分古いままなので、API(contents)で読む。
-// 未ログインの API は1時間60回まで。締切20分以内の🔥があって画面が見えているときだけ1分おき、他は5分おき。
+// 未ログインの API は1時間60回まで。締切20分以内のレースがあって画面が見えているときだけ1分おき、他は5分おき。
 async function loadLiveOdds(force) {
   const now = Date.now();
   const hot = raceList.some((x) => { const m = minsToClose(x.startTime); return m != null && m >= -1 && m <= 20; });
@@ -2767,7 +2380,7 @@ function renderHero(items, done, next) {
       ? '<div class="nextup" onclick="loadRace(\'' + esc2(next.r.key).replace(/'/g, "\\'") + '\')"><span class="lbl">次</span><b>' + closeTimeOf(next.r.startTime) + " " + esc(next.r.place) + esc(next.r.raceNo) + "</b>" +
           '<span class="bl">' + ticketBalls(next.r.ticket, "s") + '</span><span class="rest">' + raceStatus(next.r, null).txt.replace("締切まで", "あと") + "</span></div>"
       : items.length && done.length === items.length ? '<div class="nextup" style="cursor:default">🏁 今日の分はすべて確定しました</div>' : "") +
-    '<div style="font-size:10px;color:var(--dim);margin-top:6px">収支は🔥（帯の外・ラインが切れにくい・買わない設定のものは除く）とⒹを、右上の 💴 買い方 の金額で買った場合' + (unknown ? "。※配当確認中の的中を含む" : "") + "。Ⓓは締切20分前から出ます</div>";
+    '<div style="font-size:10px;color:var(--dim);margin-top:6px">収支は🔥（帯の外・ラインが切れにくい・買わない設定のものは除く）とⒹを、右上の 💴 買い方 の金額で買った場合' + (unknown ? "。※配当確認中の的中を含む" : "") + "。Ⓓは締切15分前から出ます</div>";
 }
 // ---- モデルD(evd.js): 全レースから「期待値1.10以上・20倍以下」(evd.js の PICK。2026-10-14〜)の組を全部(1行=1点) ----
 function dRows() {
@@ -2942,7 +2555,7 @@ async function paintTenkai(p, r, b) {
   const cars = Object.keys(rs.place).map(Number).sort((x, y) => (rs.place[y][0] + rs.place[y][1] + rs.place[y][2]) - (rs.place[x][0] + rs.place[x][1] + rs.place[x][2]));
   const oddsNote = rs.oddsMixed
     ? '<p class="note" style="font-size:11px;margin-bottom:6px"><b style="color:var(--green)">オッズ込み</b>（' + oddsWhen + "）: 1着→2着→3着の段ごとに、展開の確率と3連複の倍率から見た確率を混ぜたもの（④筋書き・⑤・⑥決まり手も）。2026年で試すと ◎の1着 45.4→47.0%・○の2着 29.6→30.4%・3連複1点 25.0→26.9%・3連単1点 11.9→12.4%。</p>"
-    : '<p class="note" style="font-size:11px;margin-bottom:6px">展開だけの予想。締切20分前ごろに倍率が届くと<b>オッズ込み</b>に変わります（そのほうが少し当たる）。</p>';
+    : '<p class="note" style="font-size:11px;margin-bottom:6px">展開だけの予想。締切15分前ごろに倍率が届くと<b>オッズ込み</b>に変わります（そのほうが少し当たる）。</p>';
   mk.innerHTML = oddsNote + marks.map((m, i) => '<div class="mark-row' + (i === 0 ? " top" : "") + '"><span class="mark" style="color:' + (MC[m.mark] || "#EAF2EF") + '">' + m.mark +
       '</span><div><div class="mname"><span class="no">' + m.car + "</span> " + esc((ent[m.car] && ent[m.car].name) || "") + ' <span class="role">(' + pos(m.car) + ")</span></div>" +
       '<div class="mreason">' + why[m.mark] + " ・ 1着 " + pc(m.win) + " ・ 3着以内 " + pc(m.top3) + "</div></div></div>").join("") +
@@ -2957,7 +2570,7 @@ let ANA_ROW = null;
 function evTopHtml(x) {
   if (typeof EVD === "undefined" || !Array.isArray(x.riders) || x.riders.length < 5) return '<div class="evbox wait">このレースは期待値を計算できません（選手データ不足）</div>';
   const snap = LIVE_ODDS && LIVE_ODDS.races ? LIVE_ODDS.races[x.key] : null;
-  if (!snap || !Array.isArray(snap.o)) return '<div class="evbox wait">締切前の倍率が届くと出ます<small>PC が締切20分ほど前から1分おきに送ります</small></div>';
+  if (!snap || !Array.isArray(snap.o)) return '<div class="evbox wait">締切前の倍率が届くと出ます<small>PC が締切15分前から送ります（締切6分前からは1分おき）</small></div>';
   if (snap.n && snap.n !== x.riders.length) return '<div class="evbox wait">倍率の組数が出走表と合わないので出しません</div>';
   const all = EVD.evAll(x.riders, x.lines, x.place, snap.o, x.riders.length, x.seri);
   if (!all) return '<div class="evbox wait">票がまだ薄く、期待値を計算できません</div>';
@@ -3086,7 +2699,7 @@ function paintBuy(p, r, b) {
     ck.push(ckLi("✓", "形", isTop ? H.cars + "車立て・本命ライン3人・単騎1人以下" : "7車立て・評価順位の合計" + (H.rankSum != null ? H.rankSum + "（12以上）" : "12以上")));
     ck.push(ckLi(odds == null ? "…" : odds >= lo && odds <= hi ? "✓" : "✗", "倍率 " + lo + "〜" + hi + "倍",
       odds != null ? (P ? "確定 " : oddsLbl) + odds + "倍" : today ? "締切前の倍率待ち" : P ? "記録なし" : "締切前に確認",
-      odds != null ? oddsSub : today ? "締切20分前ごろから1分おきに届きます" : ""));
+      odds != null ? oddsSub : today ? "締切15分前ごろから届きます（6分前からは1分おき）" : ""));
     if (isTop) {
       ck.push(ckLi(brk == null ? "–" : brk >= HOT9_BRK ? "✓" : "✗", "本命ラインが切れる確率 17%以上",
         brk != null ? Math.round(brk * 100) + "%" : "記録なし", brk == null ? "分からないときは見送らない" : calc ? "この画面で計算" : "番手か3番手が前について行けない確率"));
@@ -3114,7 +2727,7 @@ function paintBuy(p, r, b) {
   if (today) {
     const allS = LIVE_ODDS && LIVE_ODDS.races ? LIVE_ODDS.races[today.key] : null, snap = decSnap(allS), decided = !!allS && snap !== allS;   // 締切2分前を過ぎたら決めたときの倍率
     if (typeof EVD === "undefined" || !Array.isArray(today.riders) || today.riders.length < 5) dh = '<div class="buynote">選手データが足りず計算できません</div>';
-    else if (!snap || !Array.isArray(snap.o)) dh = '<div class="buynote" style="font-size:12px;color:var(--muted)">締切前の倍率が届くと出ます（締切20分前ごろから）</div>';
+    else if (!snap || !Array.isArray(snap.o)) dh = '<div class="buynote" style="font-size:12px;color:var(--muted)">締切前の倍率が届くと出ます（締切15分前ごろから）</div>';
     else if (snap.n && snap.n !== today.riders.length) dh = '<div class="buynote">倍率の組数が出走表と合わないので出しません</div>';
     else {
       const all = EVD.evAll(today.riders, today.lines, today.place, snap.o, today.riders.length, today.seri);
@@ -3207,7 +2820,7 @@ function paintShoubu() {
   const ref = $("ref7");
   if (ref) { ref.style.display = rows7.length ? "" : "none"; $("ref7n").textContent = rows7.length + "件"; $("shoubuList").innerHTML = rows7.map((r) => doneRowRef(r)).join(""); }
   empty.style.display = items.length ? "none" : "";
-  if (!items.length) empty.textContent = raceList.length ? "今日は🔥（9車・単騎1人以下）に当てはまるレースがありません。Ⓓ モデルDは締切20分前から出ます。" : "今日のレースを読み込んでいます…";
+  if (!items.length) empty.textContent = raceList.length ? "今日は🔥（9車・単騎1人以下）に当てはまるレースがありません。Ⓓ モデルDは締切15分前から出ます。" : "今日のレースを読み込んでいます…";
 }
 // 参考(🔥7車)の1行
 function doneRowRef(r) {
