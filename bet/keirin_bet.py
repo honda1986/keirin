@@ -420,7 +420,7 @@ def main(argv=None):
         lead = cfg.decide_at_minutes + 0.5
         plan_fn = lambda: (fake_plan(args.fake, now(), lead), "")     # noqa: E731
     else:
-        plan_fn = lambda: plan_source.run(cfg)                  # noqa: E731
+        plan_fn = lambda: plan_source.run(cfg, [f"--decide={cfg.decide_at_minutes}"])   # noqa: E731  決める時刻(この前の倍率で決める)
         plan, why = plan_fn()
         if plan is None:
             print(f"判定を取れません: {why}")

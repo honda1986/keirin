@@ -49,6 +49,7 @@ ITEMS = [
     ("モデルDの金額（買うかは上の「モデルDも買う」）", "model_d_yen", YENOPT),
     ("🔥7車立ての買い方（帯 4〜15倍）", "hot7_mode", MODE),
     ("支払い方法", "payment_method", PAY),
+    ("締切まで何分になったら買うか決めるか（そのときのいちばん新しい倍率で）", "decide_at_minutes", MINUTES),
     ("締切まで何分を切ったら買わないか", "close_min_minutes", MINUTES),
     ("ログイン維持の間隔", "keepalive_minutes", MINUTES),
     ("通知先（ntfy のトピック名）", "ntfy_topic", TOPIC),
@@ -213,7 +214,7 @@ def main():
         return 2
     while True:
         try:
-            d = load_raw()
+            d = config_mod.migrate(load_raw())     # 見本のままの古い値は今の既定で見せる(保存すると書き換わる)
         except json.JSONDecodeError as e:
             print(f"config.json が壊れています: {e}")
             return 2
@@ -254,6 +255,7 @@ def main():
 
         cand = dict(d)
         cand[key] = value
+        cand["_config_v"] = config_mod.CONFIG_V
         try:
             config_mod.from_dict(cand)          # 通らない値は保存しない
         except config_mod.ConfigError as e:

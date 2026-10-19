@@ -101,8 +101,8 @@ function loadRaces(today, notes) {
 // ---- 倍率(レースごとにいちばん新しい記録) ----
 // 買うかは「締切 DECIDE_MIN 分前より前で、いちばん新しい記録」で決める(2026-10-19〜)。倍率は締切まで取るようになったので
 //   (snap.js)、それより後の記録で決めると、アプリと夜の成績(同じ決まり。index.html・results.js・snap_live.js の d)と組がずれる。
-//   bet/ は締切 decide_at_minutes(既定 2.5)分前に1回だけ決めるので、ふつうは今までと同じ記録になる
-const DECIDE_MIN = 2.5;
+//   bet/ は締切 decide_at_minutes(既定 2.0。2026-10-19 に 2.5 から)分前に1回だけ決め、その値を --decide で渡す
+const DECIDE_MIN = Number(arg("decide")) > 0 ? Number(arg("decide")) : 2.0;
 function localSnaps(today) {
   const f = arg("snaps") || path.join(WORK, today + ".jsonl");
   const out = {};

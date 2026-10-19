@@ -39,10 +39,12 @@ DEFAULTS = {
     "hot9_rest_yen": None,
     "hot7_yen": None,
     "model_d_yen": None,
-    "decide_at_minutes": 2.5,
+    # 決める時刻(締切何分前)と、買わない線(締切何分前を切ったら押さない)。2026-10-19 に 2.5→2.0・1.5→1.0(はむさん「とりあえず2分前にして」)
+    #   締切直前に倍率が大きく動くことがあるので、なるべく締切に近い倍率で決める。買う操作の時間(約1分)は今まで通り残す
+    "decide_at_minutes": 2.0,
     "decide_left_minutes": 6.0,   # 古い設定（使っていない。残っていても警告しないため）
     "max_snap_age_minutes": 4.0,
-    "close_min_minutes": 1.5,
+    "close_min_minutes": 1.0,
     "require_site_close": True,
     "payment_method": "opcoin",
     "poll_seconds": 20,
@@ -209,9 +211,32 @@ def _as_str(d, key, required=False):
     return v
 
 
+# config.json は最初に見本(config.example.json)から写すので、既定を変えても今の config.json には反映されない。
+# _config_v が古い config.json の「見本のままの値」だけ、今の既定に読み替える(設定画面で保存すると _config_v が付き、以後は読み替えない)
+#   2: 2026-10-19 決める時刻 2.5 → 2.0 分前(decide_at_minutes は設定画面に無かったので 2.5 は見本のまま)。
+#      そのとき買わない線も 1.5 なら 1.0 に(買う操作の時間を今まで通り約1分残す)
+CONFIG_V = 2
+
+
+def migrate(d):
+    if not isinstance(d, dict) or not isinstance(d.get("_config_v", 1), (int, float)) or d.get("_config_v", 1) >= CONFIG_V:
+        return d
+    d = dict(d)
+    if d.get("decide_at_minutes") == 2.5:
+        close = d.get("close_min_minutes", DEFAULTS["close_min_minutes"])
+        close = DEFAULTS["close_min_minutes"] if close == 1.5 else close
+        # 買わない線を2分以上にしているなら読み替えない(決める時刻より前に買わない線が来て、設定の検査で止まるため)
+        if isinstance(close, (int, float)) and not isinstance(close, bool) and close < DEFAULTS["decide_at_minutes"]:
+            d["decide_at_minutes"] = DEFAULTS["decide_at_minutes"]
+            if "close_min_minutes" in d:
+                d["close_min_minutes"] = close
+    return d
+
+
 def from_dict(d, base_dir="."):
     if not isinstance(d, dict):
         raise ConfigError("config.json の中身が辞書ではありません")
+    d = migrate(d)
     cfg = Config(
         base_dir=base_dir,
         i_have_read_the_terms=_as_bool(d, "i_have_read_the_terms"),
