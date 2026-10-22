@@ -1,6 +1,13 @@
 // ============================================================
 // fetch.js — 本日の全レースを取得して races.json に書き出す
 //
+// 【2026-10-23 取得元を WINTICKET に変更(hikitsugi §4-47)】
+//   楽天Kドリームスが緊急メンテナンスで止まった(PHP の脆弱性対応とみられる)ので、WINTICKET(wt.js)に移した。
+//   トップページから今日開催の場 → 場ごとに開催の全レース → 1レース1ページの出走表。
+//   出走表は wt.js の cardText で Kドリームスと同じ形のテキストにして buildEntry に渡す(raw も同じ形なのでアプリはそのまま読める)。
+//   races.json の url は WINTICKET の出走表(snap.js・live.js・results.js がここから倍率と結果を取る)。
+//   ★昼(12:20)・夕方(16:50)の取り直しでは、トップページから終わった場が消えることがあるので、同じ日の races.json にあるレースは残す
+//
 // 【2026-08-28 取得元を変更】
 //   Gamboo は AWS WAF のボット判定(JavaScript必須のチャレンジ)が入り、
 //   プログラムからは一切取得できなくなった(全URLで HTTP 202 / server:awselb)。
@@ -67,13 +74,10 @@ let LEARN_W = null;
 try { LEARN_W = JSON.parse(fs.readFileSync(path.join(__dirname, "weights.json"), "utf8"));
   console.log("学習補正を適用:", LEARN_W.updatedAt || "(日付なし)"); } catch { console.log("学習補正なし"); }
 
-const VENUE_PIDS = [11,12,13,21,22,23,24,25,26,27,28,31,32,34,35,36,37,38,42,43,44,45,46,47,48,51,53,54,55,56,61,62,63,71,73,74,75,81,83,84,85,86,87];
-const PID2NAME = {};
-if (TRACK_NAMES.length === VENUE_PIDS.length) TRACK_NAMES.forEach((n, i) => { PID2NAME[VENUE_PIDS[i]] = n; });
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-const CONCURRENCY = 4;
-const WAIT_MS = 250;
+const CONCURRENCY = 2;            // WINTICKET のページは1枚 700KB あるので、同時2本・0.5秒あけて取る
+const WAIT_MS = 500;
 const FETCH_TIMEOUT = 25000;
 const MAX_RETRY = 2;
 const DEADLINE_MS = 40 * 60 * 1000;      // 40分で打ち切り(通常は数分で終わる)
@@ -109,22 +113,8 @@ async function pool(items, worker) {
 
 // HTML → テキスト、並び予想の読み取りは cardtext.js(scorefill.js と共用)
 // compactCard(ページを予想に必要な部分だけのテキストにする)も cardtext.js(pastcard.js と共用)
-const { htmlToText, withNarabiText, compactCard } = require("./cardtext.js");
-
-// ---- 日別一覧からレース一覧を作る ----
-function parseDayIndex(html) {
-  const seen = new Set(), out = [];
-  for (const m of html.matchAll(/\/([a-z]+)\/racedetail\/(\d{16})\//g)) {
-    const roma = m[1], rid = m[2];
-    if (seen.has(rid)) continue; seen.add(rid);
-    const pid = parseInt(rid.slice(0, 2), 10);
-    const rno = parseInt(rid.slice(-4), 10);
-    const place = PID2NAME[pid];
-    if (!place || !(rno >= 1 && rno <= 12)) continue;
-    out.push({ place, raceNo: rno + "R", rno, url: `https://keirin.kdreams.jp/${roma}/racedetail/${rid}/` });
-  }
-  return out;
-}
+const { compactCard } = require("./cardtext.js");
+const WT = require("./wt.js");
 
 function buildEntry(text, item) {
   const p = parseCard(text, TRACK_NAMES);
@@ -159,7 +149,8 @@ function buildEntry(text, item) {
   } catch (e) { console.error("  前受けの予想:", e.message); }
   // riders[4](評価順位)・riders[5](評価点)は前受けを足す前のもの(モデルD・期待値がこれで作ってある)。足した後の順位は riders[11](◎○▲・🔥はこちら)
   const rankBase = r.rankBase || rankOf;
-  // riders = [車番, 年齢, 期, ライン内位置, 評価順位, 評価点, 競走得点, 府県, 3連対率, 着度数の合計, 得点の変化, 前受けを足した評価順位]
+  // riders = [車番, 年齢, 期, ライン内位置, 評価順位, 評価点, 競走得点, 府県, 3連対率, 着度数の合計, 得点の変化, 前受けを足した評価順位, H]
+  // 13番目(H = ホーム回数)は 2026-10-23 に追加(WINTICKET から。Kドリームスには無かった。まだ予想には使っていない)
   // 12番目(前受けを足した評価順位)は 2026-10-01 に追加(hikitsugi §4-18)。◎○▲・🔥はこれ。無い記録は 5番目を使う
   // 8番目(府県)は 2026-09-26 に追加(期待値の「地元」「同県の番手」に使う。ev.js)。それより前のデータには無い
   // 9〜11番目も 2026-09-26 に追加(期待値 v2)。得点の変化 = 今の得点 − 90〜365日前の最後の得点(scores.json から。無ければ null)
@@ -185,7 +176,7 @@ function buildEntry(text, item) {
             en.pref ? String(en.pref).replace(/[\s　]/g, "") : null,
             en.rate && en.rate.sanren != null ? en.rate.sanren : null,
             en.seiseki ? (en.seiseki.win1 || 0) + (en.seiseki.win2 || 0) + (en.seiseki.win3 || 0) + (en.seiseki.out || 0) : 0,
-            scoreChangeOf(en), rankOf[en.car] || 9];
+            scoreChangeOf(en), rankOf[en.car] || 9, en.home != null ? en.home : null];
   });
   return {
     key: (p.place || "?") + "_" + (p.raceNo || "?"),
@@ -211,30 +202,63 @@ function buildEntry(text, item) {
   };
 }
 
-(async () => {
+async function main() {
   const jst = new Date(Date.now() + 9 * 3600 * 1000);
-  const d = jst.toISOString().slice(0, 10);
+  const d = jst.toISOString().slice(0, 10), d8 = d.replace(/-/g, "");
   console.log("========================================");
-  console.log(" 全レース更新(取得元: 楽天Kドリームス)");
+  console.log(" 全レース更新(取得元: WINTICKET)");
   console.log(" 対象日:", d);
   console.log("========================================");
 
-  const idxUrl = `https://keirin.kdreams.jp/odds/${d.slice(0,4)}/${d.slice(5,7)}/${d.slice(8,10)}/`;
-  let list = [];
-  try { list = parseDayIndex(await get(idxUrl)); }
-  catch (e) { console.error("日別一覧の取得に失敗:", e.message); process.exit(1); }
-  console.log("日別一覧からレース:", list.length, "件");
+  // 今日開催の場(トップページのリンク)→ 場ごとに1R の出走表を開き、開催の全レースから今日の分を拾う
+  let cups = [];
+  try { cups = await WT.todayCups(); }
+  catch (e) { console.error("トップページの取得に失敗:", e.message); process.exit(1); }
+  console.log("今日開催の場:", cups.map((c) => c.slug).join(" ") || "なし");
+  const list = [], firstPage = {};
+  for (const c of cups) {
+    try {
+      const url1 = WT.urlOf("racecard", c.slug, c.cupId, c.index, 1);
+      const html = await get(url1);
+      const S = WT.stateOf(html);
+      if (WT.isMaintenance(S)) { console.error("WINTICKET がメンテナンス中です"); process.exit(1); }
+      const CR = WT.query(S, "FETCH_KEIRIN_CUP_RACES");
+      const sch = CR && (CR.schedules || []).find((x) => x.date === d8);
+      const place = CR && CR.cup ? WT.placeOf(CR.cup.venueId) : null;
+      if (!sch || !place) { console.log("  " + c.slug + ": 今日のレースなし(" + (place || "場名不明") + ")"); continue; }
+      if (sch.index === c.index) firstPage[c.slug] = html;
+      const rs = (CR.races || []).filter((r) => r.scheduleId === sch.id);
+      for (const r of rs) {
+        if (r.cancel) { console.log("  中止:", place, r.number + "R", r.cancelReason || ""); continue; }
+        list.push({ place, raceNo: r.number + "R", rno: r.number, slug: c.slug, url: WT.urlOf("racecard", c.slug, c.cupId, sch.index, r.number) });
+      }
+      console.log("  " + place + "(" + c.slug + ") " + sch.day + "日目 " + rs.length + "R");
+    } catch (e) { console.error("  " + c.slug + ": 開催の取得に失敗", e.message); }
+    await sleep(WAIT_MS);
+  }
+  console.log("今日のレース:", list.length, "件");
   if (!list.length) { console.error("レースが1件も見つかりません。開催が無いか、ページ構造が変わっています。"); process.exit(1); }
 
   const races = [];
   await pool(list, async (item) => {
-    const html = await get(item.url);
-    const text = htmlToText(withNarabiText(html));   // 並びを先に1行テキストに直す
+    const html = item.rno === 1 && firstPage[item.slug] ? firstPage[item.slug] : await get(item.url);
+    const R = WT.query(WT.stateOf(html), "FETCH_KEIRIN_RACE");
+    if (!R || !R.race) throw new Error("出走表の JSON が無い");
+    const text = WT.cardText(R, item.place);
     const e = buildEntry(text, item);
     if (races.some((x) => x.key === e.key)) return;
     races.push(e);
     console.log("  OK", e.place, e.raceNo, (e.score != null ? e.score + "%" : "ガールズ"), "ライン=" + JSON.stringify(e.lines));
   });
+
+  // 同じ日の races.json にあって今回取れなかったレース(トップページから消えた場など)は残す
+  try {
+    const prev = DF.read(process.env.RACES_OUT || path.join(__dirname, "races.json"));
+    const same = (prev.races || []).filter((x) => { const m = String(x.date || "").match(/(\d{4})年(\d{1,2})月(\d{1,2})日/); return m && m[1] + m[2].padStart(2, "0") + m[3].padStart(2, "0") === d8; });
+    const have = new Set(races.map((x) => x.key));
+    const kept = same.filter((x) => !have.has(x.key));
+    if (kept.length) { races.push(...kept); console.log(" 前回の races.json から残したレース:", kept.length, "件"); }
+  } catch (e) { /* 前回が無い・読めない(合言葉なし)ときは今回の分だけ */ }
 
   races.sort((a, b) => (a.startTime || "99:99").localeCompare(b.startTime || "99:99") || a.place.localeCompare(b.place));
   if (!races.length) {
@@ -270,4 +294,7 @@ function buildEntry(text, item) {
   console.log(" 書き出し:", races.length, "レース /", list.length, "件中");
   console.log(" 所要:", Math.round((Date.now() - startedAt) / 1000), "秒");
   console.log("========================================");
-})();
+}
+
+if (require.main === module) main();
+module.exports = { buildEntry };

@@ -6,7 +6,8 @@
 // 当たったか・配当いくらかを出すため、軽い別ファイルに当日分だけを書く。
 //
 // ・history.json には触らない(夜の results.yml の仕事)
-// ・払戻一覧は1日1ページ(3連単・2車単・3連複が全部載っている)。パーサーは sanpuku.js のもの
+// ・2026-10-23 から WINTICKET(wt.js)。発走から1分たったレースだけ、1レース1ページの倍率ページの払戻を読む
+//   (確定すると3連単・3連複・2車単の当たり組に払戻が付く)。結果がそろったレースは取り直さない(hikitsugi §4-47)
 // ・races.json の「レース日」のページだけを見る。別日の同場・同レース番号の結果を
 //   取り違えないため(results.js と同じ考え方)
 // ・取得に失敗したら何も書かない。同じ日の結果は減らさない(足すだけ)
@@ -16,8 +17,8 @@
 // ============================================================
 const fs = require("fs");
 const path = require("path");
-const { get, raceDate } = require("./results.js");
-const { parseHaraiList } = require("./sanpuku.js");
+const { raceDate } = require("./results.js");
+const WT = require("./wt.js");
 
 const OUT = path.join(__dirname, "results-today.json");
 
@@ -61,18 +62,31 @@ async function main() {
   const day = days[days.length - 1];
   const keys = new Set(list.filter((x) => raceDate(x) === day).map((x) => x.place + "_" + x.raceNo));
 
-  const [y, m, d] = day.split("-");
-  const url = `https://keirin.kdreams.jp/harailist/${y}/${m}/${d}/`;
-  let html;
-  try { html = await get(url); } catch (e) { console.error("払戻一覧の取得に失敗:", url, e.message, "→ 何も書きません"); process.exit(1); }
-  const page = parseHaraiList(html);
+  // 発走から1分たって、まだ結果(3着と3連複の配当まで)がそろっていないレースだけ取りに行く
+  const prev0 = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, "utf8")) : null;
+  const have = prev0 && prev0.date === day ? prev0.races || {} : {};
+  const nowMin = (Date.now() + 9 * 3600e3) / 60000;
+  const startMin = (hhmm) => { const [h, mi] = String(hhmm || "").split(":").map(Number); return Date.UTC(+day.slice(0, 4), +day.slice(5, 7) - 1, +day.slice(8, 10), h, mi) / 60000; };
+  const todo = list.filter((x) => raceDate(x) === day && WT.parseUrl(x.url) && /^\d{1,2}:\d{2}$/.test(x.startTime || "") && nowMin - startMin(x.startTime) >= 1)
+    .filter((x) => { const r = have[x.place + "_" + x.raceNo]; return !r || r.t == null || r.p3fpay == null; });
+  const page = {};
+  let fails = 0;
+  for (const x of todo) {
+    const u = WT.parseUrl(x.url);
+    try {
+      const { O } = await WT.raceOdds(u.slug, u.cupId, u.index, u.no);
+      const v = WT.resultOf(O);
+      if (v) page[x.place + "_" + x.raceNo] = v;
+    } catch (e) { fails++; console.error("  取得失敗:", x.key, e.message); if (fails >= 5) { console.error("失敗が続くので打ち切り"); break; } }
+    await WT.sleep(700);
+  }
   const found = {};
   for (const [k, v] of Object.entries(page)) {
     if (!keys.has(k)) continue;              // races.json に無いレース(ガールズ等の対象外)は載せない
     const r = toResult(v);
     if (r) found[k] = r;
   }
-  console.log(`レース日 ${day} / races.json ${keys.size}R / 払戻一覧 ${Object.keys(page).length}R / 確定して対応がとれた ${Object.keys(found).length}R`);
+  console.log(`レース日 ${day} / races.json ${keys.size}R / 見に行った ${todo.length}R / 確定して対応がとれた ${Object.keys(found).length}R`);
 
   const prev = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, "utf8")) : null;
   const { races, added, updated } = merge(prev, day, found);

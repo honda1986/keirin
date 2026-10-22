@@ -362,6 +362,8 @@ function parseKdreams(text, trackNames) {
       if (!isNum(L[j])) break;
       nums.push(numOf(L[j]));
     }
+    // H(ホーム回数)。WINTICKET から作った出走表(wt.js の cardText)だけ、数字の列の次に「H:回数」がある(2026-10-23〜)
+    const hm = String(L[i + 3 + nums.length] || "").match(/^H:(\d{1,3})$/);
     // ★ギヤが2つ並ぶ選手がいる(ギヤ変更があると「前 今」の2つが出る)。
     //   位置決め打ちで score = nums[1] にすると2つ目のギヤ(3.9x)を競走得点として
     //   読んでしまう。実測で 13,421人中32人(0.24%)・1,896レース中32レース(1.7%)が
@@ -379,7 +381,8 @@ function parseKdreams(text, trackNames) {
       waku, car, name, pref: pm[1].replace(/[\s　]/g, ""), grade: kl,
       age: parseInt(pm[2], 10), ki: pm[3] + "期",
       gear, score: n[0],
-      S: n[1], B: n[2], H: n[2],                    // HはGamboo版と同じくBを流用
+      S: n[1], B: n[2], H: n[2],                    // HはGamboo版と同じくBを流用(予想はこれで作ってある)。本当のHは home
+      home: hm ? +hm[1] : null,                     // WINTICKET のH(Kドリームスの出走表には無いので null)
       kyaku: kyakuRaw === "両" ? "両" : kyakuRaw === "逃" ? "逃" : "追",
       k: { nige: n[3], makuri: n[4], sashi: n[5], mark: n[6] },
       seiseki: { win1: n[7], win2: n[8], win3: n[9], out: n[10] },
