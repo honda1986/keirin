@@ -90,9 +90,11 @@ jobs:
           }
           while [ "$(date +%s)" -lt "$END" ]; do
             NOW=$(date +%s)
-            # 出走表(races.json)は main.yml が1日数回更新するので、10分おきに取り直す
+            # 出走表(races.json)は main.yml が1日数回更新するので、10分おきに取り直す。
+            # ★スクリプト(*.js)も一緒に新しくする。races.json だけだと、取得元を変えた日(2026-10-23 WINTICKET)に
+            #   古い snap.js のまま新しい url を読めず、次の起動し直し(最長5時間40分後)まで記録が止まる
             if [ $((NOW - LASTPULL)) -ge 600 ]; then
-              if git fetch -q origin main && git checkout -q FETCH_HEAD -- races.json; then :; else echo "races.json の更新に失敗(前のまま続ける)"; fi
+              if git fetch -q origin main && git checkout -q FETCH_HEAD -- races.json ':(glob)*.js'; then :; else echo "races.json の更新に失敗(前のまま続ける)"; fi
               LASTPULL=$NOW
             fi
             # PC の心拍を5分おきに見る。心拍 = odds-live ブランチの latest.json(PC が毎分〜5分おきに上書きする)
