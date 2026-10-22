@@ -69,6 +69,51 @@ const VENUE_PIDS = [11,12,13,21,22,23,24,25,26,27,28,31,32,34,35,36,37,38,42,43,
 const PID2NAME = {};
 if (TRACK_NAMES.length === VENUE_PIDS.length) TRACK_NAMES.forEach((n, i) => { PID2NAME[VENUE_PIDS[i]] = n; });
 const placeOf = (venueId) => PID2NAME[parseInt(venueId, 10)] || null;
+// URL の場名(TRACK_NAMES と同じ順。2026-10-23 のトップページの場のリンクで43場とも確かめた。違う場名だと 404)
+const SLUGS = ["hakodate", "aomori", "iwakidaira", "yahiko", "maebashi", "toride", "utsunomiya", "omiya", "seibuen", "keiokaku", "tachikawa",
+  "matsudo", "chiba", "kawasaki", "hiratsuka", "odawara", "ito", "shizuoka", "nagoya", "gifu", "ogaki", "toyohashi", "toyama", "matsusaka",
+  "yokkaichi", "fukui", "nara", "mukomachi", "wakayama", "kishiwada", "tamano", "hiroshima", "hofu", "takamatsu", "komatsushima", "kochi",
+  "matsuyama", "kokura", "kurume", "takeo", "sasebo", "beppu", "kumamoto"];
+
+// ---- 過去のレースの URL を探す(Kドリームス時代の races.json・history.json のレースを WINTICKET で読むため) ----
+// cupId は「開催初日の YYYYMMDD + 場コード2桁」、{日目} は開催の何日目か(2022〜2026年で確かめた)。
+// その日から最大6日さかのぼって初日を探し、開催のレース一覧(FETCH_KEIRIN_CUP_RACES)で日目を確かめる。
+// cache は呼ぶ側で使い回す(同じ開催を何度も取らない)。見つからなければ null
+async function findCup(place, d8, cache = {}) {
+  const i = TRACK_NAMES.indexOf(place);
+  if (i < 0 || TRACK_NAMES.length !== SLUGS.length) return null;
+  const key = place + "_" + d8;
+  if (key in cache) return cache[key];
+  const slug = SLUGS[i], v = String(VENUE_PIDS[i]).padStart(2, "0");
+  const t0 = Date.UTC(+d8.slice(0, 4), +d8.slice(4, 6) - 1, +d8.slice(6, 8));
+  for (let k = 0; k <= 6; k++) {
+    const cupId = new Date(t0 - k * 86400e3).toISOString().slice(0, 10).replace(/-/g, "") + v;
+    if (!(("cup_" + cupId) in cache)) {
+      let C = null;
+      try { C = query(stateOf(await get(urlOf("racecard", slug, cupId, 1, 1), { retry: 1 })), "FETCH_KEIRIN_CUP_RACES"); }
+      catch (e) { if (!/HTTP 404/.test(e.message)) throw e; }
+      cache["cup_" + cupId] = C || null;
+      await sleep(500);
+    }
+    const C = cache["cup_" + cupId];
+    if (!C) continue;
+    const sc = (C.schedules || []).find((x) => String(x.date) === d8);
+    // この初日の開催に d8 が無ければ、もっと前に始まった開催はもう終わっている
+    return (cache[key] = sc ? { slug, cupId, index: +sc.index } : null);
+  }
+  return (cache[key] = null);
+}
+// races(races.json の形)のうち WINTICKET の url が無いものに、探した url を付けて返す(見つからないものは外す)
+async function withUrl(races, d8, cache = {}) {
+  const out = [];
+  for (const x of races) {
+    if (parseUrl(x.url)) { out.push(x); continue; }
+    const no = parseInt(x.raceNo, 10);
+    const c = no ? await findCup(x.place, d8, cache) : null;
+    if (c) out.push({ ...x, url: urlOf("racecard", c.slug, c.cupId, c.index, no) });
+  }
+  return out;
+}
 
 // ---- 日付と時刻(日本時間) ----
 const jst = (sec) => new Date(sec * 1000 + 9 * 3600e3);
@@ -208,5 +253,5 @@ async function finishedRaces(races, { wait = 700, log = console.log } = {}) {
   return out;
 }
 
-module.exports = { finishedRaces, BASE, get, sleep, stateOf, query, isMaintenance, urlOf, parseUrl, placeOf, todayCups, cardText, narabiLine,
+module.exports = { finishedRaces, findCup, withUrl, SLUGS, BASE, get, sleep, stateOf, query, isMaintenance, urlOf, parseUrl, placeOf, todayCups, cardText, narabiLine,
   oddsOf, resultOf, raceOdds, combos3, combos2, gradeOf, hhmm, ymdJa, jst };
