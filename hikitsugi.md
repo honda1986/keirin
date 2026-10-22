@@ -24,7 +24,7 @@
 
 ### この環境でできないこと
 
-- **`keirin.kdreams.jp` への通信はネットワークポリシーで塞がれている**ことがある。
+- **`www.winticket.jp`（2026-10-23 からの取得元・§4-47。前は `keirin.kdreams.jp`）への通信はネットワークポリシーで塞がれている**ことがある。
   ローカルでは実取得を検証できないので、GitHub Actions で回すこと。
 - git履歴・history.json・odds-*.json を使った検証はローカルでできる。
 
@@ -36,9 +36,10 @@
 GitHub Actions
   main.yml     1日4回  fetch.js    → races.json(買い目 plan 入り) + scores.json
   live.yml     日中1時間おき live.js → results-today.json(今日の着順・配当。history には触らない)
-  results.yml  1日1回  results.js → gitfill.js(直近3日の漏れ) → sanpuku.js → results.js --stats-only
+  results.yml  1日1回  results.js → gitfill.js(直近3日の漏れ) → results.js --stats-only
                        → history.json + stats.json(成績・今日の結果・直近7日の🔥一覧)
-  odds.yml     月1回   odds.js     → odds-YYYYMM.json
+  odds.yml     月1回   odds.js     → odds-YYYYMM.json(Kドリームスのまま。10/23 からは results.js が足す)
+  取得元は 2026-10-23 から WINTICKET(wt.js・§4-47)。PC の snap.js(締切前の倍率)も同じ
                         ↓
               index.html (GitHub Pages) で表示
 ```
@@ -1605,6 +1606,38 @@ hot-past.json（§4-32）は**作り直した出走表で🔥になったレー�
   - 買い方（🔥は期待値では絞らない）。
   - 自動投票の🔥の「期待値」設定（hot9_mode の ev・both・either。既定は使わない）。これは今も ev.js で1以上を見ている（betplan.js・bet/selector.py）。
 
+## 4-47. 取得元を全部 WINTICKET に移す（2026-10-23）
+
+10/22 夜から楽天Kドリームス（DERUCA）が緊急メンテナンスで止まり（PHP の脆弱性対応とみられる）、朝の全レース更新が動かなくなった。はむさん「ウィンチケットならHも取れるので もう全てウィンチケットに移行でいいよ」。
+
+- **WINTICKET のページ**: `https://www.winticket.jp/keirin/{場のローマ字}/racecard|odds|raceresult/{cupId}/{index}/{レース番号}`
+  - どのページにも `window.__PRELOADED_STATE__ = {...}` の JSON が入っている（`tanStackQuery.queries` の `FETCH_KEIRIN_RACE`・`FETCH_KEIRIN_RACE_ODDS`・`FETCH_KEIRIN_CUP_RACES`）。HTML を読む必要は無い。
+  - 今日の開催はトップページのリンク（`/keirin/{slug}/racecard/{cupId}/{index}/1`）から拾う。robots.txt で止められているのは `/keirin/cups/` だけ。
+  - 1ページ約1秒。全レース（約90R）で70秒ほど。
+- **共通の部品 `wt.js`**（取得・JSON の取り出し・出走表のテキスト・倍率・結果）。
+  - 出走表は **Kドリームスと同じ形のテキストを作って** races.json の `raw` に入れる（`cardText`）。engine.js・index.html のパーサー（`parseKdreams`）、compactCard、成績の詳細、過去の出走表（dayraw）がそのまま使える。
+  - 級班: `class` 1=S（`group` 0 なら SS）・2=A・4=L。脚質 逃/追/両。**捲=`deepCloser`・差=`stalker`**（ページの表と突き合わせた。逆にしない）。
+  - ギヤは今のギヤ（変更があれば変更後）だけを書く。2つ書くと compactCard の行がずれて H が落ちる。
+  - 並びは `linePrediction`。2人が1つの枠に入っているのは競り（`(a b)` で書く）。
+- **H を残すようにした**。
+  - 出走表のテキストの3連対率の次の行に `H:<回数>`。`parseKdreams` は **予想の `H` は今までどおり B を流用**（モデルはそれで作ってある）し、本当の H は `home` に入れる。
+  - races.json の `riders` の13番目（`riders[12]`）に H（無ければ null）。
+- **移した先**
+  | 何を | ファイル | 前（Kドリームス） | 今（WINTICKET） |
+  |---|---|---|---|
+  | 出走表 | fetch.js | 日別オッズ一覧 → レース詳細 | トップのリンク → 開催のレース一覧 → 出走表ページ |
+  | 締切前の倍率 | snap.js（PC と snap.yml） | 3連複のオッズ画面の HTML | 倍率ページの JSON（3連複・2車単・2車複が全組）。「HH:MM現在」は `oddsUpdatedAt` |
+  | 日中の結果 | live.js | 払戻一覧（1日1ページ） | 発走1分後から、まだ結果がそろっていないレースだけ倍率ページの払戻を読む |
+  | 夜の結果 | results.js・gitfill.js | 払戻一覧 + sanpuku.js（3連複） | 1レース1ページ。着順・3連単・3連複・2車単の払戻と、確定オッズ（odds-YYYYMM.json）を一緒に入れる |
+- results.yml から **cleanup.js・sanpuku.js・odds.js を外した**。
+  - cleanup.js は「同じ場・同じレース番号の別の日の結果を取り違える」汚染の掃除。1レースの url から読むので起きない。
+  - 3連複の配当（`p3fpay`）は results.js の makeEntry が入れる（3連複の組と着順が合うときだけ）。
+  - 確定オッズは results.js / gitfill.js が足す（既にあるレースは上書きしない）。
+- **欠車のあるレース**: WINTICKET の倍率は欠車を含めた元の車立ての組で返る。races.json は欠車を除いた車立てなので、組の並びが合わない。
+  - snap.js はそのレースを記録しない。確定オッズも入れない（結果と配当は入れる）。
+- **まだ Kドリームスのまま**（手で回すもの・過去分の取り直し用）: odds.js・odds2.js・pastcard.js・raceres.js・scorefill.js・sanpuku.js・fixpay.js・backfill.js・verify.js・diag*.js。Kドリームスが戻れば今までどおり動く。
+- **過去の races.json（10/22 まで）の url は Kドリームス**。gitfill.js はその日を取りに行けない（WINTICKET の url のレースだけ）。10/22 分は Kドリームスが止まったので、成績に入っていないレースがあれば Kドリームスが戻ってから gitfill.yml で埋める。
+
 ## 5. 次にやること
 
 ### 保留中（データが貯まってから判断する）
@@ -1733,7 +1766,7 @@ rs=10: 85.8%
 
 ### 実通信の検証
 
-ローカルからは `keirin.kdreams.jp` に出られないことがある。その場合は
+ローカルからは `www.winticket.jp`（2026-10-23 から。前は `keirin.kdreams.jp`）に出られないことがある。その場合は
 GitHub Actions の「評価値」(`diagnose.yml`) を該当ブランチで
 `cmd: node xxx.js` として回す。読み取り専用なのでファイルは変わらない。
 
@@ -1752,8 +1785,8 @@ python3 -m http.server 8765    # リポジトリのルートで
 |---|---|---|
 | 全レース更新 | `main.yml` | 朝は 05:00 JST に取る（0:47・3:17 に起きてジョブの中で 05:00 まで待つ。定時実行が数時間遅れるため）＋ 6:10/12:20/16:50 |
 | 今日の結果 | `live.yml` | 起動したら10分おきに取り続け、5時間40分ごとに自分を起動し直す。08:07 JST＋予備3回で起動。深夜1〜8時は止まる。手動も可 |
-| 結果収集 | `results.yml` | 1日1回（23:50 JST）。直近3日の漏れ埋め・成績の作り直しまで |
-| オッズ取得 | `odds.yml` | 月1回（1日 11:00 JST）+ 手動 |
+| 結果収集 | `results.yml` | 1日1回（23:50 JST）＋予備 09:47。WINTICKET から結果・3連複配当・確定オッズ。直近3日の漏れ埋め・成績の作り直しまで |
+| オッズ取得 | `odds.yml` | 月1回（1日 11:00 JST）+ 手動。**Kドリームスのまま**（2026-10-23 からの確定オッズは results.js が入れる） |
 | 締切前オッズの記録（予備） | `snap.yml` | **ふだんは PC（`pc/`）が記録**。これは5分おきに PC の心拍（odds-snap の `pc/heartbeat.json`）を見て、25分以上古ければ代わりに記録する。5時間40分ごとに自分を起動し直して夜も止めずに続く。予備の定時実行 07:47/12:17/17:17 JST |
 | シミュレーター | `Simulate.yml` | 手動（learn.js → simulate.js） |
 | 履歴の穴埋め | `gitfill.yml` | 手動 |
