@@ -106,12 +106,13 @@ async function main() {
   if (missing.length) console.log("★予想が残っていない日(復旧できません):", missing.join(", "));
 
   let added = 0, noResult = 0, already = 0;
-  const failed = [], finalOdds = {};
+  const failed = [], finalOdds = {}, cupCache = {};
   for (const d of dates) {
     const races = best.get(d).races;
     const d8 = d.replace(/-/g, "");
-    // まだ history に無い・WINTICKET の url があるレースだけ取りに行く(Kドリームスの url の日は取れない)
-    const want = races.filter((x) => WT.parseUrl(x.url) && !done.has(d8 + "_" + x.key));
+    // まだ history に無いレースだけ取りに行く。Kドリームスの url のレース(〜10/22)は WINTICKET の同じレースを探す
+    const want = await WT.withUrl(races.filter((x) => !done.has(d8 + "_" + x.key)), d8, cupCache).catch((e) => { console.error("レースの url を探せず:", d, e.message); return null; });
+    if (!want) { failed.push(d); continue; }
     const day = {};
     if (want.length) {
       let got;
