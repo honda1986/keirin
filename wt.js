@@ -185,5 +185,28 @@ async function raceOdds(slug, cupId, index, no) {
   return { R, O, n: R && R.race ? R.race.entriesNumber : null };
 }
 
-module.exports = { BASE, get, sleep, stateOf, query, isMaintenance, urlOf, parseUrl, placeOf, todayCups, cardText, narabiLine,
+// ---- 終わったレースの結果と確定オッズ(results.js・gitfill.js)。races = races.json の行(url が WINTICKET の出走表) ----
+//   → { "場_nR": { res: resultOf の形 | null, odds: { cars, o } | null, cancel } }。欠車のあるレースは組の並びが合わないので odds を出さない
+async function finishedRaces(races, { wait = 700, log = console.log } = {}) {
+  const out = {};
+  let fails = 0;
+  for (const x of races) {
+    const u = parseUrl(x.url);
+    if (!u) continue;
+    try {
+      const { R, O } = await raceOdds(u.slug, u.cupId, u.index, u.no);
+      const rn = R && R.race ? R.race.entriesNumber : 0;
+      const absent = R ? (R.entries || []).filter((e) => e.absent).length : 0;
+      const od = O && O.finalOdds && !absent && rn ? oddsOf(O, rn) : null;
+      out[x.place + "_" + x.raceNo] = { res: resultOf(O), odds: od && od.o.some((v) => v != null) ? { cars: rn, o: od.o } : null, cancel: !!(R && R.race && R.race.cancel) };
+    } catch (e) {
+      fails++; log("  取得失敗: " + (x.key || x.place + "_" + x.raceNo) + " " + e.message);
+      if (fails >= 8) { log("失敗が続くので打ち切り"); break; }
+    }
+    await sleep(wait);
+  }
+  return out;
+}
+
+module.exports = { finishedRaces, BASE, get, sleep, stateOf, query, isMaintenance, urlOf, parseUrl, placeOf, todayCups, cardText, narabiLine,
   oddsOf, resultOf, raceOdds, combos3, combos2, gradeOf, hhmm, ymdJa, jst };

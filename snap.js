@@ -50,6 +50,9 @@ const EVERY_SEC = 170;          // 同じレースを見る間隔(3分弱。1分
 const HOT_LAST_MIN = 6, HOT_EVERY_SEC = 50;
 const TWO_CAR_LAST_MIN = 6;     // 2車単・2車複も残すのは締切何分前からか(記録を膨らませすぎないため)
 const { toText: toText2, array2 } = require("./odds2parse.js");
+// 2026-10-23 から倍率は WINTICKET(wt.js)。races.json の url が WINTICKET の出走表になった(fetch.js)。
+//   3連複・2車単・2車複はページの JSON に全組そろっている。「HH:MM現在」は oddsUpdatedAt(hikitsugi §4-47)
+const WT = require("./wt.js");
 const CLOSE_BEFORE = 5;         // 締切は発走の5分前(index.html と同じ)
 const BUDGET_MS = 50 * 1000;    // 1回の持ち時間。超えたら残りは次の回へ
 const WAIT_MS = 700;            // 1リクエストごとの間隔(並列にしない)
@@ -151,45 +154,46 @@ async function main() {
     const prev = st.last[x.key] || 0;
     const every = left <= HOT_LAST_MIN ? HOT_EVERY_SEC : EVERY_SEC;
     if (Date.now() - prev < every * 1000) continue;
-    const m = String(x.url || "").match(/keirin\.kdreams\.jp\/([a-z]+)\/racedetail\/(\d{16})/);
-    if (!m) { console.log("  " + x.key + ": レースURLが無い"); continue; }
-    todo.push({ x, left, roma: m[1], rid: m[2] });
+    const u = WT.parseUrl(x.url);
+    if (!u) { console.log("  " + x.key + ": レースURLが無い(WINTICKET の出走表でない)"); continue; }
+    todo.push({ x, left, u, rid: u.cupId + "/" + u.index + "/" + u.no });
   }
   if (!todo.length) return;
   todo.sort((a, b) => a.left - b.left);   // 締切が近い順
   console.log(hms(), "締切" + WIN_LO + "〜" + WIN_HI + "分前 " + todo.length + "レース");
 
   const rows = [];
-  for (const { x, left, roma, rid } of todo) {
+  for (const { x, left, u, rid } of todo) {
     if (Date.now() - t0 > BUDGET_MS) { console.log("  持ち時間切れ。残りは次の回へ"); break; }
-    const n = Array.isArray(x.riders) && x.riders.length ? x.riders.length : (x.plan && x.plan.cars) || 0;
-    const url = "https://keirin.kdreams.jp/" + roma + "/racedetail/" + rid + "/?pageType=odds&kakeshikiType=3renhuku";
-    let p, html;
-    try { html = await fetchText(url); p = parseTrio(html); }
-    catch (e) { console.log("  " + x.key + ": 取得失敗(" + e.message + ")"); await sleep(WAIT_MS); continue; }
+    let n = Array.isArray(x.riders) && x.riders.length ? x.riders.length : (x.plan && x.plan.cars) || 0;
+    let p;
+    try {
+      const S = WT.stateOf(await fetchText(WT.urlOf("odds", u.slug, u.cupId, u.index, u.no)));
+      if (!S) throw new Error("ページに JSON が無い");
+      if (WT.isMaintenance(S)) throw new Error("WINTICKET がメンテナンス中");
+      const R = WT.query(S, "FETCH_KEIRIN_RACE");
+      const rn = R && R.race ? R.race.entriesNumber : 0;
+      const absent = R ? (R.entries || []).filter((e) => e.absent).length : 0;
+      if (!n && rn) n = rn - absent;
+      p = WT.oddsOf(WT.query(S, "FETCH_KEIRIN_RACE_ODDS"), rn || n || 9);
+      if (!p) throw new Error("倍率の JSON が無い");
+      // 欠車があると WINTICKET は元の車立て(欠車を含む)の組で返す。races.json の車立て(欠車を除く)と組の並びが違うので記録しない
+      if (absent && rn && n && n !== rn) { console.log("  " + x.key + ": 欠車あり(" + rn + "車→" + n + "車)。組の並びが合わないので飛ばす"); await sleep(WAIT_MS); continue; }
+    } catch (e) { console.log("  " + x.key + ": 取得失敗(" + e.message + ")"); await sleep(WAIT_MS); continue; }
     const cs = combos(n || 9);
-    const o = cs.map((k) => (p.odds.has(k) ? p.odds.get(k) : null));
+    const o = p.o.length === cs.length ? p.o : cs.map(() => null);
     const got = o.filter((v) => v != null).length;
-    const extra = [...p.odds.keys()].filter((k) => !cs.includes(k)).length;   // 車立ての読み違い
-    if (!got) {
-      console.log("  " + x.key + ": オッズが読めない(本文 " + p.len + " 文字)");
-      await sleep(WAIT_MS); continue;
-    }
+    if (!got) { console.log("  " + x.key + ": オッズが読めない"); await sleep(WAIT_MS); continue; }
     const row = { t: hms(), k: x.key, rid, left: Math.round(left * 10) / 10, upd: p.upd, n: n || null, o };
     if (left <= TWO_CAR_LAST_MIN && n) {
-      try {
-        const txt = toText2(html);
-        const t2 = array2("2t", txt, n), f2 = array2("2f", txt, n);
-        if (t2.some((v) => v != null)) row.t2 = t2;
-        if (f2.some((v) => v != null)) row.f2 = f2;
-      } catch (e) { console.log("  " + x.key + ": 2車のオッズが読めない(" + e.message + ")"); }
+      if (p.t2.some((v) => v != null)) row.t2 = p.t2;
+      if (p.f2.some((v) => v != null)) row.f2 = p.f2;
     }
     rows.push(row);
     st.last[x.key] = Date.now();
     const bad = o.filter((v) => v != null && v >= 9999).length;
     console.log("  " + x.key + " 締切" + row.left + "分前 " + (p.upd || "?") + "現在 " + got + "/" + cs.length + "組" +
-      (p.clash ? " ★人気順と高配当順で倍率が違う組 " + p.clash : "") +
-      (bad ? " (9999.9=" + bad + ")" : "") + (extra ? " ★車立てと合わない組 " + extra : "") +
+      (bad ? " (9999.9=" + bad + ")" : "") +
       (row.t2 ? " / 2車単" + row.t2.filter((v) => v != null).length + "・2車複" + (row.f2 || []).filter((v) => v != null).length + "組" : ""));
     await sleep(WAIT_MS);
   }

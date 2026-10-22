@@ -25,7 +25,9 @@
 const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
-const { get, parseHaraiList, raceDate, normalizeResult, makeEntry } = require("./results.js");
+const { raceDate, normalizeResult, makeEntry, saveFinalOdds } = require("./results.js");
+// 2026-10-23 から結果は WINTICKET(wt.js)。その日の races.json の url(WINTICKET の出走表)から1レースずつ読む(hikitsugi §4-47)
+const WT = require("./wt.js");
 
 const dir = __dirname;
 const argv = process.argv.slice(2);
@@ -104,21 +106,25 @@ async function main() {
   if (missing.length) console.log("★予想が残っていない日(復旧できません):", missing.join(", "));
 
   let added = 0, noResult = 0, already = 0;
-  const failed = [];
+  const failed = [], finalOdds = {};
   for (const d of dates) {
     const races = best.get(d).races;
-    const [y, mo, dd] = d.split("-");
-    let day;
-    try { day = parseHaraiList(await get(`https://keirin.kdreams.jp/harailist/${y}/${mo}/${dd}/`)); }
-    catch (e) { console.error("払戻一覧の取得に失敗:", d, e.message); failed.push(d); continue; }
-
     const d8 = d.replace(/-/g, "");
+    // まだ history に無い・WINTICKET の url があるレースだけ取りに行く(Kドリームスの url の日は取れない)
+    const want = races.filter((x) => WT.parseUrl(x.url) && !done.has(d8 + "_" + x.key));
+    const day = {};
+    if (want.length) {
+      let got;
+      try { got = await WT.finishedRaces(want); } catch (e) { console.error("結果の取得に失敗:", d, e.message); failed.push(d); continue; }
+      for (const [k, g] of Object.entries(got)) if (g.res) day[k] = g.res;
+      for (const x of want) { const g = got[x.place + "_" + x.raceNo]; if (g && g.odds) finalOdds[d8 + "_" + x.key] = g.odds; }
+    }
     let a = 0, n = 0, k = 0;
     for (const x of races) {
-      const r = day[x.place + "_" + x.raceNo];
-      if (!r || !normalizeResult(r)) { n++; continue; }
       const id = d8 + "_" + x.key;
       if (done.has(id)) { k++; continue; }
+      const r = day[x.place + "_" + x.raceNo];
+      if (!r || !normalizeResult(r)) { n++; continue; }
       hist.entries.push(makeEntry(x, r, d8));
       done.add(id);
       a++;
@@ -130,7 +136,7 @@ async function main() {
   console.log("----------------------------------------");
   console.log("追加:", added, "件 / 結果が取れなかった:", noResult, "件 / 既に有り:", already, "件");
   if (failed.length) {
-    console.log("★払戻一覧を取得できなかった日:", failed.join(", "));
+    console.log("★結果を取得できなかった日:", failed.join(", "));
     console.log("★このスクリプトは既存分を飛ばすので、同じコマンドをもう一度回せば続きから埋まります。");
   }
   if (missing.length) console.log("★予想が残っていないため復旧できない日:", missing.join(", "));
@@ -143,11 +149,11 @@ async function main() {
   }
   if (!APPLY) { console.log("点検のみのため書き込みませんでした。--apply を付けると書き込みます。"); return; }
   if (!added) { console.log("追加が0件のため書き込みません。"); return; }
+  saveFinalOdds(path.dirname(histPath), finalOdds); // 同じページの確定オッズ(期待値用)。既にあるレースは上書きしない
   // 日付順に並べ直す(results.js は追記順のままだが、遡り分が末尾に来ると読みづらい)
   hist.entries.sort((p, q) => (p.date === q.date ? (p.id < q.id ? -1 : 1) : p.date < q.date ? -1 : 1));
   fs.writeFileSync(histPath, JSON.stringify(hist));
   console.log("history.json を書き込みました:", before, "→", hist.entries.length, "件");
-  console.log("★このあと node sanpuku.js 40 --apply を回して3連複配当(p3fpay)を入れてください。");
 }
 
 // 直接実行したときだけ走らせる(scorelog.js から snapshots を使い回すため)

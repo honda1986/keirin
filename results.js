@@ -119,11 +119,13 @@ const normalizeResult = (r) => {
 //   2026-08-28の移行では同じロジックが複数ファイルに散っていたせいで
 //   results.js だけが取り残された。同じ事故を繰り返さないこと。
 function makeEntry(x, r, d8) {
-  const { first: f, second: s, third: t, p3pay, p2pay } = r;
+  const { first: f, second: s, third: t, p3pay, p2pay, p3fpay } = r;
   return {
     id: d8 + "_" + x.key, date: d8, place: x.place, raceNo: x.raceNo, klass: x.klass, grade: x.grade || "",
     score: x.score, verdict: x.verdict, pattern: x.pattern,
     f, s, t, p3pay, p2pay: p2pay != null ? p2pay : null,
+    // 3連複の配当。WINTICKET(2026-10-23〜)は結果と一緒に取れる。それより前は sanpuku.js が後から足していた
+    ...(p3fpay != null && t != null && Array.isArray(r.f3) && r.f3.join("=") === [f, s, t].sort((a, b) => a - b).join("=") ? { p3fpay } : {}),
     suji: sujiHit(x.lines, f, s),
     honmeiWin: !!(x.marksCars && x.marksCars[0] === f),
     honmeiRen: !!(x.marksCars && (x.marksCars[0] === f || x.marksCars[0] === s)),
@@ -160,36 +162,32 @@ async function main() {
     console.error("先頭レース:", JSON.stringify({ url: races[0].url, date: races[0].date }));
     process.exit(1);
   }
-  // races.jsonの日付 + その前日 も一覧を見る(ナイター開催は結果一覧が前日ページに載るため)
-  const dateSet = new Set(baseDates);
-  for (const dH of baseDates) {
-    const dt = new Date(dH + "T00:00:00Z"); dt.setUTCDate(dt.getUTCDate() - 1);
-    dateSet.add(dt.toISOString().slice(0, 10));
-  }
-  const dates = STATS_ONLY ? [] : [...dateSet];
-  // 結果キーは「日付8桁_場名_nR」。ページ日付をキーに含めることで、
-  // 別日の同場・同レース番号の結果が未出走レースに誤って紐付く事故を防ぐ。
-  const results = {};
-  for (const dH of dates) {
-    const [y, mo, d] = dH.split("-");
-    const url = `https://keirin.kdreams.jp/harailist/${y}/${mo}/${d}/`;
-    try {
-      const html = await get(url);
-      const day = parseHaraiList(html);
-      const d8p = dH.replace(/-/g, "");
-      let cnt = 0, p2 = 0;
-      for (const [k, v] of Object.entries(day)) {
-        results[d8p + "_" + k] = v; cnt++;
-        if (v.p2pay != null) p2++;
-      }
-      console.log("払戻一覧取得:", dH, "→", cnt, "レース確定(うち2車単", p2, "件)");
-    } catch (e) { console.error("harai-list skip:", url, e.message); }
+  // 2026-10-23 から結果は WINTICKET(wt.js)。まだ history に無いレースだけ、1レース1ページの倍率ページを読む。
+  //   確定していれば 着順・3連単・3連複・2車単の払戻がそろう。同じページの確定オッズも odds-YYYYMM.json に足す(hikitsugi §4-47)
+  const results = {}, finalOdds = {};
+  const jstNow0 = new Date(Date.now() + 9 * 3600e3), today80 = jstNow0.toISOString().slice(0, 10).replace(/-/g, ""), early0 = jstNow0.getUTCHours() < 21;
+  const want = STATS_ONLY ? [] : races.filter((x) => {
+    const dH = raceDate(x); if (!dH || !WT.parseUrl(x.url)) return false;
+    const d8 = dH.replace(/-/g, "");
+    return !(early0 && d8 === today80) && !done.has(d8 + "_" + x.key);
+  });
+  if (want.length) {
+    console.log("結果を取りに行くレース:", want.length, "件(WINTICKET)");
+    const got = await WT.finishedRaces(want);
+    for (const x of want) {
+      const g = got[x.place + "_" + x.raceNo]; if (!g) continue;
+      const d8 = raceDate(x).replace(/-/g, "");
+      if (g.res) results[d8 + "_" + x.place + "_" + x.raceNo] = g.res;
+      if (g.odds) finalOdds[d8 + "_" + x.key] = g.odds;
+    }
+    console.log("確定していた:", Object.keys(results).length, "件 / 確定オッズ:", Object.keys(finalOdds).length, "件");
+    saveFinalOdds(dir, finalOdds);
   }
 
   // 払戻一覧が1レースも返さないのは、取得元の一時的な不調か形式の変化。2026-09-23 分はこれで黙って0件になった。
   // 取り逃がしは results.yml の gitfill.js(直近3日)で埋まるが、ログで気付けるように目立たせておく。
-  if (!STATS_ONLY && races.length && !Object.keys(results).length) {
-    console.error("⚠ 払戻一覧から結果が1レースも読めませんでした(" + dates.join(", ") + ")。取得元の不調か形式の変化の可能性。翌晩の gitfill.js で再取得されます。");
+  if (!STATS_ONLY && want.length && !Object.keys(results).length) {
+    console.error("⚠ WINTICKET から結果が1レースも読めませんでした(" + want.length + "件)。取得元の不調か形式の変化の可能性。翌晩の gitfill.js で再取得されます。");
   }
   const entryById = new Map(hist.entries.map((e) => [e.id, e]));
   let added = 0, p2added = 0;
@@ -536,6 +534,24 @@ function oddsOf(dir, id, trio) {
 // それより後は history の riders(府県つき)と倍率から毎晩計算する。倍率は、締切前の記録(odds-snap。
 // SNAP_DIR に置いたもの)があればその「締切にいちばん近い記録」、無ければ確定オッズ。
 const EV = require("./ev.js");
+const WT = require("./wt.js");
+// 確定オッズを odds-YYYYMM.json に足す(odds.js と同じ形 { updatedAt, races: { id: { cars, o } } })。既にある組は書き換えない
+function saveFinalOdds(dir, m) {
+  const byMonth = {};
+  for (const [id, v] of Object.entries(m)) (byMonth[id.slice(0, 6)] = byMonth[id.slice(0, 6)] || {})[id] = v;
+  for (const [ym, add] of Object.entries(byMonth)) {
+    const f = path.join(dir, "odds-" + ym + ".json");
+    let cur = { races: {} };
+    try { cur = JSON.parse(fs.readFileSync(f, "utf8")); } catch (e) {}
+    const before = Object.keys(cur.races || {}).length;
+    cur.races = cur.races || {};
+    for (const [id, v] of Object.entries(add)) if (!cur.races[id]) cur.races[id] = v;
+    if (Object.keys(cur.races).length === before) continue;
+    cur.updatedAt = new Date().toISOString();
+    fs.writeFileSync(f, JSON.stringify(cur));
+    console.log("確定オッズ:", "odds-" + ym + ".json", before, "→", Object.keys(cur.races).length, "レース");
+  }
+}
 let EV_PAST = null;
 function evPast(dir) {
   if (EV_PAST == null) { try { EV_PAST = JSON.parse(fs.readFileSync(path.join(dir, "ev-past.json"), "utf8")); } catch (e) { EV_PAST = {}; } }
@@ -662,4 +678,4 @@ function writeDaily(dir, byDate, rankedOf) {
 // 直接実行したときだけ走らせる(gitfill.js から require して部品を使い回すため)
 if (require.main === module) main().catch((e) => { console.error(e); process.exit(1); });
 
-module.exports = { get, parseHaraiList, sujiHit, raceDate, normalizeResult, makeEntry, writeDaily };
+module.exports = { get, parseHaraiList, sujiHit, raceDate, normalizeResult, makeEntry, writeDaily, saveFinalOdds };
