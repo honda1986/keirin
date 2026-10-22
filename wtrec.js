@@ -10,6 +10,7 @@
 //   u: "場名/cupId/日目/R"  n: 車立て(欠車を含む)
 //   c: 出走表 [[車番, 欠車?1:0, S, H, B, 逃, 捲, 差, マ, 競走得点, 脚質, ギヤ, 1着, 2着, 3着, 着外], ...]
 //   r: 結果 [[車番, 着順, 決まり手, そのレースのS?1:0, H?1:0, B?1:0, 上がり], ...](結果の各項目は先頭のレースのログに出す)
+//   p: 払戻 [3連複, 3連単, 2車単](円。無ければ null)
 //
 // 使い方: node wtrec.js --month=2025-01 --out=<フォルダ> [--wait=300] [--limit=50]
 // ============================================================
@@ -24,7 +25,7 @@ const MONTH = arg("month", ""), OUT = arg("out", ""), WAIT = +arg("wait", "300")
 if (!/^\d{4}-\d{2}$/.test(MONTH) || !OUT) { console.error("使い方: node wtrec.js --month=YYYY-MM --out=<フォルダ>"); process.exit(1); }
 const ym = MONTH.replace("-", "");
 
-function pack(R) {
+function pack(R, O) {
   const byPid = {};
   for (const e of R.entries || []) byPid[e.playerId] = e;
   const REC = {};
@@ -39,7 +40,8 @@ function pack(R) {
     const e = byPid[x.playerId];
     return [e ? e.number : null, x.order, x.factor || "", x.standing ? 1 : 0, x.home ? 1 : 0, x.back ? 1 : 0, x.finalHalfRecord || ""];
   });
-  return { n: R.race ? R.race.entriesNumber : c.length, c, r: res };
+  const v = O ? WT.resultOf(O) : null;
+  return { n: R.race ? R.race.entriesNumber : c.length, c, r: res, p: v ? [v.p3fpay ?? null, v.p3pay ?? null, v.p2pay ?? null] : null };
 }
 
 async function main() {
@@ -61,10 +63,11 @@ async function main() {
     try {
       const cup = await WT.findCup(e.place, String(e.date), cache);
       const no = parseInt(e.raceNo, 10);
-      const R = cup && no ? WT.query(WT.stateOf(await WT.get(WT.urlOf("racecard", cup.slug, cup.cupId, cup.index, no))), "FETCH_KEIRIN_RACE") : null;
+      const S = cup && no ? WT.stateOf(await WT.get(WT.urlOf("racecard", cup.slug, cup.cupId, cup.index, no))) : null;
+      const R = S ? WT.query(S, "FETCH_KEIRIN_RACE") : null;
       if (R && R.race) {
         if (!shown && (R.results || []).length) { console.log("結果の項目:", Object.keys(R.results[0]).join(",")); shown = true; }
-        cur[key] = { u: [cup.slug, cup.cupId, cup.index, no].join("/"), ...pack(R) };
+        cur[key] = { u: [cup.slug, cup.cupId, cup.index, no].join("/"), ...pack(R, WT.query(S, "FETCH_KEIRIN_RACE_ODDS")) };
         got++; fails = 0;
       } else miss++;
     } catch (err) {
