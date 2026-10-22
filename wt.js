@@ -156,7 +156,10 @@ function cardText(R, place) {
   for (const en of (R.entries || []).slice().sort((a, b) => a.number - b.number)) {
     if (en.absent) continue;                          // 欠車は出走表から外す(並び予想に残る車番は fetch.js が外す)
     const p = P[en.playerId] || {}, r = REC[en.playerId] || {};
-    L.push(String(en.bracketNumber || ""), String(en.number), p.name || "?",
+    // 名前は Kドリームスと同じ「姓 名」(半角スペース)。scores.json(得点の記録)の鍵が「姓 名|期」なので、つなげて書くと
+    //   前回開催からの得点の増減・得点の変化(モデルD)が引けなくなる(2026-10-23 朝の1回目で起きた)
+    const nm = p.lastName && p.firstName ? p.lastName + " " + p.firstName : p.name || "?";
+    L.push(String(en.bracketNumber || ""), String(en.number), nm,
       (p.prefecture || "?") + "/" + (p.age || 0) + "/" + (p.term || 0),
       gradeOf(p.class, p.group) || "A3", r.style || "追", num2((r.hasModifiedGearRatio && r.modifiedGearRatio) || r.gearRatio || 3.92),
       num2(r.racePoint), String(r.standing || 0), String(r.back || 0),
