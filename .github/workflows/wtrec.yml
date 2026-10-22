@@ -1,0 +1,76 @@
+name: 過去の出走表と結果(WINTICKET)
+
+# H(ホーム回数)の検証用(hikitsugi §4-48)。history.json のその月のレースについて、WINTICKET の出走表ページから
+# 当時の成績(S・H・B など)と結果(着順・決まり手・そのレースで S/H/B を取った選手)を取り、
+# wtrec ブランチの wtrec-YYYYMM.json.gz に足す(main には入れない)。既にあるレースは取らない。
+# 1レース1ページを順番に取る。1か月(約2,200R)で1時間ほど。同時に動かすのは3か月まで(先方の負担を抑える)。
+on:
+  workflow_dispatch:
+    inputs:
+      months:
+        description: '取る月(カンマ区切り。例 2025-01,2025-02)'
+        required: true
+      wait:
+        description: '1ページごとの間隔(ミリ秒)'
+        required: false
+        default: '300'
+
+permissions:
+  contents: write
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      months: ${{ steps.p.outputs.months }}
+    steps:
+      - id: p
+        env:
+          M: ${{ github.event.inputs.months }}
+        run: echo "months=$(echo "$M" | tr -d ' ' | jq -R -c 'split(",") | map(select(test("^[0-9]{4}-[0-9]{2}$")))')" >> "$GITHUB_OUTPUT"
+
+  get:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      max-parallel: 3
+      fail-fast: false
+      matrix:
+        month: ${{ fromJSON(needs.plan.outputs.months) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 取得済みの分を出す
+        run: |
+          mkdir -p /tmp/wr
+          if git ls-remote --exit-code origin refs/heads/wtrec >/dev/null 2>&1; then
+            git fetch -q --depth=1 origin refs/heads/wtrec
+            git show "FETCH_HEAD:wtrec-$(echo ${{ matrix.month }} | tr -d -).json.gz" > "/tmp/wr/wtrec-$(echo ${{ matrix.month }} | tr -d -).json.gz" 2>/dev/null || rm -f /tmp/wr/*.gz
+          fi
+      - name: 取る
+        run: node wtrec.js --month=${{ matrix.month }} --out=/tmp/wr --wait=${{ github.event.inputs.wait || '300' }}
+      - name: wtrec ブランチに送る
+        run: |
+          F="wtrec-$(echo ${{ matrix.month }} | tr -d -).json.gz"
+          git config --global user.name "race-bot"
+          git config --global user.email "actions@github.com"
+          for i in 1 2 3 4 5 6; do
+            rm -rf /tmp/br
+            if git ls-remote --exit-code origin refs/heads/wtrec >/dev/null 2>&1; then
+              git fetch -q --depth=1 origin refs/heads/wtrec && git worktree add -q --detach /tmp/br FETCH_HEAD
+            else
+              git worktree add -q --detach /tmp/br && (cd /tmp/br && git checkout -q --orphan wtrec && git rm -rqf . && printf '# 過去の出走表と結果(WINTICKET)\n\nwtrec.js が書く。形式は wtrec.js の先頭を参照。\n' > README.md && git add README.md)
+            fi
+            cp "/tmp/wr/$F" "/tmp/br/$F"
+            cd /tmp/br
+            git add -A
+            git diff --cached --quiet && echo "変更なし" && exit 0
+            git commit -qm "wtrec: ${{ matrix.month }}"
+            if git push -q origin HEAD:refs/heads/wtrec; then echo "push成功 (試行 $i)"; exit 0; fi
+            cd - >/dev/null; git worktree remove --force /tmp/br || true
+            echo "競合のためリトライ $i/6"; sleep $((RANDOM % 10 + 5))
+          done
+          exit 1
