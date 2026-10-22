@@ -1,0 +1,80 @@
+name: 予想が無い日を作り直す(WINTICKET)
+
+# 予想(races.json)が1件も残っていない日を、WINTICKET の当時の出走表から作り直して成績に足す(wtday.js・hikitsugi §4-47)。
+# 2026-10-22(Kドリームスが朝から止まった日)のため。作り直した記録には rb: 1 が付く。既にあるレースは触らない。
+on:
+  workflow_dispatch:
+    inputs:
+      date:
+        description: '日付 YYYY-MM-DD (例: 2026-10-22)'
+        required: true
+      mode:
+        description: '書き込むなら apply を選ぶ。既定は点検のみ'
+        required: true
+        default: 'check'
+        type: choice
+        options: [check, apply]
+
+# results.yml と同じグループ。history.json の同時書き込みを避ける
+concurrency:
+  group: history-write
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+# 成績の作り直し(results.js --stats-only)が races.json を読むため
+env:
+  KEIRIN_PASS: ${{ secrets.KEIRIN_PASS }}
+
+jobs:
+  wtday:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 出走表を作り直して結果を足す
+        env:
+          D: ${{ github.event.inputs.date }}
+          MODE: ${{ github.event.inputs.mode }}
+        run: |
+          git fetch -q --depth=1 origin refs/heads/pastcard
+          rm -rf /tmp/pcb && git worktree add -q --detach /tmp/pcb FETCH_HEAD
+          if [ "$MODE" = "apply" ]; then node wtday.js --date="$D" --apply --dayraw=/tmp/pcb; else node wtday.js --date="$D"; fi
+      - name: 成績を作り直す
+        if: ${{ github.event.inputs.mode == 'apply' }}
+        run: |
+          mkdir -p /tmp/snap
+          if git ls-remote --exit-code origin refs/heads/odds-snap >/dev/null 2>&1; then
+            git fetch -q --depth=1 origin refs/heads/odds-snap && git archive FETCH_HEAD snap | tar -x -C /tmp/snap || true
+          fi
+          SNAP_DIR=/tmp/snap/snap node results.js --stats-only
+      - name: 出走表のテキストを pastcard ブランチに残す
+        if: ${{ github.event.inputs.mode == 'apply' }}
+        continue-on-error: true
+        run: |
+          cd /tmp/pcb
+          git add dayraw-*.json.gz
+          git diff --cached --quiet && echo "変更なし" && exit 0
+          git -c user.name=race-bot -c user.email=actions@github.com commit -qm "dayraw: 作り直した日の出走表"
+          for i in 1 2 3 4 5; do
+            if git push -q origin HEAD:refs/heads/pastcard; then echo "push成功 (試行 $i)"; exit 0; fi
+            sleep 5; git fetch -q origin refs/heads/pastcard && git rebase -q FETCH_HEAD || { git rebase --abort; exit 1; }
+          done
+          exit 1
+      - name: コミット(競合対策リトライ付き)
+        if: ${{ github.event.inputs.mode == 'apply' }}
+        run: |
+          git config user.name "race-bot"
+          git config user.email "actions@github.com"
+          git add history.json stats.json daily.json odds-*.json
+          git diff --cached --quiet && echo "変更なし" && exit 0
+          git commit -m "wtday: ${{ github.event.inputs.date }} を WINTICKET の出走表から作り直した"
+          for i in 1 2 3 4 5 6; do
+            if git pull --rebase --autostash origin main && git push; then echo "push成功 (試行 $i)"; exit 0; fi
+            echo "競合のためリトライ $i/6"; sleep 6
+          done
+          echo "6回リトライしても push できませんでした"; exit 1
