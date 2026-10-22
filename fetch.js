@@ -204,7 +204,10 @@ function buildEntry(text, item) {
 
 async function main() {
   const jst = new Date(Date.now() + 9 * 3600 * 1000);
-  const d = jst.toISOString().slice(0, 10), d8 = d.replace(/-/g, "");
+  // FETCH_DATE=YYYY-MM-DD: 過去の日を作り直す(wtday.js。予想が残っていない日のため)。RACES_OUT と一緒に使う(races.json・scores.json は書かない)
+  const FETCH_DATE = process.env.FETCH_DATE || "";
+  if (FETCH_DATE && (!/^\d{4}-\d{2}-\d{2}$/.test(FETCH_DATE) || !process.env.RACES_OUT)) { console.error("FETCH_DATE は YYYY-MM-DD で、RACES_OUT と一緒に指定してください"); process.exit(1); }
+  const d = FETCH_DATE || jst.toISOString().slice(0, 10), d8 = d.replace(/-/g, "");
   console.log("========================================");
   console.log(" 全レース更新(取得元: WINTICKET)");
   console.log(" 対象日:", d);
@@ -212,9 +215,17 @@ async function main() {
 
   // 今日開催の場(トップページのリンク)→ 場ごとに1R の出走表を開き、開催の全レースから今日の分を拾う
   let cups = [];
-  try { cups = await WT.todayCups(); }
-  catch (e) { console.error("トップページの取得に失敗:", e.message); process.exit(1); }
-  console.log("今日開催の場:", cups.map((c) => c.slug).join(" ") || "なし");
+  try {
+    if (FETCH_DATE) {
+      // 過去の日はトップページに無いので、43場それぞれでその日の開催を探す(wt.js の findCup。開催の無い場は 404 が続くだけ)
+      const cache = {};
+      for (const place of TRACK_NAMES) {
+        const c = await WT.findCup(place, d8, cache);
+        if (c) cups.push({ slug: c.slug, cupId: c.cupId, index: c.index });
+      }
+    } else cups = await WT.todayCups();
+  } catch (e) { console.error("開催の一覧の取得に失敗:", e.message); process.exit(1); }
+  console.log((FETCH_DATE ? d + " に" : "今日") + "開催の場:", cups.map((c) => c.slug).join(" ") || "なし");
   const list = [], firstPage = {};
   for (const c of cups) {
     try {
