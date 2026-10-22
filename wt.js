@@ -142,6 +142,9 @@ async function todayCups() {
 //   ★逃 = frontRunner・捲 = deepCloser・差 = stalker・マ = marker(名前と逆に見えるが、ページの表と突き合わせて確かめた。2026-10-23 熊本1R)
 //   ギヤは変更があれば変更後だけ(parseKdreams はギヤの値の最後を使う。2つ並べると compactCard が H を切り落とす)
 const num2 = (v) => (v == null || !isFinite(v) ? "0" : String(Math.round(v * 100) / 100));
+// 勝率・2連対率・3連対率は着度数から「回数 ÷ 合計 × 100 を小数1桁で切り捨て」で作る(Kドリームスと同じ。2022-01・2025-05・2026-09 の
+//   48,695人で全員一致)。WINTICKET の firstRate などは 0.1 ずれることがある(2026-09 の50R で81人)
+const rate1 = (x, tot) => (tot > 0 ? String(Math.floor((x * 1000) / tot + 1e-9) / 10) : "0");
 function cardText(R, place) {
   const race = R.race, sch = R.schedule || {};
   const P = {}; for (const p of R.players || []) P[p.id] = p;
@@ -165,7 +168,8 @@ function cardText(R, place) {
       num2(r.racePoint), String(r.standing || 0), String(r.back || 0),
       String(r.frontRunner || 0), String(r.deepCloser || 0), String(r.stalker || 0), String(r.marker || 0),
       String(r.first || 0), String(r.second || 0), String(r.third || 0), String(r.others || 0),
-      num2(r.firstRate), num2(r.secondRate), num2(r.thirdRate),
+      ...(() => { const a = r.first || 0, b = r.second || 0, c = r.third || 0, t = a + b + c + (r.others || 0);
+        return t > 0 ? [rate1(a, t), rate1(a + b, t), rate1(a + b + c, t)] : [num2(r.firstRate), num2(r.secondRate), num2(r.thirdRate)]; })(),
       "H:" + (r.home != null ? r.home : 0),
       (r.comment || "").replace(/\s+/g, " ").trim() || "コメントなし");
   }
