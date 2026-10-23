@@ -168,7 +168,11 @@ async function main() {
     let n = Array.isArray(x.riders) && x.riders.length ? x.riders.length : (x.plan && x.plan.cars) || 0;
     let p;
     try {
-      const S = WT.stateOf(await fetchText(WT.urlOf("odds", u.slug, u.cupId, u.index, u.no)));
+      // ★WINTICKET のページは CDN に最長60秒残る(s-maxage=60)。倍率そのものは締切前は1分おきに新しくなるので、
+      //   キャッシュの分だけ古い倍率を読んでいた(締切2分前の記録が Kドリームスより約1分古い)。自動投票が決める
+      //   締切 HOT_LAST_MIN 分前からだけ、URL に時刻を付けてキャッシュを通さずに取る(2026-10-23 のミッドナイトで確かめた)
+      const bust = left <= HOT_LAST_MIN ? "?_=" + Date.now() : "";
+      const S = WT.stateOf(await fetchText(WT.urlOf("odds", u.slug, u.cupId, u.index, u.no) + bust));
       if (!S) throw new Error("ページに JSON が無い");
       if (WT.isMaintenance(S)) throw new Error("WINTICKET がメンテナンス中");
       const R = WT.query(S, "FETCH_KEIRIN_RACE");
