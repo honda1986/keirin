@@ -125,6 +125,20 @@ class TestBetplan(unittest.TestCase):
             self.assertTrue(10 <= d["odds"] <= 30 and d["ev"] >= 1.1)
         self.assertEqual(d["key"], "岐阜_3R")
 
+    def test_AIが外した1番人気ラインは種類A(self):
+        # S級・AI予想が3人をそろえていない・1番人気がライン3車・4倍以上なら buy(aifav.js。2026-11-03〜)
+        def go(ai=(1, 2, 4, 5), klass="s", fav=5.0, key="岐阜_3R"):
+            r = race(key=key); r["klass"] = klass; r["ai"] = list(ai)
+            snap = {"t": "15:00:10", "k": key, "left": 4.8, "n": 9, "o": self.odds(9, fav, base=300.0)}
+            xs = [y for y in self.run_plan([r], [snap])["races"] if y["kind"] == "A"]
+            return xs[0] if xs else None
+        x = go()
+        self.assertEqual((x["verdict"], x["ticket"], x["odds"], x["minOdds"], x["sameAsHot"]), ("buy", "1=2=3", 5.0, 4, True))
+        self.assertEqual((go(ai=(1, 2, 3, 5))["verdict"], go(ai=(1, 2, 3, 5))["why"]), ("none", "AI予想が3人をそろえている"))
+        self.assertEqual(go(fav=3.5)["why"], "1番人気が4倍未満")
+        self.assertIsNone(go(klass="a12"))          # S級以外・AI予想が無いレースは出さない
+        self.assertIsNone(go(ai=()))
+
     def test_7車は帯の外なら見送り(self):
         r = race(cars=7, need=True)
         x = self.hot(self.run_plan([r], [{"t": "15:00:10", "k": "岐阜_3R", "left": 4.8, "n": 7, "o": self.odds(7, 16.0, base=200.0)}]))[0]

@@ -137,6 +137,15 @@ async function todayCups() {
   return [...seen.values()];
 }
 
+// ---- AI予想の4車(FETCH_KEIRIN_RACE の predictions の isAi。4車の3連複ボックス)。無ければ [] ----
+//   レース前に出ている予想(はむさん確認済み)。Ⓐ(aifav.js)が使う。hikitsugi §4-49・§4-50
+function aiCars(R) {
+  const ai = ((R && R.predictions) || []).find((p) => p.isAi);
+  const set = new Set();
+  for (const id of (ai && ai.trioOddsIds) || []) for (const c of String(id).split(":")[2].split(".")) if (+c) set.add(+c);
+  return [...set].sort((a, b) => a - b);
+}
+
 // ---- 出走表(1レース)。FETCH_KEIRIN_RACE と場の一覧から、parseKdreams が読める形のテキストを作る ----
 // 選手1人ぶんの行: 枠 / 車番 / 名前 / 府県/年齢/期 / 級班 / 脚質 / ギヤ / 得点 / S / B / 逃 / 捲 / 差 / マ / 1着 / 2着 / 3着 / 着外 / 勝率 / 2連対率 / 3連対率 / H:回数 / コメント
 //   ★逃 = frontRunner・捲 = deepCloser・差 = stalker・マ = marker(名前と逆に見えるが、ページの表と突き合わせて確かめた。2026-10-23 熊本1R)
@@ -260,5 +269,5 @@ async function finishedRaces(races, { wait = 700, log = console.log } = {}) {
   return out;
 }
 
-module.exports = { finishedRaces, findCup, withUrl, SLUGS, BASE, get, sleep, stateOf, query, isMaintenance, urlOf, parseUrl, placeOf, todayCups, cardText, narabiLine,
+module.exports = { aiCars, finishedRaces, findCup, withUrl, SLUGS, BASE, get, sleep, stateOf, query, isMaintenance, urlOf, parseUrl, placeOf, todayCups, cardText, narabiLine,
   oddsOf, resultOf, raceOdds, combos3, combos2, gradeOf, hhmm, ymdJa, jst };

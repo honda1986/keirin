@@ -47,6 +47,8 @@ ITEMS = [
     ("🔥9車（B率1位以外）を買う・金額", "hot9_rest_yen", YENOPT),
     ("🔥7車を買う・金額（買い方が「買わない」なら買わない）", "hot7_yen", YENOPT),
     ("モデルDの金額（買うかは上の「モデルDも買う」）", "model_d_yen", YENOPT),
+    ("Ⓐも買う（AIが外した1番人気ライン・S級・4倍以上）", "buy_ai_fav", YESNO),
+    ("Ⓐの金額（買うかは上の「Ⓐも買う」）", "ai_fav_yen", YENOPT),
     ("🔥7車立ての買い方（帯 4〜15倍）", "hot7_mode", MODE),
     ("支払い方法", "payment_method", PAY),
     ("締切まで何分になったら買うか決めるか（そのときのいちばん新しい倍率で）", "decide_at_minutes", MINUTES),

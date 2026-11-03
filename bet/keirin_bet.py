@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""keirin_bet.py -- アプリの🔥（9車・5〜15倍）とモデルD（全レース・期待値1.10以上・20倍以下。条件は evd.js の PICK）を、オッズパークで自動購入する
+"""keirin_bet.py -- アプリの🔥（9車・5〜15倍）とモデルD（全レース・期待値1.10以上・20倍以下。条件は evd.js の PICK）と
+Ⓐ（AI が外した1番人気ライン・S級・4倍以上。条件は aifav.js。2026-11-03〜）を、オッズパークで自動購入する
 
   python keirin_bet.py --mode check   ブラウザを開かず、買う／見送るの判定を並べるだけ
   python keirin_bet.py --mode dry     ブラウザを開き、確認画面まで進んで押さない
@@ -144,7 +145,7 @@ class Runner:
                 self._once("late:" + key, "見送り", text)
 
         n_hot, nxt = selector.summary(plan, at)
-        head = f"今日の🔥とモデルD {n_hot}（出走表:{plan.get('racesFrom')} 倍率:{plan.get('oddsFrom')}）/ いま買う {len(res.bets)}件 / {nxt}"
+        head = f"今日の🔥・モデルD・Ⓐ {n_hot}（出走表:{plan.get('racesFrom')} 倍率:{plan.get('oddsFrom')}）/ いま買う {len(res.bets)}件 / {nxt}"
         key0 = (nxt.split("（")[0], len(res.bets), len(res.skips))
         if key0 != self._last_summary[0] or time.time() - self._last_summary[1] > SUMMARY_EVERY or res.bets:
             self.log.event("見た", head)
@@ -374,6 +375,7 @@ def main(argv=None):
         with open(args.config, encoding="utf-8") as f:
             _raw = _json.load(f)
         print(f"（🔥の買い方: 9車立て={config_mod.HOT_MODE_LABEL[cfg.hot9_mode]} / 7車立て={config_mod.HOT_MODE_LABEL[cfg.hot7_mode]}。"
+              f"Ⓐ（AIが外した1番人気ライン）: {'買う' if cfg.buy_ai_fav and config_mod.yen_for(cfg, 'A', 0, None)[0] else '買わない'}。"
               "run.bat の 7)（設定）で変えられます）")
         if cfg.buy_model_d and ((cfg.max_races_per_day is not None and cfg.max_races_per_day < 20)
                                 or (cfg.max_yen_per_day is not None and cfg.max_yen_per_day < 20 * cfg.bet_yen)):

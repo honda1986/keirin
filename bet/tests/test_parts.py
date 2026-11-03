@@ -334,6 +334,71 @@ class TestHotMode(unittest.TestCase):
         self.assertEqual(sorted(settings.MODE_ORDER), sorted(config_mod.HOT_MODES))
 
 
+class TestAiFav(unittest.TestCase):
+    """Ⓐ AI が外した1番人気ライン（2026-11-03〜。keirin の aifav.js・hikitsugi §4-50）"""
+    def sel(self, p, c=None, done=(), bought=()):
+        return selector.select(p, set(done), 0, 0, c or cfg(), NOW, bought_keys=set(bought))
+
+    def _a(self, **k):
+        x = race(kind="A", ticket=k.pop("ticket", "1=2=3"), odds=k.pop("odds", 5.2), ev=None, **k)
+        x.setdefault("sameAsD", None)
+        return x
+
+    def test_買いなら1点を別のキーで買う(self):
+        r = self.sel(plan(self._a()))
+        self.assertEqual([(b.key, b.ticket, b.kind, b.label, b.yen) for b in r.bets],
+                         [("20260926_岐阜_3R_A", "1=2=3", "A", "岐阜3R(Ⓐ)", 100)])
+        self.assertEqual(make_key(DATE, "岐阜", 3, "A"), "20260926_岐阜_3R_A")
+
+    def test_条件に入らない_倍率が無いなら黙って決める(self):
+        r = self.sel(plan(self._a(verdict="none")))
+        self.assertEqual((r.bets, r.skips, r.quiet), ([], [], ["20260926_岐阜_3R_A"]))
+        r = self.sel(plan(self._a(snap=False, verdict="noOdds")))
+        self.assertEqual((r.bets, r.skips, r.quiet), ([], [], ["20260926_岐阜_3R_A"]))
+
+    def test_決める時刻までは待つ_記録済みは選ばない(self):
+        r = self.sel(plan(self._a()), c=cfg(decide_at_minutes=2.5))
+        self.assertEqual((r.bets, r.quiet), ([], []))
+        r = self.sel(plan(self._a()), done=["20260926_岐阜_3R_A"])
+        self.assertEqual((r.bets, r.skips, r.quiet), ([], [], []))
+
+    def test_買わない設定と金額(self):
+        self.assertEqual(self.sel(plan(self._a()), c=cfg(buy_ai_fav=False)).bets, [])
+        self.assertEqual(self.sel(plan(self._a()), c=cfg(ai_fav_yen=0)).bets, [])
+        self.assertEqual([b.yen for b in self.sel(plan(self._a()), c=cfg(ai_fav_yen=300)).bets], [300])
+        self.assertEqual(config_mod.yen_for(cfg(), "A", 9, None), (100, "Ⓐ AI外しの1番人気"))
+
+    def test_本命ラインと同じ組を買ったら重ねない(self):
+        r = self.sel(plan(race(ticket="1=2=3"), self._a(same=True)))
+        self.assertEqual([b.kind for b in r.bets], ["hot"])
+        self.assertIn("🔥と同じ組", r.skips[0][1])
+        r = self.sel(plan(self._a(same=True)), done=[make_key(DATE, "岐阜", 3)], bought=[make_key(DATE, "岐阜", 3)])
+        self.assertEqual(r.bets, [])
+        # 🔥を見送った(買っていない)ならⒶは買う
+        r = self.sel(plan(self._a(same=True)), done=[make_key(DATE, "岐阜", 3)])
+        self.assertEqual([b.kind for b in r.bets], ["A"])
+
+    def test_モデルDと同じ組を買ったら重ねない(self):
+        a = self._a(); a["sameAsD"] = 2
+        T = [("3=5=8", 1.2, 18.0, False), ("1=2=3", 1.12, 5.2, False)]
+        r = self.sel(plan(race(kind="D", tickets=T), a))
+        self.assertEqual(sorted(b.key for b in r.bets), [make_key(DATE, "岐阜", 3, "D"), make_key(DATE, "岐阜", 3, "D", 2)])
+        self.assertIn("モデルDと同じ組", r.skips[0][1])
+        # モデルDを買わない設定ならⒶが買う
+        r = self.sel(plan(race(kind="D", tickets=T), a), c=cfg(buy_model_d=False))
+        self.assertEqual([b.kind for b in r.bets], ["A"])
+
+    def test_設定メニューと見本(self):
+        import settings
+        keys = [k for _, k, _ in settings.ITEMS]
+        self.assertIn("buy_ai_fav", keys)
+        self.assertIn("ai_fav_yen", keys)
+        here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(here, "config.example.json"), encoding="utf-8") as f:
+            c = config_mod.from_dict(json.load(f), base_dir=here)
+        self.assertEqual((c.buy_ai_fav, c.ai_fav_yen, c.unknown_keys), (True, None, []))
+
+
 class TestYenByKind(unittest.TestCase):
     """種類ごとの1点の金額（🔥9車 B率1位 / それ以外 / 🔥7車 / モデルD）。0 = 買わない。2026-10-14〜（hikitsugi §4-32）"""
     def sel(self, p, c, at=NOW, spent=0):

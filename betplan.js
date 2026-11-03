@@ -23,6 +23,9 @@
 //     verdict は変えない。見送るかは bet/ の hot9_line_break(既定 true)で決める
 //   ★2026-10-14(hikitsugi §4-32): 🔥に b1(本命ラインの先頭のB率がいちばんか。fetch.js の plan.b1。分からなければ null)を足す。
 //     金額(買わない=0)は bet/ の hot9_b1_yen / hot9_rest_yen で分ける
+//   ★2026-11-03(hikitsugi §4-50): Ⓐ「AI が外した1番人気ライン」(aifav.js)。kind:"A"・S級で AI予想(races.json の ai)があるレースだけ。
+//     締切前の倍率で、3連複の1番人気がライン3車・AI の4車にその3人がそろっていない・4倍以上なら verdict:"buy"(1点)。
+//     verdict: buy / none(条件に入らない。why に理由) / noAi / noOdds。🔥と同じ組なら sameAsHot、モデルDの組にあれば sameAsD(何点目か)
 //
 // ★倍率の取り方(新しいほうを使う)
 //   1. 手元の snapwork/YYYYMMDD.jsonl(PC の snap.js が3分おきに書く)
@@ -40,6 +43,7 @@ const path = require("path");
 const { spawnSync } = require("child_process");
 const EV = require("./ev.js");
 const EVD = require("./evd.js");
+const AIFAV = require("./aifav.js");
 const DF = require("./datafile.js");
 const HOT9_BAND = [5, 15];         // 🔥の9車立ての帯(2026-09-27〜)
 const HOT9_BRK = 0.17;             // 🔥の9車立て: 3人のラインが切れる確率がこれ以上のときだけ(2026-10-13〜。index.html の HOT9_BRK と同じ)
@@ -155,6 +159,14 @@ function judgeD(r, snap) {
   return { verdict: "buy", ticket: tickets[0].ticket, ev: tickets[0].ev, odds: tickets[0].odds, tickets };
 }
 
+// Ⓐ: そのレースの1番人気(aifav.js)
+function judgeA(r, snap) {
+  if (!snap || !Array.isArray(snap.o)) return { verdict: "noOdds" };
+  const n = snap.n || (r.riders || []).length;
+  if (!Array.isArray(r.riders) || r.riders.length !== n) return { verdict: "noOdds", why: "車立てが合わない" };
+  return AIFAV.judge(r, snap.o, n);
+}
+
 function judge(plan, delta, snap) {
   if (!snap || !Array.isArray(snap.o)) return { verdict: "noOdds" };
   const n = snap.n || plan.cars;
@@ -231,24 +243,39 @@ function main() {
       ...j, ticket: j.ticket || null, sameAsHot: !!(j.ticket && hotTicket[r.key] === j.ticket),
       tickets: (j.tickets || []).map((t) => ({ ...t, sameAsHot: hotTicket[r.key] === t.ticket })) });
   }
-  const out = hotOut.concat(dOut).sort((a, b) => (a.minutesToClose ?? 9e9) - (b.minutesToClose ?? 9e9));
+  // Ⓐ: S級で AI予想があるレースの、締切20分以内(と締切直後)だけ
+  const aOut = [];
+  for (const r of races) {
+    if (raceDay8(r) !== today || r.klass !== AIFAV.RULE.klass || !Array.isArray(r.ai) || r.ai.length !== 4) continue;
+    const c = closeOf(r);
+    const m = c ? (c - now) / 60000 : null;
+    if (m == null || m < -30 || m > 20) continue;
+    const s = snapOf(r);
+    const j = judgeA(r, s);
+    const dx = dOut.find((x) => x.key === r.key);
+    const di = j.ticket && dx && dx.verdict === "buy" ? (dx.tickets || []).findIndex((t) => t.ticket === j.ticket) + 1 : 0;
+    aOut.push({ kind: "A", ...base(r, c, s), cars: (r.riders || []).length, needOdds: false, minOdds: AIFAV.RULE.minOdds,
+      verdict: j.verdict, why: j.why || null, ticket: j.ticket || null, odds: j.odds != null ? j.odds : null,
+      sameAsHot: !!(j.ticket && hotTicket[r.key] === j.ticket), sameAsD: di > 0 ? di : null });
+  }
+  const out = hotOut.concat(dOut, aOut).sort((a, b) => (a.minutesToClose ?? 9e9) - (b.minutesToClose ?? 9e9));
 
   if (DATA_ERR) notes.push(DATA_ERR);
   const res = { now: now.toISOString(), date: today, racesFrom: from, oddsFrom: oddsFrom || "なし", notes, races: out };
   if (!has("pretty")) { process.stdout.write(JSON.stringify(res) + "\n"); return; }
-  console.log(`${today} 出走表:${from} 倍率:${res.oddsFrom}  🔥${hotOut.length} / モデルD(締切20分以内)${dOut.length}`);
+  console.log(`${today} 出走表:${from} 倍率:${res.oddsFrom}  🔥${hotOut.length} / モデルD(締切20分以内)${dOut.length} / Ⓐ(締切20分以内のS級)${aOut.length}`);
   for (const n of notes) console.log("  (" + n + ")");
   for (const x of out) {
-    if (x.kind === "D" && x.verdict !== "buy") continue;
+    if ((x.kind === "D" || x.kind === "A") && x.verdict !== "buy") continue;
     const tk = x.kind === "D" && x.tickets && x.tickets.length > 1
       ? x.tickets.map((t) => `${t.ticket}(期待値${t.ev.toFixed(2)} ${t.odds}倍)`).join(" ") + ` ${x.cars}車 ${x.verdict}`
       : `${x.ticket} ${x.cars}車 ${x.verdict}${x.ev != null ? " 期待値" + x.ev.toFixed(2) : ""}${x.odds != null ? " " + x.odds + "倍" : ""}` +
         (x.kind === "hot" && x.brk != null ? ` 切れる確率${Math.round(x.brk * 100)}%${x.brkOk === false ? "(17%未満)" : ""}` : "") +
         (x.kind === "hot" && x.b1 != null ? (x.b1 ? " B率1位" : " B率2位以下") : "");
-    console.log(`  ${x.kind === "D" ? "Ⓓ" : "🔥"} 締切${x.close}(あと${x.minutesToClose}分) ${x.key.padEnd(8, "　")} ${tk}` +
+    console.log(`  ${x.kind === "D" ? "Ⓓ" : x.kind === "A" ? "Ⓐ" : "🔥"} 締切${x.close}(あと${x.minutesToClose}分) ${x.key.padEnd(8, "　")} ${tk}` +
       (x.snap ? ` [倍率 締切${x.snap.left}分前・${x.snap.age}分前に取得・${x.snap.src}]` : ""));
   }
 }
 
 if (require.main === module) main();
-module.exports = { judge, judgeD, jstDate, raceDay8, HOT9_BRK };
+module.exports = { judge, judgeD, judgeA, jstDate, raceDay8, HOT9_BRK };

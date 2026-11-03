@@ -21,13 +21,6 @@ if (!/^\d{4}-\d{2}$/.test(MONTH) || !OUT) { console.error("使い方: node wtai.
 const ym = MONTH.replace("-", "");
 const gz = (f) => { try { return JSON.parse(zlib.gunzipSync(fs.readFileSync(f)).toString("utf8")); } catch (e) { return null; } };
 
-// AI予想の4車(3連複の組 "raceId:3:a.b.c" に出てくる車番)。AI予想が無ければ []
-function aiCars(R) {
-  const ai = (R.predictions || []).find((p) => p.isAi);
-  const set = new Set();
-  for (const id of (ai && ai.trioOddsIds) || []) for (const c of String(id).split(":")[2].split(".")) set.add(+c);
-  return [...set].sort((a, b) => a - b);
-}
 
 async function main() {
   const hist = JSON.parse(fs.readFileSync(path.join(__dirname, "history.json"), "utf8")).entries;
@@ -49,7 +42,7 @@ async function main() {
       let u = rec[key] && rec[key].u ? rec[key].u.split("/") : null;
       if (!u) { const c = await WT.findCup(e.place, String(e.date), cache); u = c ? [c.slug, c.cupId, c.index, parseInt(e.raceNo, 10)] : null; }
       const R = u ? WT.query(WT.stateOf(await WT.get(WT.urlOf("racecard", u[0], u[1], u[2], u[3]))), "FETCH_KEIRIN_RACE") : null;
-      if (R && R.race) { cur[key] = aiCars(R); if (!cur[key].length) noAi++; got++; fails = 0; }
+      if (R && R.race) { cur[key] = WT.aiCars(R); if (!cur[key].length) noAi++; got++; fails = 0; }
       else miss++;
     } catch (err) {
       if (/HTTP 404/.test(err.message)) miss++;

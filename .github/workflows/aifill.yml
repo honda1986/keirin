@@ -1,0 +1,64 @@
+name: 過去のレースに AI予想を足す
+
+# history.json の過去のレースに WINTICKET の AI予想の4車(ai)を足し、成績(daily.json の Ⓐ)を作り直す(aifill.js・hikitsugi §4-50)。
+# AI予想は wtrec ブランチの wtai-YYYYMM.json.gz。既に ai があるレースは触らない。1回回せばよい(手動)。
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: '書き込むなら apply を選ぶ。既定は点検のみ'
+        required: true
+        default: 'check'
+        type: choice
+        options: [check, apply]
+
+# results.yml と同じグループ。history.json の同時書き込みを避ける
+concurrency:
+  group: history-write
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+# 成績の作り直し(results.js --stats-only)が races.json を読むため
+env:
+  KEIRIN_PASS: ${{ secrets.KEIRIN_PASS }}
+
+jobs:
+  aifill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: AI予想を足す
+        env:
+          MODE: ${{ github.event.inputs.mode }}
+        run: |
+          mkdir -p /tmp/wa
+          git fetch -q --depth=1 origin refs/heads/wtrec
+          for f in $(git ls-tree --name-only FETCH_HEAD | grep '^wtai-'); do git show "FETCH_HEAD:$f" > "/tmp/wa/$f"; done
+          if [ "$MODE" = "apply" ]; then node aifill.js /tmp/wa --apply; else node aifill.js /tmp/wa; fi
+      - name: 成績を作り直す
+        if: ${{ github.event.inputs.mode == 'apply' }}
+        run: |
+          mkdir -p /tmp/snap
+          if git ls-remote --exit-code origin refs/heads/odds-snap >/dev/null 2>&1; then
+            git fetch -q --depth=1 origin refs/heads/odds-snap && git archive FETCH_HEAD snap | tar -x -C /tmp/snap || true
+          fi
+          SNAP_DIR=/tmp/snap/snap node results.js --stats-only
+      - name: コミット(競合対策リトライ付き)
+        if: ${{ github.event.inputs.mode == 'apply' }}
+        run: |
+          git config user.name "race-bot"
+          git config user.email "actions@github.com"
+          git add history.json stats.json daily.json
+          git diff --cached --quiet && echo "変更なし" && exit 0
+          git commit -m "aifill: 過去のレースに AI予想を足した"
+          for i in 1 2 3 4 5 6; do
+            if git pull --rebase --autostash origin main && git push; then echo "push成功 (試行 $i)"; exit 0; fi
+            echo "競合のためリトライ $i/6"; sleep 6
+          done
+          echo "6回リトライしても push できませんでした"; exit 1
