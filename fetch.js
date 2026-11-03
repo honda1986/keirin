@@ -196,6 +196,8 @@ function buildEntry(text, item) {
     ss: p.entries.some((e) => e.grade === "SS"),
     seri: p.seri && p.seri.length ? p.seri.filter((q) => q.every((c) => cars.has(c))) : undefined,   // 競り [[カッコの前, 後], ...]。2026-09-30 から
     plan,           // plan.brk: 🔥の3人のラインが切れる確率(lineBreakOf)。2026-10-13 から / plan.b1: 先頭のB率がいちばん(headB1Of)。2026-10-14 から
+    // WINTICKET の AI予想の4車(wt.js の aiCars)。Ⓐ(aifav.js)の判定に使う。2026-11-03 から。無いレースは付けない
+    ai: Array.isArray(item.ai) && item.ai.length === 4 ? item.ai : undefined,
     gap: r.scores && r.scores[1] ? Number((r.scores[0].total - r.scores[1].total).toFixed(1)) : null,
     nishatan: r.bets?.nishatan, sanrentan: r.bets?.sanrentan,
     raw: compactCard(text, p.place, p.raceNo), url: item.url,
@@ -256,7 +258,7 @@ async function main() {
     const R = WT.query(WT.stateOf(html), "FETCH_KEIRIN_RACE");
     if (!R || !R.race) throw new Error("出走表の JSON が無い");
     const text = WT.cardText(R, item.place);
-    const e = buildEntry(text, item);
+    const e = buildEntry(text, { ...item, ai: WT.aiCars(R) });
     if (races.some((x) => x.key === e.key)) return;
     races.push(e);
     console.log("  OK", e.place, e.raceNo, (e.score != null ? e.score + "%" : "ガールズ"), "ライン=" + JSON.stringify(e.lines));

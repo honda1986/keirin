@@ -39,6 +39,10 @@ DEFAULTS = {
     "hot9_rest_yen": None,
     "hot7_yen": None,
     "model_d_yen": None,
+    # Ⓐ「AI が外した1番人気ライン」（2026-11-03〜。keirin の aifav.js・hikitsugi §4-50）: S級で、締切前の倍率の3連複1番人気がライン3車・
+    #   WINTICKET の AI予想(4車)がその3人をそろえていない・4倍以上なら、その1番人気を1点。確定オッズでの検証 1,138R 回収114.7%（締切前の倍率では未確認）
+    "buy_ai_fav": True,
+    "ai_fav_yen": None,
     # 決める時刻(締切何分前)と、買わない線(締切何分前を切ったら押さない)。2026-10-19 に 2.5→2.0・1.5→1.0(はむさん「とりあえず2分前にして」)
     #   締切直前に倍率が大きく動くことがあるので、なるべく締切に近い倍率で決める。買う操作の時間(約1分)は今まで通り残す
     "decide_at_minutes": 2.0,
@@ -88,6 +92,8 @@ class Config:
     hot7_yen: "int | None" = None
     model_d_yen: "int | None" = None
     buy_model_d: bool = True
+    buy_ai_fav: bool = True
+    ai_fav_yen: "int | None" = None
     decide_at_minutes: float = 2.5
     max_snap_age_minutes: float = 4.0
     close_min_minutes: float = 1.5
@@ -185,6 +191,8 @@ def _as_yen_opt(d, key):
 def yen_for(cfg, kind, cars, b1):
     if kind == "D":
         v, name = cfg.model_d_yen, "モデルD"
+    elif kind == "A":
+        v, name = cfg.ai_fav_yen, "Ⓐ AI外しの1番人気"
     elif int(cars or 0) >= 8:
         v, name = (cfg.hot9_b1_yen, "🔥9車（先頭のB率1位）") if b1 is True else (cfg.hot9_rest_yen, "🔥9車（B率1位以外）")
     else:
@@ -252,6 +260,8 @@ def from_dict(d, base_dir="."):
         hot9_rest_yen=_as_yen_opt(d, "hot9_rest_yen"),
         hot7_yen=_as_yen_opt(d, "hot7_yen"),
         model_d_yen=_as_yen_opt(d, "model_d_yen"),
+        buy_ai_fav=_as_bool(d, "buy_ai_fav"),
+        ai_fav_yen=_as_yen_opt(d, "ai_fav_yen"),
         decide_at_minutes=_as_num(d, "decide_at_minutes", lo=1, hi=10),
         max_snap_age_minutes=_as_num(d, "max_snap_age_minutes", lo=1, hi=10),
         close_min_minutes=_as_num(d, "close_min_minutes", lo=0.5, hi=10),

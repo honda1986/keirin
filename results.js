@@ -136,6 +136,7 @@ function makeEntry(x, r, d8) {
     ss: x.ss ? 1 : undefined,
     seri: Array.isArray(x.seri) && x.seri.length ? x.seri : undefined,   // 競り(並び予想のカッコ)。2026-09-30 から          // S級S班がいる(🔥の判定で使う)。2026-09-28 より前の記録には無い
     front: Array.isArray(x.front) ? x.front : undefined,   // ラインごとの前受け確率(front.js)。2026-09-30 から
+    ai: Array.isArray(x.ai) && x.ai.length === 4 ? x.ai : undefined,   // WINTICKET の AI予想の4車(Ⓐ・aifav.js)。2026-11-03 から(それより前は aifill.js が wtai から)
     // [🔥の買い目, 本命ラインが切れる確率, 先頭のB率1位](fetch.js の plan.brk / plan.b1)。🔥9車は17%未満なら見送り(hikitsugi §4-26)・
     // B率1位とそれ以外で金額を分けられる(§4-32)。確率は 2026-10-13・B率1位は 2026-10-14 から(無ければ null)
     brk: x.plan && x.plan.ticket && (typeof x.plan.brk === "number" || typeof x.plan.b1 === "boolean")
@@ -625,10 +626,22 @@ function dPicksOf(dir, e, d) {
   if (!o) return [];
   return EVD.picks(EVD.evAll(e.riders, e.lines, e.place, o, n, e.seri)).map((p) => [p.ticket, Math.round(p.ev * 1000) / 1000, p.odds, src]);
 }
+// Ⓐ(aifav.js。AI が外した1番人気ライン・S級・4倍以上)の買い目 → [買い目, 倍率, 出どころ] か null。
+//   倍率はモデルDと同じ(締切前の記録 = 自動投票が決めたときの倍率。無ければ確定オッズ)。AI予想(e.ai)の無いレースは無し
+const AIFAV = require("./aifav.js");
+function aPickOf(dir, e, d) {
+  if (!Array.isArray(e.ai) || e.ai.length !== 4 || !Array.isArray(e.riders) || e.riders.length < 5) return null;
+  const n = e.riders.length, id = e.id || (d + "_" + e.place + "_" + e.raceNo);
+  const sn = snapOdds(d, e.place + "_" + e.raceNo), fo = allOdds(dir, id);
+  const [o, src] = sn && sn.n === n ? [sn.o, "s"] : fo && fo.cars === n ? [fo.o, "f"] : [null, null];
+  if (!o) return null;
+  const j = AIFAV.judge(e, o, n);
+  return j.verdict === "buy" ? [j.ticket, j.odds, src] : null;
+}
 function writeDaily(dir, byDate, rankedOf) {
   const days = {};
   for (const d of Object.keys(byDate).sort()) {
-    const h = [], dd = [];
+    const h = [], dd = [], aa = [];
     // その日の🔥・Ⓓのレースの結果 { "場_R": [1着, 2着, 3着, 3連複, 3連単, 2車単] }(払戻は100円あたり)。アプリのレースのページに出す(2026-10-15〜)
     const res = {};
     const keepRes = (e) => { res[e.place + "_" + e.raceNo] = [e.f, e.s, e.t != null ? e.t : null, e.p3fpay != null ? e.p3fpay : null, e.p3pay != null ? e.p3pay : null, e.p2pay != null ? e.p2pay : null]; };
@@ -642,6 +655,15 @@ function writeDaily(dir, byDate, rankedOf) {
         const dh = done ? ([e.f, e.s, e.t].sort((a, b) => a - b).join("=") === dp[0] ? 1 : 0) : -1;
         dd.push([e.place, e.raceNo, (e.riders || []).length || null, dp[0], e.f + "-" + e.s + "-" + (done ? e.t : "?"), dh,
           dh === 1 ? (e.p3fpay != null ? e.p3fpay : null) : 0, dp[2], dp[1], dp[3]]);
+        keepRes(e);
+      }
+      // Ⓐ: [場, R, 車立て, 買い目, 着順, 的中(1/0/-1), 払戻, 倍率, null, 出どころ](モデルDの行と同じ形。期待値の位置は空き)。2026-11-03〜
+      const ap = aPickOf(dir, e, d);
+      if (ap) {
+        const done = e.t != null;
+        const ah = done ? ([e.f, e.s, e.t].sort((a, b) => a - b).join("=") === ap[0] ? 1 : 0) : -1;
+        aa.push([e.place, e.raceNo, (e.riders || []).length || null, ap[0], e.f + "-" + e.s + "-" + (done ? e.t : "?"), ah,
+          ah === 1 ? (e.p3fpay != null ? e.p3fpay : null) : 0, ap[1], null, ap[2]]);
         keepRes(e);
       }
       const rk = rankedOf(e);
@@ -669,7 +691,8 @@ function writeDaily(dir, byDate, rankedOf) {
     const rn = (x) => parseInt(x[1], 10) || 0;
     h.sort((a, b) => a[0].localeCompare(b[0]) || rn(a) - rn(b));
     dd.sort((a, b) => a[0].localeCompare(b[0]) || rn(a) - rn(b));
-    days[d] = Object.assign(dd.length ? { n, h, d: dd } : { n, h }, Object.keys(res).length ? { res } : {});
+    aa.sort((a, b) => a[0].localeCompare(b[0]) || rn(a) - rn(b));
+    days[d] = Object.assign(dd.length ? { n, h, d: dd } : { n, h }, aa.length ? { a: aa } : {}, Object.keys(res).length ? { res } : {});
   }
   fs.writeFileSync(path.join(dir, "daily.json"), JSON.stringify({ updatedAt: new Date().toISOString(), days }));
   console.log("daily.json:", Object.keys(days).length, "日");
