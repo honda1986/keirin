@@ -1711,6 +1711,7 @@ hot-past.json（§4-32）は**作り直した出走表で🔥になったレー�
   - 確定オッズでさかのぼった数字（§4-49）: 2025-01〜2026-10 で 1,138R・回収114.7%（2025年 113.9% / 2026年 115.4%）。`aifav.js` で数え直して同じ（234的中）。
 - **AI予想の記録**: `wt.js` に `aiCars(R)`（`wtai.js` もこれを使う）。`fetch.js` が races.json の各レースに `ai`（4車）を付け、`results.js` の `makeEntry` が history.json に残す（2026-11-03〜。AI予想が無いレースは付けない）。
   - それより前は `aifill.js`（`aifill.yml`。手動・点検 → apply）で wtrec ブランチの `wtai-YYYYMM.json.gz` から history.json に足す。既に ai があるレースは触らない・件数が減ったら書かない。
+  - **AI予想が出る時刻**（2026-11-04 4:41 に確認）: 昼・ナイターの開催はその日の朝5時の取得より前に全レース出ている（5場14R）。ミッドナイト（A級だけなのでⒶには関係ない）は朝の時点では無い。11/3 は 19:57 の出走表の取り直しから入った（それより前に結果を書いたレースは aifill で足した）。
 - **成績**: `results.js` の `writeDaily` が daily.json の各日に `a`（Ⓓと同じ形 `[場, R, 車立て, 買い目, 着順, 的中, 払戻, 倍率, null, 出どころ]`）を書く。🔥・Ⓓと同じ組もここでは数える（独立の成績）。
 - **自動投票**（bet/）: `betplan.js` が kind "A" の行（`sameAsHot` / `sameAsD`）を出し、`selector.py` が締切2分前に決める。
   - 設定 `buy_ai_fav`（既定 true）・`ai_fav_yen`（null = `bet_yen`・0 = 買わない）。run.bat の 7) で変えられる。`bet_done.json` のキーは `日付_場_R_A`。
