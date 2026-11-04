@@ -99,6 +99,9 @@ function main() {
   // 合言葉があれば暗号化(updatedAt・date・source は snap.yml の心拍判定に使うので見せたまま。hikitsugi §4-22)
   const head = { updatedAt: new Date().toISOString(), date, source: SOURCE };
   const body = DF.stringify({ ...head, races }, head);
+  // ★snapwork/ は snap.js が最初の記録を書くときに作る。PC が止まった朝、GitHub(snap.yml)では最初のレースの締切15分前まで
+  //   フォルダが無く、ここで毎分落ちて latest.json が前の日のまま(アプリに倍率が出ない)だった(2026-11-04 08:00〜08:29)
+  fs.mkdirSync(DIR, { recursive: true });
   fs.writeFileSync(OUT, body);
   if (!PUSH) { console.log("latest.json を作りました(" + Object.keys(races).length + "レース)"); return; }
 

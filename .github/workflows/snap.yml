@@ -4,10 +4,14 @@ name: 締切前オッズの記録
 # 記録は main ではなく odds-snap ブランチの snap/YYYYMMDD.json.gz に置く
 # (main に3分おきに入れると GitHub Pages の作り直しと履歴の膨らみが起きるため)。
 #
-# ★ふだんの記録は PC(タスクスケジューラ)の仕事。これは PC が止まったときの予備。
-#   PC は毎分〜5分おきに odds-live ブランチの latest.json(アプリ用の最新の倍率)を上書きする。
-#   ここでは5分おきにそれを見て、source=PC で15分以内に更新されていれば「PC が動いている」として何もしない。
-#   古ければ(PC が止まった・push できない)代わりに記録する。PC が戻れば自動で待機に戻る。
+# ★PC が動いていなくても、買うこと以外(アプリの倍率・Ⓓ/Ⓐ/🔥の判定・夜の成績に使う締切前の倍率)が止まらないようにする
+#   (はむさん「PCが動いてないときも購入以外は出来るようにして下さい」2026-11-04)。
+#   ・記録(snap.js)は PC が動いていても動いていなくても、ここでも毎分取る(手元に貯めるだけ)。
+#   ・送るのは PC が止まっているときだけ。PC は毎分〜5分おきに odds-live ブランチの latest.json(アプリ用の最新の倍率)を上書きする。
+#     ここでは毎分それを見て、source=PC で8分以内に更新されていれば「PC が動いている」として送らない(前は5分おきに見て15分)。
+#     古ければ(PC が止まった・push できない)すぐに latest.json と odds-snap を送る。手元に記録があるので、
+#     PC がまだ送っていなかった分(PC は odds-snap へ1時間おき。止まった70分前から)も埋まる。PC が戻れば自動で送るのをやめる。
+#   ・PC が動いている間も、区切り(5時間40分)の終わりには直近70分の記録だけ odds-snap に足す(PC が送る前に止まった分の保険)。
 #   PC とここが同じ時間に記録しても、まとめるときに足し合わせるだけなので壊れない。
 #
 # ★GitHub の定時実行は当てにならない。1回起動したらその中で1分おきに回し、
@@ -74,13 +78,18 @@ jobs:
           LASTHB=0
           LASTLF=0
           PC=-1   # 最初の1回は必ず状態をログに出す
+          HB_STALE_MIN=8   # PC の latest.json がこれより古ければ「PC が止まった」(PC は記録が無くても5分おきに送る)
+          SINCE_TS=0       # PC が止まったとき: その70分前(PC は1時間おきに送るので、それより前は送り済み)。0 = 手元の記録を全部
           # まとめて push。リモートを土台に置き直してから自分の記録を足す(rebase は使わない。
           # gz は git から見ると毎回ぶつかるので、snap_pack.js が中身を見て足し合わせる)
+          # pack [--since-min N]: N を付けると直近 N 分の記録だけ足す(PC が動いているときの区切りの保険)
+          # pack_down: PC が止まっているとき(止まった70分前から。初めから止まっていれば全部)
+          pack_down() { if [ "$SINCE_TS" -gt 0 ]; then pack --since-min $(( ($(date +%s) - SINCE_TS) / 60 + 1 )); else pack; fi; }
           pack() {
             for i in 1 2 3 4 5; do
               git -C snapbr fetch -q origin refs/heads/odds-snap || { echo "odds-snap を取れず(次の回に持ち越し)"; return 0; }
               git -C snapbr reset -q --hard FETCH_HEAD
-              node snap_pack.js snapbr/snap || return 0
+              node snap_pack.js snapbr/snap "$@" || return 0
               git -C snapbr add snap
               git -C snapbr diff --cached --quiet && return 0
               git -C snapbr commit -qm "odds snap (GitHub) $(TZ=Asia/Tokyo date '+%F %H:%M')"
@@ -97,34 +106,39 @@ jobs:
               if git fetch -q origin main && git checkout -q FETCH_HEAD -- races.json ':(glob)*.js'; then :; else echo "races.json の更新に失敗(前のまま続ける)"; fi
               LASTPULL=$NOW
             fi
-            # PC の心拍を5分おきに見る。心拍 = odds-live ブランチの latest.json(PC が毎分〜5分おきに上書きする)
-            if [ $((NOW - LASTHB)) -ge 300 ]; then
+            # PC の心拍を毎分見る。心拍 = odds-live ブランチの latest.json(PC が毎分〜5分おきに上書きする)
+            if [ $((NOW - LASTHB)) -ge 55 ]; then
               OLD=$PC; PC=0; HB=""
               if git fetch -q origin refs/heads/odds-live 2>/dev/null; then
                 HB=$(git show FETCH_HEAD:latest.json 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);const t=Date.parse(j.updatedAt);console.log(j.source==="PC"&&!isNaN(t)?Math.round((Date.now()-t)/60000):"")}catch(e){console.log("")}})')
-                if [ -n "$HB" ] && [ "$HB" -le 15 ]; then PC=1; fi
+                if [ -n "$HB" ] && [ "$HB" -le "$HB_STALE_MIN" ]; then PC=1; fi
               fi
               if [ "$PC" != "$OLD" ]; then
-                if [ "$PC" = 1 ]; then echo "$(TZ=Asia/Tokyo date +%H:%M) PC が動いている(心拍 ${HB}分前)ので待機"; else echo "$(TZ=Asia/Tokyo date +%H:%M) PC の心拍なし/古い(${HB:-なし}分前)ので、こちらで記録する"; fi
+                if [ "$PC" = 1 ]; then echo "$(TZ=Asia/Tokyo date +%H:%M) PC が動いている(心拍 ${HB}分前)ので、記録だけして送らない"; else echo "$(TZ=Asia/Tokyo date +%H:%M) PC の心拍なし/古い(${HB:-なし}分前)ので、こちらから送る"; fi
+                # PC が止まったら、PC がまだ送っていなかった分を早く埋めるため、すぐまとめて送る。
+                #   送るのは止まった70分前から(それより前は PC が送り済み。毎晩1時に PC が止まるときに夜の分を二重に送らないため)
+                if [ "$PC" = 0 ] && [ "$OLD" = 1 ]; then LASTPACK=0; SINCE_TS=$((NOW - 4200)); fi
               fi
               LASTHB=$NOW
             fi
             H=$(TZ=Asia/Tokyo date +%-H)
             # 朝の main.yml が遅れて races.json が今日の分でないときは、自分で出走表を取る(20分おき。main は汚さない)
-            if [ "$PC" = 0 ] && [ "$H" -ge 7 ] && [ $((NOW - LASTLF)) -ge 1200 ] && ! node snap.js --has-races; then
+            if [ "$H" -ge 7 ] && [ $((NOW - LASTLF)) -ge 1200 ] && ! node snap.js --has-races; then
               echo "$(TZ=Asia/Tokyo date +%H:%M) races.json がまだ今日の分ではないので、出走表を取る(fetch.js)"
               mkdir -p snapwork
               RACES_OUT=snapwork/races-local.json timeout 480 node fetch.js | grep -E "書き出し|所要|作れません" || true
               LASTLF=$NOW
             fi
-            if [ "$PC" = 0 ] && { [ "$H" -ge 8 ] || [ "$H" -lt 1 ]; }; then
+            # 記録は PC が動いていても取る(手元に貯めるだけ)。送るのは PC が止まっているときだけ
+            if [ "$H" -ge 8 ] || [ "$H" -lt 1 ]; then
               node snap.js || true
-              node snap_live.js --push --source GitHub || true   # アプリ用の最新の倍率(新しい記録があるときだけ送る)
+              if [ "$PC" = 0 ]; then node snap_live.js --push --source GitHub || true; fi   # アプリ用の最新の倍率(新しい記録があるときだけ送る)
             fi
-            if [ $((NOW - LASTPACK)) -ge 1800 ]; then pack || true; LASTPACK=$NOW; fi
+            if [ "$PC" = 0 ] && [ $((NOW - LASTPACK)) -ge 1800 ]; then pack_down || true; LASTPACK=$NOW; fi
             sleep 60
           done
-          pack || true
+          # 区切りの終わり。PC が止まっていれば全部、動いていれば直近70分だけ(PC は1時間おきに送るので、それより前は PC が送り済み)
+          if [ "$PC" = 1 ]; then pack --since-min 70 || true; else pack_down || true; fi
           echo "ran=$(( ($(date +%s) - START) / 60 ))" >> "$GITHUB_OUTPUT"
 
       # 失敗してすぐ終わった回は起動し直さない(失敗→起動→失敗…の空回りを防ぐ)

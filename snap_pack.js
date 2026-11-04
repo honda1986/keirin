@@ -8,7 +8,9 @@
 // ・既にあるファイルとは足し合わせる(同じ行は (t,k) で重複を除く)。何度まとめても消えない
 // ・元の jsonl は消さない(Actions の実行が終われば一緒に消える。途中で何度まとめても同じ結果)
 //
-// 使い方: node snap_pack.js <出力先ディレクトリ>
+// 使い方: node snap_pack.js <出力先ディレクトリ> [--since-min N]
+//   --since-min N: 今から N 分前より後に取った行だけ足す(snap.yml が PC の動いている間に区切りで送るとき。
+//                  PC がまだ送っていない分(PC は1時間おきに送る)だけを補い、PC と同じ記録を二重に持たないため)
 // ============================================================
 const fs = require("fs");
 const path = require("path");
@@ -16,7 +18,11 @@ const zlib = require("zlib");
 
 const SRC = path.join(__dirname, "snapwork");
 const OUT = process.argv[2];
-if (!OUT) { console.error("使い方: node snap_pack.js <出力先ディレクトリ>"); process.exit(1); }
+if (!OUT) { console.error("使い方: node snap_pack.js <出力先ディレクトリ> [--since-min N]"); process.exit(1); }
+const SINCE = (() => { const i = process.argv.indexOf("--since-min"); return i >= 0 ? +process.argv[i + 1] : null; })();
+// 行の取得時刻(日本時間の HH:MM:SS。日付はファイル名)を UTC のミリ秒に
+const rowMs = (date, t) => { const [h, m, s] = String(t).split(":").map(Number); return Date.UTC(+date.slice(0, 4), +date.slice(4, 6) - 1, +date.slice(6, 8), h, m, s || 0) - 9 * 3600e3; };
+const CUT = SINCE != null && SINCE >= 0 ? Date.now() - SINCE * 60000 : null;
 
 let files = [];
 try { files = fs.readdirSync(SRC).filter((f) => /^\d{8}\.jsonl$/.test(f)); } catch (e) {}
@@ -30,6 +36,7 @@ for (const f of files.sort()) {
     if (!line.trim()) continue;
     try { rows.push(JSON.parse(line)); } catch (e) { bad++; }   // 書きかけで落ちた行は捨てる
   }
+  if (CUT != null) { const keep = rows.filter((r) => rowMs(date, r.t) >= CUT); if (!keep.length) continue; rows.length = 0; rows.push(...keep); }
   const out = path.join(OUT, date + ".json.gz");
   let old = [];
   try { old = JSON.parse(zlib.gunzipSync(fs.readFileSync(out)).toString("utf8")).rows || []; } catch (e) {}
