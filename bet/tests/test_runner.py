@@ -22,7 +22,7 @@ class FakeSite:
     """偽の画面。呼ばれた回数と、押したかどうかを覚える"""
 
     def __init__(self, error=None, site_close="15:05", after_press=None):
-        self.calls, self.pressed, self.cleaned = [], [], 0
+        self.calls, self.pressed, self.cleaned, self.yens = [], [], 0, []
         self.error, self.site_close, self.after_press = error, site_close, after_press
         self.store_seen = None
 
@@ -36,6 +36,7 @@ class FakeSite:
         guard(self.site_close)
         before_press()
         self.pressed.append(b.key)
+        self.yens.append(b.yen)
         if self.after_press:
             raise self.after_press
         return "購入済み"
@@ -161,12 +162,60 @@ class TestCycle(Base):
 
     def test_記録できなければ押さずに止める(self):
         class Broken(BetStore):
-            def record(self, *a, **k):
+            def _save(self):
                 raise OSError("ディスクがいっぱい")
         self.store = Broken(os.path.join(self.dir, "x.json"))
         r = self.runner("live", plan(race()))
         self.assertEqual(r.cycle(), "halt")
         self.assertEqual(self.site.pressed, [])
+        self.assertEqual(self.store.keys(), set())                       # 書けなかった記録は残さない
+
+    def test_同じ組は金額を足して1回で買い_買い方ごとに記録する(self):
+        # 🔥とモデルDが同じ組（2026-11-11〜。hikitsugi §4-56）: 押すのは1回・200円、記録は買い方ごとに100円ずつ
+        p = plan(race(), race(kind="D", ticket="2=4=9", same=True))
+        r = self.runner("live", p)
+        self.assertEqual(r.cycle(), "ok")
+        self.assertEqual(self.site.calls, [("20260926_岐阜_3R", True)])
+        self.assertEqual(self.site.pressed, ["20260926_岐阜_3R"])
+        self.assertEqual(self.site.yens, [200])
+        h, d = self.store.bets["20260926_岐阜_3R"], self.store.bets["20260926_岐阜_3R_D"]
+        self.assertEqual((h["yen"], h["kind"], d["yen"], d["kind"], d["ticket"]), (100, "hot", 100, "D", "2=4=9"))
+        self.assertIn("20260926_岐阜_3R の買い目に足して購入", d["note"])
+        self.assertEqual((self.store.spent_on("20260926"), self.store.races_on("20260926")), (200, 2))
+        self.assertIn("岐阜3R(🔥＋モデルD)", self.logtext())
+        self.assertIn("200円", self.logtext())
+        self.assertEqual(r.cycle(), "ok")                                # 次の周で買い直さない
+        self.runner("live", p).cycle()                                   # 動かし直しても
+        self.assertEqual(self.site.calls, [])
+        self.assertEqual(self.store.spent_on("20260926"), 200)
+
+    def test_足した買い目も一緒に見送り_dryでも1回だけ(self):
+        p = plan(race(), race(kind="D", ticket="2=4=9", same=True))
+        r = self.runner("live", p, FakeSite(error=op.SkipRace("発売していない")))
+        self.assertEqual(r.cycle(), "ok")
+        self.assertEqual({k: v["yen"] for k, v in self.store.bets.items()}, {"20260926_岐阜_3R": 0, "20260926_岐阜_3R_D": 0})
+        self.assertEqual(self.site.pressed, [])
+        r.cycle()
+        self.assertEqual(len(self.site.calls), 1)                        # 見送りと決めたら決め直さない
+        self.store = BetStore(os.path.join(self.dir, "dry.json"))
+        r = self.runner("dry", p)
+        r.cycle(); r.cycle()
+        self.assertEqual((self.site.calls, self.store.keys()), ([("20260926_岐阜_3R", False)], set()))
+
+    def test_足した買い目の記録は全部書けるか1件も書かないか(self):
+        class Broken(BetStore):
+            def _save(self):
+                raise OSError("ディスクがいっぱい")
+        self.store = Broken(os.path.join(self.dir, "y.json"))
+        r = self.runner("live", plan(race(), race(kind="D", ticket="2=4=9", same=True)))
+        self.assertEqual(r.cycle(), "halt")
+        self.assertEqual((self.site.pressed, self.store.keys()), ([], set()))
+
+    def test_押した後で転んだら足した買い目も買った記録のまま止める(self):
+        r = self.runner("live", plan(race(), race(kind="D", ticket="2=4=9", same=True)), FakeSite(after_press=op.BetUncertain("画面が読めない")))
+        self.assertEqual(r.cycle(), "halt")
+        self.assertIn("要確認", self.store.bets["20260926_岐阜_3R"]["note"])
+        self.assertEqual({k: v["yen"] for k, v in self.store.bets.items()}, {"20260926_岐阜_3R": 100, "20260926_岐阜_3R_D": 100})
 
     def test_ログインが切れたら入り直して_だめなら止める(self):
         site = FakeSite(error=op.LoggedOut("ログインが切れています"))

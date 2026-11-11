@@ -6,6 +6,8 @@
   モデルDは末尾に _D（例 20260926_岐阜_3R_D）。🔥とモデルDは同じレースで別々に持てる
   モデルDは1レースに複数点のことがある（期待値の高い順に _D, _D2, _D3, _D4）
   Ⓐ（AI が外した1番人気ライン・2026-11-03〜）は末尾に _A（1レース1点）
+- 同じ組を2つ以上の買い方が選んで金額を足して買ったとき（2026-11-11〜）も、キーは買い方ごとに1件ずつ。
+  yen はそれぞれの金額（足した合計ではない）。1回の操作で買ったぶんは record_many でまとめて書く
 - ★キーがあれば、何があってもそのレースは買わない
 - ★live では「購入する」を押す**直前**に書く。書けなければ押さない。
   押した後に落ちても、次の周で買い直すことが無い（買えていなければ1レース買い逃すだけ）
@@ -71,23 +73,40 @@ class BetStore:
 
     def record(self, bet, mode, yen, note=""):
         """1件ぶん記録して、その場で書き切る。同じキーがあれば例外（二重投票の検知）"""
-        if bet.key in self.bets:
-            raise RuntimeError(f"二重投票を検知しました: {bet.key}")
-        self.bets[bet.key] = {
-            "date": bet.date,
-            "place": bet.place,
-            "rno": bet.rno,
-            "ticket": bet.ticket,
-            "kind": getattr(bet, "kind", "hot"),
-            "yen": int(yen),
-            "close": bet.close,
-            "ev": bet.ev,
-            "odds": bet.odds,
-            "mode": mode,
-            "at": now().strftime("%Y-%m-%d %H:%M:%S"),
-            "note": note,
-        }
-        self._save()
+        self.record_many([(bet, yen, note)], mode)
+
+    def record_many(self, items, mode):
+        """何件かをまとめて記録して、その場で書き切る。items = [(bet, yen, note), ...]
+
+        同じ組の金額を足して1回で買うとき（selector の Bet.parts）に、足した買い目も同時に書く。
+        全部書けるか、1件も書かないか（どれかのキーが既にあれば例外。書き切れなければ元に戻して例外）。
+        """
+        keys = [bet.key for bet, _, _ in items]
+        for k in keys:
+            if k in self.bets or keys.count(k) > 1:
+                raise RuntimeError(f"二重投票を検知しました: {k}")
+        at = now().strftime("%Y-%m-%d %H:%M:%S")
+        for bet, yen, note in items:
+            self.bets[bet.key] = {
+                "date": bet.date,
+                "place": bet.place,
+                "rno": bet.rno,
+                "ticket": bet.ticket,
+                "kind": getattr(bet, "kind", "hot"),
+                "yen": int(yen),
+                "close": bet.close,
+                "ev": bet.ev,
+                "odds": bet.odds,
+                "mode": mode,
+                "at": at,
+                "note": note,
+            }
+        try:
+            self._save()
+        except BaseException:
+            for k in keys:
+                self.bets.pop(k, None)
+            raise
 
     def bought(self, key):
         """そのキーで実際に買った（yen>0）か"""

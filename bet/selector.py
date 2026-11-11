@@ -16,9 +16,15 @@
   倍率が max_snap_age_minutes より古ければ、その2倍までなら注記を付けて使い、それより古ければ見送り。
 
 Ⓐ（AI が外した1番人気ライン・2026-11-03〜。keirin の aifav.js）も同じ時刻・同じ倍率で1回だけ決める。
-  🔥かモデルDと同じ組を買ったときは重ねない（モデルDと🔥が同じ組のときと同じ考え方）。
+
+同じレースの同じ組を2つ以上の買い方（🔥・モデルD・Ⓐ）が選んだとき（2026-11-11〜。hikitsugi §4-56）:
+  stack_same_ticket が true（既定）なら、それぞれの金額を足して買う。
+    同じ周で決めるので、先に選んだ買い目（🔥 > モデルD > Ⓐ）の金額に足して1回の操作で買う（Bet.parts に足したぶんを持つ）。
+    先のほうを前の周でもう買ってあるときは、あとのぶんを別に買う。
+  false なら今まで通り重ねない（先に買ったほうだけ）。
+  根拠: 2025-01〜2026-10 で、2つ以上が選んだ組は回収138%（176点）・1つだけは120%（2,193点）。
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from bet_store import make_key
 from config import yen_for
@@ -49,14 +55,27 @@ class Bet:
     note: str = ""
     kind: str = "hot"          # "hot"=🔥（本命ライン3人） / "D"=モデルD / "A"=Ⓐ（AI が外した1番人気ライン）
     n: int = 1                 # モデルDの何点目か
+    parts: tuple = ()          # 同じ組だったので金額を足した買い目（Bet。それぞれ自分のキーと金額を持つ）。yen は足した後の合計
+
+    @property
+    def own_yen(self):
+        """この買い目だけの金額（yen から、足したぶんを引いたもの）"""
+        return self.yen - sum(p.yen for p in self.parts)
+
+    def _name(self):
+        if self.kind == "A":
+            return "Ⓐ"
+        if self.kind == "D":
+            return "モデルD" + (f" {self.n}点目" if self.n > 1 else "")
+        return ""
 
     @property
     def label(self):
-        if self.kind == "A":
-            return f"{self.place}{self.rno}R(Ⓐ)"
-        if self.kind != "D":
-            return f"{self.place}{self.rno}R"
-        return f"{self.place}{self.rno}R(モデルD" + (f" {self.n}点目" if self.n > 1 else "") + ")"
+        names = [self._name()] + [p._name() for p in self.parts]
+        if self.parts and not names[0]:
+            names[0] = "🔥"
+        names = [x for x in names if x]
+        return f"{self.place}{self.rno}R" + (f"({'＋'.join(names)})" if names else "")
 
 
 @dataclass
@@ -180,6 +199,21 @@ def select(plan, done_keys, spent_yen, races_bought, cfg, at, bought_keys=()):
     # 🔥 → モデルD → Ⓐ の順（あとのほうが「同じ組を先に買ったか」を見るため）
     races.sort(key=lambda r: {"D": 1, "A": 2}.get(r.get("kind"), 0))
     hot_now, d_now = set(), set()
+    stack = bool(getattr(cfg, "stack_same_ticket", True))
+    merged = {}                # 足した買い目のキー → 足した先のキー
+
+    def add_to(primary_key, b, why):
+        """この周で買う primary_key の買い目に b の金額を足す（1回の操作で買う）。足せたら True"""
+        primary_key = merged.get(primary_key, primary_key)
+        for i, x in enumerate(res.bets):
+            if x.key == primary_key:
+                res.bets[i] = replace(x, yen=x.yen + b.yen, parts=x.parts + (b,), note=(x.note + "｜" if x.note else "") + why)
+                merged[b.key] = primary_key
+                return True
+        return False
+
+    def with_note(b, why):
+        return replace(b, note=(b.note + "｜" if b.note else "") + why)
     for r in races:
         kind = r.get("kind") if r.get("kind") in ("D", "A") else "hot"
         date, place, rno, close, ticket = r.get("date"), r.get("place"), r.get("rno"), r.get("close"), r.get("ticket")
@@ -228,8 +262,13 @@ def select(plan, done_keys, spent_yen, races_bought, cfg, at, bought_keys=()):
                 if b.key in done_keys:
                     continue
                 if t.get("sameAsHot") and (hot_key in hot_now or hot_key in bought_keys):
-                    res.skips.append((b, "🔥と同じ組を買ったので重ねない"))
-                    continue
+                    if not stack:
+                        res.skips.append((b, "🔥と同じ組を買ったので重ねない"))
+                        continue
+                    if hot_key in hot_now and add_to(hot_key, b, f"モデルDも同じ組なので +{b.yen}円"):
+                        d_now.add(b.key)
+                        continue
+                    b = with_note(b, "🔥と同じ組（金額を足して買う）")     # 🔥は前の周で買ってある。モデルDのぶんを別に買う
                 res.bets.append(b)
                 d_now.add(b.key)
             continue
@@ -247,12 +286,22 @@ def select(plan, done_keys, spent_yen, races_bought, cfg, at, bought_keys=()):
             hot_key = make_key(date, place, rno, "hot")
             di = r.get("sameAsD")
             d_key = make_key(date, place, rno, "D", di) if isinstance(di, int) and not isinstance(di, bool) and di > 0 else None
-            if r.get("sameAsHot") and (hot_key in hot_now or hot_key in bought_keys):
-                res.skips.append((b, "🔥と同じ組を買ったので重ねない"))
-            elif d_key and (d_key in d_now or d_key in bought_keys):
-                res.skips.append((b, "モデルDと同じ組を買ったので重ねない"))
+            same_hot = bool(r.get("sameAsHot")) and (hot_key in hot_now or hot_key in bought_keys)
+            same_d = bool(d_key) and (d_key in d_now or d_key in bought_keys)
+            if not stack:
+                if same_hot:
+                    res.skips.append((b, "🔥と同じ組を買ったので重ねない"))
+                elif same_d:
+                    res.skips.append((b, "モデルDと同じ組を買ったので重ねない"))
+                else:
+                    res.bets.append(b)
+            elif same_hot and hot_key in hot_now and add_to(hot_key, b, f"Ⓐも同じ組なので +{b.yen}円"):
+                pass
+            elif same_d and d_key in d_now and add_to(d_key, b, f"Ⓐも同じ組なので +{b.yen}円"):
+                pass
             else:
-                res.bets.append(b)
+                # 同じ組を前の周でもう買ってある（か、重なっていない）。Ⓐのぶんを別に買う
+                res.bets.append(with_note(b, ("🔥" if same_hot else "モデルD") + "と同じ組（金額を足して買う）") if (same_hot or same_d) else b)
             continue
 
         is7 = int(r.get("cars") or 0) < 8
@@ -295,15 +344,22 @@ def select(plan, done_keys, spent_yen, races_bought, cfg, at, bought_keys=()):
     # 上限。数えるのは bet_done.json の当日分（見送り yen=0 は数えない）
     kept, spent, n = [], spent_yen, races_bought
     for b in res.bets:
+        # 金額を足した買い目が上限を超えるときは、足したぶんを後ろから外して入る所まで買う（元の買い目まで見送らない）
+        while b.parts and ((cfg.max_yen_per_day is not None and spent + b.yen > cfg.max_yen_per_day)
+                           or (cfg.max_races_per_day is not None and n + 1 + len(b.parts) > cfg.max_races_per_day)):
+            cut = b.parts[-1]
+            res.warnings.append(f"1日の上限に達するので {b.place}{b.rno}R {b.ticket} の {cut._name()} のぶん（{cut.yen}円）は足さない")
+            b = replace(b, yen=b.yen - cut.yen, parts=b.parts[:-1], note=b.note + f"｜上限のため{cut._name()}のぶんは足さない")
         if cfg.max_yen_per_day is not None and spent + b.yen > cfg.max_yen_per_day:
             res.warnings.append(f"1日の上限 {cfg.max_yen_per_day}円 に達したので {b.label} は見送り（使用済み {spent}円）")
             continue
-        if cfg.max_races_per_day is not None and n + 1 > cfg.max_races_per_day:
+        pts = 1 + len(b.parts)                 # 金額を足した買い目は、足したぶんも1点ずつ数える（bet_done.json の数え方と同じ）
+        if cfg.max_races_per_day is not None and n + pts > cfg.max_races_per_day:
             res.warnings.append(f"1日の上限 {cfg.max_races_per_day}点 に達したので {b.label} は見送り。★多すぎます。何かおかしくないか確かめてください")
             continue
         kept.append(b)
         spent += b.yen
-        n += 1
+        n += pts
     res.bets = kept
     return res
 

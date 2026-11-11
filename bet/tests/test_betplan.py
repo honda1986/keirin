@@ -115,7 +115,8 @@ class TestBetplan(unittest.TestCase):
         o = [8.0 + (i * 7) % 60 for i, _ in enumerate(combos(9))]
         out = self.run_plan([r], [{"t": "15:00:10", "k": "岐阜_3R", "left": 4.8, "n": 9, "o": o}])
         d = [y for y in out["races"] if y["kind"] == "D"][0]
-        code = ("const E=require('./evd.js');const r=%s;const p=E.pick(E.evAll(r.riders,r.lines,r.place,%s,9));"
+        # 締切前の倍率で選ぶので、上限は 23倍(evd.js の PICK.oddsHiPre。2026-11-11〜・hikitsugi §4-56)
+        code = ("const E=require('./evd.js');const r=%s;const p=E.pick(E.evAll(r.riders,r.lines,r.place,%s,9),true);"
                 "console.log(JSON.stringify(p))") % (json.dumps(r, ensure_ascii=False), json.dumps(o))
         p = json.loads(subprocess.run([NODE, "-e", code], capture_output=True, encoding="utf-8", cwd=KEIRIN).stdout)
         if p is None:
@@ -124,6 +125,14 @@ class TestBetplan(unittest.TestCase):
             self.assertEqual((d["verdict"], d["ticket"], d["odds"]), ("buy", p["ticket"], p["odds"]))
             self.assertTrue(10 <= d["odds"] <= 30 and d["ev"] >= 1.1)
         self.assertEqual(d["key"], "岐阜_3R")
+        self.assertEqual((d["bandLo"], d["bandHi"]), (0, 23))
+
+    def test_モデルDの上限は締切前の倍率なら23倍_確定オッズなら20倍(self):
+        code = ("const E=require('./evd.js');const all=[{ticket:'1=2=3',odds:22,ev:1.2},{ticket:'1=2=4',odds:19,ev:1.15},"
+                "{ticket:'1=2=5',odds:23.1,ev:1.3},{ticket:'1=2=6',odds:10,ev:1.05},{ticket:'1=2=7',odds:23,ev:1.1}];"
+                "console.log(JSON.stringify([E.picks(all).map(x=>x.ticket),E.picks(all,true).map(x=>x.ticket),E.PICK.oddsHi,E.PICK.oddsHiPre,E.hiOf(true),E.hiOf(false)]))")
+        got = json.loads(subprocess.run([NODE, "-e", code], capture_output=True, encoding="utf-8", cwd=KEIRIN).stdout)
+        self.assertEqual(got, [["1=2=4"], ["1=2=3", "1=2=4", "1=2=7"], 20, 23, 23, 20])
 
     def test_AIが外した1番人気ラインは種類A(self):
         # S級・AI予想が3人をそろえていない・1番人気がライン3車・4倍以上なら buy(aifav.js。2026-11-03〜)

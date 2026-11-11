@@ -160,20 +160,62 @@ class TestSelector(unittest.TestCase):
         r = self.sel(plan(race(kind="D", snap=False, verdict="noOdds", ticket=None)))
         self.assertEqual((r.bets, r.skips), ([], []))
 
-    def test_モデルDが本命ラインと同じ組なら重ねない(self):
-        r = self.sel(plan(race(), race(kind="D", ticket="2=4=9", same=True)))
-        self.assertEqual([b.kind for b in r.bets], ["hot"])
+    def test_モデルDが本命ラインと同じ組なら重ねない設定では重ねない(self):
+        off = cfg(stack_same_ticket=False)
+        r = self.sel(plan(race(), race(kind="D", ticket="2=4=9", same=True)), c=off)
+        self.assertEqual([(b.kind, b.yen, b.parts) for b in r.bets], [("hot", 100, ())])
         self.assertIn("🔥と同じ組", r.skips[0][1])
         # 🔥を買わない（期待値1未満）ならモデルDは買う
-        r = self.sel(plan(race(verdict="skipEv", ev=0.9), race(kind="D", ticket="2=4=9", same=True)), c=cfg(hot9_use_ev=True))
+        r = self.sel(plan(race(verdict="skipEv", ev=0.9), race(kind="D", ticket="2=4=9", same=True)), c=cfg(hot9_use_ev=True, stack_same_ticket=False))
         self.assertEqual([b.kind for b in r.bets], ["D"])
         # 前の周で🔥を「見送り」と決めただけ（買っていない）ならモデルDは買う
-        r = self.sel(plan(race(kind="D", ticket="2=4=9", same=True)), done=[make_key(DATE, "岐阜", 3)])
+        r = self.sel(plan(race(kind="D", ticket="2=4=9", same=True)), done=[make_key(DATE, "岐阜", 3)], c=off)
         self.assertEqual([b.kind for b in r.bets], ["D"])
         # 前の周で🔥を買っていたら重ねない
-        r = selector.select(plan(race(kind="D", ticket="2=4=9", same=True)), {make_key(DATE, "岐阜", 3)}, 0, 0, cfg(), NOW,
+        r = selector.select(plan(race(kind="D", ticket="2=4=9", same=True)), {make_key(DATE, "岐阜", 3)}, 0, 0, off, NOW,
                             bought_keys={make_key(DATE, "岐阜", 3)})
         self.assertEqual(r.bets, [])
+
+    def test_モデルDが本命ラインと同じ組なら金額を足して1回で買う(self):
+        # 2026-11-11〜（stack_same_ticket の既定 true。hikitsugi §4-56）
+        r = self.sel(plan(race(), race(kind="D", ticket="2=4=9", same=True)))
+        self.assertEqual(r.skips, [])
+        self.assertEqual(len(r.bets), 1)
+        b = r.bets[0]
+        self.assertEqual((b.kind, b.key, b.ticket, b.yen, b.own_yen, b.label), ("hot", make_key(DATE, "岐阜", 3), "2=4=9", 200, 100, "岐阜3R(🔥＋モデルD)"))
+        self.assertEqual([(p.key, p.kind, p.yen, p.ticket) for p in b.parts], [(make_key(DATE, "岐阜", 3, "D"), "D", 100, "2=4=9")])
+        self.assertIn("モデルDも同じ組なので +100円", b.note)
+        # 種類ごとの金額がそのまま足される
+        r = self.sel(plan(race(), race(kind="D", ticket="2=4=9", same=True)), c=cfg(model_d_yen=300, hot9_rest_yen=200))
+        self.assertEqual((r.bets[0].yen, r.bets[0].own_yen, r.bets[0].parts[0].yen), (500, 200, 300))
+        # 🔥を買わない（期待値1未満）ならモデルDだけ
+        r = self.sel(plan(race(verdict="skipEv", ev=0.9), race(kind="D", ticket="2=4=9", same=True)), c=cfg(hot9_use_ev=True))
+        self.assertEqual([(b.kind, b.yen, b.parts) for b in r.bets], [("D", 100, ())])
+        # 前の周で🔥を「見送り」と決めただけ（買っていない）ならモデルDだけ
+        r = self.sel(plan(race(kind="D", ticket="2=4=9", same=True)), done=[make_key(DATE, "岐阜", 3)])
+        self.assertEqual([(b.kind, b.yen, b.note.count("足して")) for b in r.bets], [("D", 100, 0)])
+        # 前の周で🔥を買ってあれば、モデルDのぶんを別に買う
+        r = selector.select(plan(race(kind="D", ticket="2=4=9", same=True)), {make_key(DATE, "岐阜", 3)}, 100, 1, cfg(), NOW,
+                            bought_keys={make_key(DATE, "岐阜", 3)})
+        self.assertEqual([(b.kind, b.key, b.yen, b.parts) for b in r.bets], [("D", make_key(DATE, "岐阜", 3, "D"), 100, ())])
+        self.assertIn("🔥と同じ組（金額を足して買う）", r.bets[0].note)
+
+    def test_金額を足した買い目は上限を合計で数え_超えるぶんは足さない(self):
+        p = plan(race(), race(kind="D", ticket="2=4=9", same=True))
+        r = self.sel(p, c=cfg(max_yen_per_day=100))                    # 足すと200円 → 🔥の100円だけ買う
+        self.assertEqual([(b.kind, b.yen, b.parts, b.label) for b in r.bets], [("hot", 100, (), "岐阜3R")])
+        self.assertIn("モデルD のぶん（100円）は足さない", r.warnings[0])
+        r = self.sel(p, c=cfg(max_races_per_day=1))                    # 足した買い目は2点 → 🔥だけ
+        self.assertEqual([(b.kind, b.yen, b.parts) for b in r.bets], [("hot", 100, ())])
+        self.assertEqual([b.yen for b in self.sel(p, c=cfg(max_yen_per_day=200, max_races_per_day=2)).bets], [200])
+        # もう上限いっぱいなら、元の買い目も見送り
+        r = self.sel(p, spent=100, c=cfg(max_yen_per_day=100))
+        self.assertEqual(r.bets, [])
+        self.assertTrue(any("1日の上限 100円" in w for w in r.warnings))
+        # 3つ重なって2つぶんまで入るとき
+        a = race(kind="A", ticket="2=4=9", odds=5.2, ev=None, same=True); a["sameAsD"] = 1
+        r = self.sel(plan(race(), race(kind="D", ticket="2=4=9", same=True), a), c=cfg(max_yen_per_day=200))
+        self.assertEqual([(b.yen, [x.kind for x in b.parts]) for b in r.bets], [(200, ["D"])])
 
     def test_モデルDは条件に合う組を全部買う(self):
         T = [("3=5=8", 1.2, 18.0, False), ("1=3=5", 1.08, 6.5, False)]
@@ -195,10 +237,18 @@ class TestSelector(unittest.TestCase):
         r = self.sel(plan(race(kind="D", tickets=[("3=5=8", 1.2, 18.0, False), ("1=3=5", 1.08, 6.5, False)])), done=done)
         self.assertEqual([(b.key, b.ticket) for b in r.bets], [(make_key(DATE, "岐阜", 3, "D", 2), "1=3=5")])
 
-    def test_モデルDの2点目が本命ラインと同じ組なら2点目だけ重ねない(self):
-        r = self.sel(plan(race(), race(kind="D", tickets=[("3=5=8", 1.2, 18.0, False), ("2=4=9", 1.06, 9.0, True)])))
+    def test_モデルDの2点目が本命ラインと同じ組なら2点目だけ重ねない設定では重ねない(self):
+        r = self.sel(plan(race(), race(kind="D", tickets=[("3=5=8", 1.2, 18.0, False), ("2=4=9", 1.06, 9.0, True)])), c=cfg(stack_same_ticket=False))
         self.assertEqual(sorted(b.key for b in r.bets), [make_key(DATE, "岐阜", 3), make_key(DATE, "岐阜", 3, "D")])
         self.assertEqual([b.key for b, _ in r.skips], [make_key(DATE, "岐阜", 3, "D", 2)])
+
+    def test_モデルDの2点目が本命ラインと同じ組なら2点目だけ本命ラインに足す(self):
+        r = self.sel(plan(race(), race(kind="D", tickets=[("3=5=8", 1.2, 18.0, False), ("2=4=9", 1.06, 9.0, True)])))
+        self.assertEqual(r.skips, [])
+        got = {b.key: (b.ticket, b.yen, [p.key for p in b.parts]) for b in r.bets}
+        self.assertEqual(got, {make_key(DATE, "岐阜", 3): ("2=4=9", 200, [make_key(DATE, "岐阜", 3, "D", 2)]),
+                               make_key(DATE, "岐阜", 3, "D"): ("3=5=8", 100, [])})
+        self.assertEqual(r.quiet, [make_key(DATE, "岐阜", 3, "D", 3), make_key(DATE, "岐阜", 3, "D", 4)])
 
     def test_モデルDは多くて4点(self):
         T = [(f"1=2={c}", 1.1, 10.0, False) for c in range(3, 9)]
@@ -368,35 +418,80 @@ class TestAiFav(unittest.TestCase):
         self.assertEqual([b.yen for b in self.sel(plan(self._a()), c=cfg(ai_fav_yen=300)).bets], [300])
         self.assertEqual(config_mod.yen_for(cfg(), "A", 9, None), (100, "Ⓐ AI外しの1番人気"))
 
-    def test_本命ラインと同じ組を買ったら重ねない(self):
-        r = self.sel(plan(race(ticket="1=2=3"), self._a(same=True)))
+    def test_本命ラインと同じ組を買ったら重ねない設定では重ねない(self):
+        off = cfg(stack_same_ticket=False)
+        r = self.sel(plan(race(ticket="1=2=3"), self._a(same=True)), c=off)
         self.assertEqual([b.kind for b in r.bets], ["hot"])
         self.assertIn("🔥と同じ組", r.skips[0][1])
-        r = self.sel(plan(self._a(same=True)), done=[make_key(DATE, "岐阜", 3)], bought=[make_key(DATE, "岐阜", 3)])
+        r = self.sel(plan(self._a(same=True)), done=[make_key(DATE, "岐阜", 3)], bought=[make_key(DATE, "岐阜", 3)], c=off)
         self.assertEqual(r.bets, [])
         # 🔥を見送った(買っていない)ならⒶは買う
-        r = self.sel(plan(self._a(same=True)), done=[make_key(DATE, "岐阜", 3)])
+        r = self.sel(plan(self._a(same=True)), done=[make_key(DATE, "岐阜", 3)], c=off)
         self.assertEqual([b.kind for b in r.bets], ["A"])
 
-    def test_モデルDと同じ組を買ったら重ねない(self):
+    def test_モデルDと同じ組を買ったら重ねない設定では重ねない(self):
         a = self._a(); a["sameAsD"] = 2
         T = [("3=5=8", 1.2, 18.0, False), ("1=2=3", 1.12, 5.2, False)]
-        r = self.sel(plan(race(kind="D", tickets=T), a))
+        r = self.sel(plan(race(kind="D", tickets=T), a), c=cfg(stack_same_ticket=False))
         self.assertEqual(sorted(b.key for b in r.bets), [make_key(DATE, "岐阜", 3, "D"), make_key(DATE, "岐阜", 3, "D", 2)])
         self.assertIn("モデルDと同じ組", r.skips[0][1])
         # モデルDを買わない設定ならⒶが買う
-        r = self.sel(plan(race(kind="D", tickets=T), a), c=cfg(buy_model_d=False))
+        r = self.sel(plan(race(kind="D", tickets=T), a), c=cfg(buy_model_d=False, stack_same_ticket=False))
         self.assertEqual([b.kind for b in r.bets], ["A"])
+
+    def test_本命ラインと同じ組なら金額を足す(self):
+        r = self.sel(plan(race(ticket="1=2=3"), self._a(same=True)))
+        self.assertEqual(r.skips, [])
+        self.assertEqual([(b.kind, b.yen, b.label, [p.key for p in b.parts]) for b in r.bets],
+                         [("hot", 200, "岐阜3R(🔥＋Ⓐ)", ["20260926_岐阜_3R_A"])])
+        # 前の周で🔥を買ってあれば、Ⓐのぶんを別に買う
+        r = self.sel(plan(self._a(same=True)), done=[make_key(DATE, "岐阜", 3)], bought=[make_key(DATE, "岐阜", 3)])
+        self.assertEqual([(b.kind, b.yen, b.parts) for b in r.bets], [("A", 100, ())])
+        self.assertIn("🔥と同じ組（金額を足して買う）", r.bets[0].note)
+        # 🔥を見送った(買っていない)ならⒶだけ
+        r = self.sel(plan(self._a(same=True)), done=[make_key(DATE, "岐阜", 3)])
+        self.assertEqual([(b.kind, b.yen, b.note.count("足して")) for b in r.bets], [("A", 100, 0)])
+
+    def test_モデルDと同じ組なら金額を足す(self):
+        a = self._a(); a["sameAsD"] = 2
+        T = [("3=5=8", 1.2, 18.0, False), ("1=2=3", 1.12, 5.2, False)]
+        r = self.sel(plan(race(kind="D", tickets=T), a))
+        self.assertEqual(r.skips, [])
+        got = {b.key: (b.yen, b.label, [p.key for p in b.parts]) for b in r.bets}
+        self.assertEqual(got, {make_key(DATE, "岐阜", 3, "D"): (100, "岐阜3R(モデルD)", []),
+                               make_key(DATE, "岐阜", 3, "D", 2): (200, "岐阜3R(モデルD 2点目＋Ⓐ)", ["20260926_岐阜_3R_A"])})
+        # モデルDを買わない設定ならⒶだけ
+        r = self.sel(plan(race(kind="D", tickets=T), a), c=cfg(buy_model_d=False))
+        self.assertEqual([(b.kind, b.yen) for b in r.bets], [("A", 100)])
+        # 前の周でモデルDの2点目を買ってあれば、Ⓐのぶんを別に買う
+        dk = [make_key(DATE, "岐阜", 3, "D", i) for i in range(1, 5)]
+        r = self.sel(plan(race(kind="D", tickets=T), a), done=dk, bought=dk[:2])
+        self.assertEqual([(b.kind, b.yen) for b in r.bets], [("A", 100)])
+        self.assertIn("モデルDと同じ組（金額を足して買う）", r.bets[0].note)
+
+    def test_3つとも同じ組なら全部足す(self):
+        a = self._a(same=True, ticket="2=4=9"); a["sameAsD"] = 1
+        r = self.sel(plan(race(), race(kind="D", ticket="2=4=9", same=True), a), c=cfg(ai_fav_yen=300))
+        self.assertEqual([(b.key, b.yen, b.own_yen, b.label, [(p.kind, p.yen) for p in b.parts]) for b in r.bets],
+                         [(make_key(DATE, "岐阜", 3), 500, 100, "岐阜3R(🔥＋モデルD＋Ⓐ)", [("D", 100), ("A", 300)])])
+        # 🔥を買わないときは、モデルDにⒶを足す
+        r = self.sel(plan(race(verdict="skipEv", ev=0.9), race(kind="D", ticket="2=4=9", same=True), a), c=cfg(hot9_use_ev=True))
+        self.assertEqual([(b.key, b.yen, b.label) for b in r.bets], [(make_key(DATE, "岐阜", 3, "D"), 200, "岐阜3R(モデルD＋Ⓐ)")])
 
     def test_設定メニューと見本(self):
         import settings
         keys = [k for _, k, _ in settings.ITEMS]
         self.assertIn("buy_ai_fav", keys)
         self.assertIn("ai_fav_yen", keys)
+        self.assertIn("stack_same_ticket", keys)
         here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         with open(os.path.join(here, "config.example.json"), encoding="utf-8") as f:
             c = config_mod.from_dict(json.load(f), base_dir=here)
         self.assertEqual((c.buy_ai_fav, c.ai_fav_yen, c.unknown_keys), (True, None, []))
+        self.assertTrue(c.stack_same_ticket)
+        self.assertTrue(cfg().stack_same_ticket)                       # 書かれていなければ足して買う（2026-11-11〜の既定）
+        with self.assertRaises(config_mod.ConfigError):
+            cfg(stack_same_ticket="yes")
 
 
 class TestYenByKind(unittest.TestCase):

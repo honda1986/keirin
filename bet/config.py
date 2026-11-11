@@ -25,7 +25,7 @@ DEFAULTS = {
     "use_ev": True,            # 古い設定（7車・9車まとめて）。新しい2つが無ければその既定値に使う
     "buy_7car": True,          # 古い設定（使っていない。2026-09-27 に buy_7car_hot へ。残っていても警告しないため）
     "buy_7car_hot": False,     # 🔥の7車立ても買う（5年とも回収100%未満。既定は買わない）
-    "buy_model_d": True,       # モデルD（全レース・期待値1.10以上・20倍以下。条件は keirin の evd.js の PICK）も買う
+    "buy_model_d": True,       # モデルD（全レース・期待値1.10以上・締切前の倍率で23倍以下。条件は keirin の evd.js の PICK）も買う
     # 🔥の買い方（2026-10-01〜）。9車立て（8車以上）と7車立てで別々に。null なら古い設定（hot9_use_ev・buy_7car_hot・use_ev_7car）から決める
     #   off=買わない / both=期待値1以上 かつ 帯の中 / ev=期待値1以上だけ / band=帯の中だけ / either=期待値1以上 または 帯の中 / all=🔥を全部
     "hot9_mode": None,         # 古い設定のままなら band（5〜15倍の中を全部）
@@ -43,6 +43,9 @@ DEFAULTS = {
     #   WINTICKET の AI予想(4車)がその3人をそろえていない・4倍以上なら、その1番人気を1点。確定オッズでの検証 1,138R 回収114.7%（締切前の倍率では未確認）
     "buy_ai_fav": True,
     "ai_fav_yen": None,
+    # 同じレースの同じ組を2つ以上の買い方（🔥・モデルD・Ⓐ）が選んだら、それぞれの金額を足して買う（2026-11-11〜。hikitsugi §4-56）。
+    #   false = 1回だけ（🔥 > モデルD > Ⓐ の順。2026-11-10 までの買い方）。2025-01〜2026-10: 2つ以上が選んだ組 176点 回収138% / 1つだけ 2,193点 120%
+    "stack_same_ticket": True,
     # 決める時刻(締切何分前)と、買わない線(締切何分前を切ったら押さない)。2026-10-19 に 2.5→2.0・1.5→1.0(はむさん「とりあえず2分前にして」)
     #   締切直前に倍率が大きく動くことがあるので、なるべく締切に近い倍率で決める。買う操作の時間(約1分)は今まで通り残す
     "decide_at_minutes": 2.0,
@@ -94,6 +97,7 @@ class Config:
     buy_model_d: bool = True
     buy_ai_fav: bool = True
     ai_fav_yen: "int | None" = None
+    stack_same_ticket: bool = True
     decide_at_minutes: float = 2.5
     max_snap_age_minutes: float = 4.0
     close_min_minutes: float = 1.5
@@ -262,6 +266,7 @@ def from_dict(d, base_dir="."):
         model_d_yen=_as_yen_opt(d, "model_d_yen"),
         buy_ai_fav=_as_bool(d, "buy_ai_fav"),
         ai_fav_yen=_as_yen_opt(d, "ai_fav_yen"),
+        stack_same_ticket=_as_bool(d, "stack_same_ticket"),
         decide_at_minutes=_as_num(d, "decide_at_minutes", lo=1, hi=10),
         max_snap_age_minutes=_as_num(d, "max_snap_age_minutes", lo=1, hi=10),
         close_min_minutes=_as_num(d, "close_min_minutes", lo=0.5, hi=10),

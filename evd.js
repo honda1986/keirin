@@ -7,6 +7,9 @@
 //   2022〜2026年9月の作り直した出走表(pastcard)12.5万レースで学習。
 //
 //   ★買うのは PICK の条件(期待値≥1.10・20倍以下)を満たす組を全部(2026-10-14 から。hikitsugi §4-27)。ふつう1点、多くて2点
+//   ★2026-11-11(hikitsugi §4-55・§4-56): 締切前の倍率で選ぶとき(自動投票・今日の表示・夜の集計の「締切前の記録」)は上限 23倍(PICK.oddsHiPre)。
+//     買い目になる組の倍率は締切2分前から確定までに約15%下がる(中央 0.85)ので、買うときの20倍は確定の約17倍にあたり、
+//     いちばん良い帯(確定17〜20倍: 4年で150%・354点)を買えていなかった。確定オッズで選ぶとき(さかのぼり計算)は今まで通り 20倍(PICK.oddsHi)
 //     2026-09-29〜10-13 は 期待値≥1.05(§4-14)。1.05〜1.10 の組がほぼトントン(分析の4年 89/87/133/107%・d-past 2025 97% / 2026 119%)で
 //     年によって負けるので外した。1.10以上は 分析の4年 103/128/155/138%・d-past 2025 152% / 2026 110%
 //     それより前の「期待値≥1.1・10〜30倍の1組」は 的中6〜8%・129/113/134/109%
@@ -19,7 +22,9 @@
   "use strict";
   const MODEL = { version: "D-2026-10a", LO_MEAN: -4.264394023053231, R120_MEAN: 0.42665,
     b: { K: 1.387846, er: 0.038275, single: -0.041406, banme: 0.011542, age50: 0.076234, home: 0.019983, young: 0.105093, samepref: 0.006343, dsc: -0.019952, has_dsc: -0.070507, r120: -0.010739, has_r: 0.048259, lo2: -0.145818, lo3: 0.019829, lo9: -0.020183, scz: 0.076659, head: 0.029864, srk: 0.038171, s_head: 0.213455, s_front: 0.022067, s_back: 0.047125, s_both: -0.597463 } };
-  const PICK = { minEv: 1.10, oddsLo: 0, oddsHi: 20 };   // 2026-10-14 に minEv 1.05 → 1.10(hikitsugi §4-27)
+  // oddsHi = 確定オッズで選ぶときの上限 / oddsHiPre = 締切前の倍率で選ぶときの上限(2026-11-11〜。確定までに約15%下がるぶん)
+  const PICK = { minEv: 1.10, oddsLo: 0, oddsHi: 20, oddsHiPre: 23 };   // 2026-10-14 に minEv 1.05 → 1.10(hikitsugi §4-27)
+  const hiOf = (pre) => (pre ? PICK.oddsHiPre : PICK.oddsHi);
   const VENUE_PREF = { "函館": "北海道", "青森": "青森", "いわき平": "福島", "弥彦": "新潟", "前橋": "群馬", "取手": "茨城", "宇都宮": "栃木",
     "大宮": "埼玉", "西武園": "埼玉", "京王閣": "東京", "立川": "東京", "松戸": "千葉", "千葉": "千葉", "川崎": "神奈川", "平塚": "神奈川",
     "小田原": "神奈川", "伊東": "静岡", "静岡": "静岡", "名古屋": "愛知", "岐阜": "岐阜", "大垣": "岐阜", "豊橋": "愛知", "富山": "富山",
@@ -96,13 +101,15 @@
     return rows.map((r) => ({ ticket: r.ticket, odds: r.odds, ev: (r.w / tot) * r.odds }));
   }
   // 買う組を全部(PICK の条件を満たす組。期待値の高い順)。無ければ []
-  function picks(all) {
+  //   pre = true: 締切前の倍率で選ぶ(上限 oddsHiPre) / false・省略: 確定オッズで選ぶ(上限 oddsHi)
+  function picks(all, pre) {
     if (!all) return [];
-    return all.filter((r) => r.ev >= PICK.minEv && r.odds >= PICK.oddsLo && r.odds <= PICK.oddsHi).sort((a, b) => b.ev - a.ev);
+    const hi = hiOf(pre);
+    return all.filter((r) => r.ev >= PICK.minEv && r.odds >= PICK.oddsLo && r.odds <= hi).sort((a, b) => b.ev - a.ev);
   }
   // そのうち期待値がいちばん高い1組。無ければ null
-  function pick(all) { return picks(all)[0] || null; }
-  const api = { MODEL, PICK, riderFeats, evAll, pick, picks, trioCombos };
+  function pick(all, pre) { return picks(all, pre)[0] || null; }
+  const api = { MODEL, PICK, hiOf, riderFeats, evAll, pick, picks, trioCombos };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.EVD = api;
 })(typeof window !== "undefined" ? window : this);
