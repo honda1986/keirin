@@ -475,8 +475,9 @@
     <details class="fold"><summary>この画面の見方</summary>
       <div class="howto">
         <p><b>🔥</b> 9車立て・単騎1人以下の「本命ライン3人」の3連複1点。<b>締切2分前の倍率</b>が <b>5〜15倍</b> のときだけ買う（5年とも回収100%超え）。さらに、本命ラインの番手か3番手が前について行けない（離れる）確率が <b>17%以上</b> のときだけ（5年で回収125%・17%未満は99%）。本命ラインの先頭のB率がレースでいちばんなら <b>B率1位</b> の札（5年で139%・それ以外116%。金額を分けられる）。S級S班がいるレースは見送り。</p>
-        <p><b>Ⓓ モデルD</b> 全レースの3連複の全組から「期待値1.10以上・20倍以下」の組を全部（2026/10/14〜。4年とも回収108%以上）。締切15分前から、PC（止まっているときは GitHub）が送る倍率で計算して出ます（締切6分前からは1分おき）。買うかは<b>締切2分前の倍率</b>で決めます（自動投票と同じ）。</p>
-        <p><b>Ⓐ AI外しの1番人気</b> S級で、3連複の1番人気が並び予想の同じライン（3人以上）の3人なのに、WINTICKET の AI予想（4車）がその3人をそろえていないとき、その1番人気を1点（4倍以上のときだけ。2026/11/3〜）。確定オッズでさかのぼると 2025年1月〜2026年10月で 1,138R・回収114.7%。🔥・Ⓓと同じ組なら重ねて買いません。</p>
+        <p><b>Ⓓ モデルD</b> 全レースの3連複の全組から「期待値1.10以上・23倍以下」の組を全部（4年とも回収108%以上）。上限の23倍は締切前の倍率で見たもの（2026/11/11〜。それまでは20倍）。買い目になる組は締切までに倍率が約15%下がるので、検証した「確定で20倍以下」に合わせています。締切15分前から、PC（止まっているときは GitHub）が送る倍率で計算して出ます（締切6分前からは1分おき）。買うかは<b>締切2分前の倍率</b>で決めます（自動投票と同じ）。</p>
+        <p><b>Ⓐ AI外しの1番人気</b> S級で、3連複の1番人気が並び予想の同じライン（3人以上）の3人なのに、WINTICKET の AI予想（4車）がその3人をそろえていないとき、その1番人気を1点（4倍以上のときだけ。2026/11/3〜）。確定オッズでさかのぼると 2025年1月〜2026年10月で 1,138R・回収114.7%。</p>
+        <p><b>同じ組が重なったら</b> 🔥・Ⓓ・Ⓐ のうち2つ以上が同じレースの同じ組を選んだときは、それぞれの金額を足して買います（2026/11/11〜。例: 🔥100円＋Ⓓ100円 = 200円）。2025年1月〜2026年10月で、重なった組は回収138%（176点）・1つだけの組は120%。右上の 💴 買い方 で「1回だけ買う」にも変えられます。</p>
         <p><b>前受け</b> 初手でどのラインが前を取るかの予想（ラインの選手のスタート率などから）。並び予想の先頭ラインのままだと61〜64%、この予想は64〜67%当たる。本命ラインが前受けしそう（50%以上）な🔥は5年で的中15.9%・回収119%。</p>
         <p><b>カードは1レース1枚</b>。🔥・Ⓓ・Ⓐの買い目を1行ずつ、<b>✓ 買う ○円 / ✗ 見送り（理由）</b>で出します。金額は右上の <b>💴 買い方</b> で変えられます（自動投票の金額は PC の設定）。</p>
         <p>大きい時刻は<b>発売の締切</b>（発走の5分前）。カードを押すとそのレースのページを開き、いちばん上に「買い目」の結論、その下に展開予想が出ます。上の「‹ 戻る」かスマホの戻る操作で元の画面に戻ります。</p>
@@ -566,9 +567,9 @@
 <div class="sheet hidden" id="buySheet" role="dialog" aria-modal="true" aria-labelledby="buySheetT">
   <div class="sheet-bg" data-close></div>
   <div class="sheet-card">
-    <div class="sheet-h"><b id="buySheetT">💴 買い方（1点の金額）</b><button class="iconbtn" type="button" data-close aria-label="閉じる">✕</button></div>
+    <div class="sheet-h"><b id="buySheetT">💴 買い方（1点の金額・重なったとき）</b><button class="iconbtn" type="button" data-close aria-label="閉じる">✕</button></div>
     <div id="buyRows"></div>
-    <p class="note" style="font-size:11px;margin-top:10px">ここの金額は、この端末の表示（今日のまとめ・レースの買い目・成績の収支）に使います。<b>自動投票の金額は PC の run.bat の 7)（設定）</b>で同じように決めてください（ここを変えても自動投票は変わりません）。</p>
+    <p class="note" style="font-size:11px;margin-top:10px">ここの金額は、この端末の表示（今日のまとめ・レースの買い目・成績の収支）に使います。<b>自動投票の金額と「同じ組が重なったとき」は PC の run.bat の 7)（設定）</b>で同じように決めてください（ここを変えても自動投票は変わりません）。</p>
   </div>
 </div>
 <nav class="tabbar" id="tabbar">
@@ -2101,6 +2102,11 @@ const BUY_NAME = { b1: "🔥9車 先頭のB率1位", rest: "🔥9車 それ以�
 const BUY = Object.assign({}, BUY_DEF);
 try { const c = JSON.parse(localStorage.getItem("keirinBuy") || "{}"); for (const k of Object.keys(BUY_DEF)) if (Number.isFinite(c[k]) && c[k] >= 0 && c[k] % 100 === 0) BUY[k] = c[k]; } catch (e) {}
 const saveBuy = () => { try { localStorage.setItem("keirinBuy", JSON.stringify(BUY)); } catch (e) {} };
+// 同じレースの同じ組を2つ以上の買い方(🔥・Ⓓ・Ⓐ)が選んだら、それぞれの金額を足して買う(2026-11-11〜。hikitsugi §4-56。自動投票の stack_same_ticket と同じ)。
+//   false = 1回だけ買う(🔥 > Ⓓ > Ⓐ の順。2026-11-10 までの買い方)。この端末に保存
+let STACK = true;
+try { if (localStorage.getItem("keirinStack") === "0") STACK = false; } catch (e) {}
+const saveStack = () => { try { localStorage.setItem("keirinStack", STACK ? "1" : "0"); } catch (e) {} };
 const hotYen = (row) => (row.isTop ? (row.b1 === true ? BUY.b1 : BUY.rest) : BUY.h7);
 // 🔥1件の見送りの理由(SKIP_V のキー)。倍率が無くてもラインの条件だけで見送りが決まる
 function hotSkipOf(row, ei) {
@@ -2312,8 +2318,10 @@ function evInfo(row) {
 }
 // 今日の🔥の行を買うか(見送りの理由が無く、倍率が届いていれば帯の中、金額が0でない)
 function hotBuys(h) { if (!h) return false; const ei = evInfo(h); return !hotSkipOf(h, ei) && (!ei || ei.verdict === "buy") && hotYen(h) > 0; }
-// Ⓓ の組が🔥と同じで、🔥を買うなら重ねて買わない(自動投票と同じ・bet/selector.py)
-function dDup(d) { return !!(d && d.sameAsHot && hotBuys(SHOUBU_ROWS.find((h) => h.key === d.key && h.ticket === d.ticket))); }
+// Ⓓ の組が🔥と同じで、🔥も買うか(自動投票と同じ・bet/selector.py)
+function dSame(d) { return !!(d && d.sameAsHot && hotBuys(SHOUBU_ROWS.find((h) => h.key === d.key && h.ticket === d.ticket))); }
+// 「1回だけ買う」設定(STACK = false)のときだけ、🔥と同じ組のⒹは買わない。既定は金額を足して買う
+function dDup(d) { return !STACK && dSame(d); }
 // 今日: 1レース1枚(🔥とⒹの買い目を同じカードに。2026-10-15 に作り直し。前は Ⓓ が1点ずつ別のカードで、同じレースが4枚並ぶこともあった)
 //   g = { key, place, raceNo, startTime, cars, hot: 🔥の行 | null, ds: [Ⓓの行], as: [Ⓐの行](0か1) }
 function raceCard(g, isNext) {
@@ -2344,7 +2352,7 @@ function raceCard(g, isNext) {
     const dr = f3ResultOf(d.place, d.raceNo, d.ticket), hit = !!(dr && !dr.pending && dr.hit), dup = dDup(d), yd = dup ? 0 : BUY.d;
     if (yd) anyBuy = true;
     const cls = done ? (!yd ? "skip" : hit ? "hit" : "miss") : yd ? "buy" : "skip";
-    const v = dup ? "🔥と同じ組（重ねない）" : done ? (!yd ? "見送り" : hit ? "的中 " + (dr.pay != null ? Math.round(dr.pay * yd / 100).toLocaleString() + "円" : "") : yen(-yd) + "円") : yd ? "✓ 買う " + yd + "円" : "見送り（設定）";
+    const v = dup ? "🔥と同じ組（重ねない）" : done ? (!yd ? "見送り" : hit ? "的中 " + (dr.pay != null ? Math.round(dr.pay * yd / 100).toLocaleString() + "円" : "") : yen(-yd) + "円") : yd ? "✓ 買う " + yd + "円" + (dSame(d) ? "（🔥に足す）" : "") : "見送り（設定）";
     rows.push('<div class="tkr ' + cls + '"><span class="kb d">Ⓓ</span><span class="tb">' + ticketBalls(d.ticket, "") + "</span>" +
       '<span class="mid"><b>' + d.odds + "倍</b> 期待" + d.ev.toFixed(2) + nowOdds(d.cur, d.odds) + '</span><span class="v">' + v + "</span></div>");
   }
@@ -2352,7 +2360,8 @@ function raceCard(g, isNext) {
     const ar = f3ResultOf(a.place, a.raceNo, a.ticket), hit = !!(ar && !ar.pending && ar.hit), dup = aDup(a), ya = dup ? 0 : BUY.a;
     if (ya) anyBuy = true;
     const cls = done ? (!ya ? "skip" : hit ? "hit" : "miss") : ya ? "buy" : "skip";
-    const v = dup ? (dup === "hot" ? "🔥" : "Ⓓ") + "と同じ組（重ねない）" : done ? (!ya ? "見送り" : hit ? "的中 " + (ar.pay != null ? Math.round(ar.pay * ya / 100).toLocaleString() + "円" : "") : yen(-ya) + "円") : ya ? "✓ 買う " + ya + "円" : "見送り（設定）";
+    const sm = aSame(a);
+    const v = dup ? (dup === "hot" ? "🔥" : "Ⓓ") + "と同じ組（重ねない）" : done ? (!ya ? "見送り" : hit ? "的中 " + (ar.pay != null ? Math.round(ar.pay * ya / 100).toLocaleString() + "円" : "") : yen(-ya) + "円") : ya ? "✓ 買う " + ya + "円" + (sm ? "（" + (sm === "hot" ? "🔥" : "Ⓓ") + "に足す）" : "") : "見送り（設定）";
     rows.push('<div class="tkr ' + cls + '"><span class="kb a">Ⓐ</span><span class="tb">' + ticketBalls(a.ticket, "") + "</span>" +
       '<span class="mid"><b>' + a.odds + "倍</b> 1番人気" + nowOdds(a.cur, a.odds) + '</span><span class="v">' + v + "</span><small>AI予想 " + a.ai.join("・") + "（この3人をそろえていない）・" +
       (a.decided ? "締切" + DECIDE_MIN + "分前の倍率で判定" : "今の倍率。締切" + DECIDE_MIN + "分前の1番人気で決まる") + "</small></div>");
@@ -2380,7 +2389,7 @@ function kpi(v, k, cls) { return '<div class="kpi"><div class="v ' + (cls || "")
 function renderHero(items, done, next) {
   const box = $("heroBox"); if (!box) return;
   if (!RACE_DAY) { box.innerHTML = '<div class="ttl"><span>読み込み中…</span></div>'; return; }
-  const yenOf = (it) => (it.k === "D" ? (dDup(it.r) ? 0 : BUY.d) : it.k === "A" ? (aDup(it.r) ? 0 : BUY.a) : hotYen(it.r));   // 買い方の金額(右上の 💴 で変えられる)。Ⓓ・Ⓐが🔥(Ⓐは Ⓓ も)と同じ組なら重ねない
+  const yenOf = (it) => (it.k === "D" ? (dDup(it.r) ? 0 : BUY.d) : it.k === "A" ? (aDup(it.r) ? 0 : BUY.a) : hotYen(it.r));   // 買い方の金額(右上の 💴 で変えられる)。Ⓓ・Ⓐが🔥(Ⓐは Ⓓ も)と同じ組のときは金額を足す(「1回だけ買う」設定なら重ねない)
   const buyOf = (it) => yenOf(it) > 0 && (it.k !== "hot" || !hotSkipOf(it.r, evInfo(it.r)));
   const bought = done.filter(buyOf);
   const rs = bought.map((it) => Object.assign({ y: yenOf(it) }, f3ResultOf(it.r.place, it.r.raceNo, it.r.ticket)));
@@ -2399,7 +2408,7 @@ function renderHero(items, done, next) {
       : items.length && done.length === items.length ? '<div class="nextup" style="cursor:default">🏁 今日の分はすべて確定しました</div>' : "") +
     '<div style="font-size:10px;color:var(--dim);margin-top:6px">収支は🔥（帯の外・ラインが切れにくい・買わない設定のものは除く）とⒹ・Ⓐを、右上の 💴 買い方 の金額で買った場合' + (unknown ? "。※配当確認中の的中を含む" : "") + "。Ⓓ・Ⓐは締切15分前から出ます</div>";
 }
-// ---- モデルD(evd.js): 全レースから「期待値1.10以上・20倍以下」(evd.js の PICK。2026-10-14〜)の組を全部(1行=1点) ----
+// ---- モデルD(evd.js): 全レースから「期待値1.10以上・23倍以下」(evd.js の PICK。締切前の倍率なので上限は oddsHiPre。2026-11-11〜・hikitsugi §4-56)の組を全部(1行=1点) ----
 function dRows() {
   if (typeof EVD === "undefined" || !LIVE_ODDS || !LIVE_ODDS.races) return [];
   const out = [];
@@ -2407,7 +2416,7 @@ function dRows() {
     if (!Array.isArray(x.riders) || x.riders.length < 5) continue;
     const all = LIVE_ODDS.races[x.key], snap = decSnap(all), decided = snap !== all;   // 締切2分前を過ぎたら、自動投票が決めたときの倍率で選ぶ
     if (!snap || !Array.isArray(snap.o) || (snap.n && snap.n !== x.riders.length)) continue;
-    const ps = EVD.picks(EVD.evAll(x.riders, x.lines, x.place, snap.o, x.riders.length, x.seri));
+    const ps = EVD.picks(EVD.evAll(x.riders, x.lines, x.place, snap.o, x.riders.length, x.seri), true);
     ps.forEach((p, i) => out.push({ key: x.key, place: x.place, raceNo: x.raceNo, startTime: x.startTime, cars: x.riders.length, ticket: p.ticket, ev: p.ev, odds: p.odds, snap,
       decided, cur: decided ? oddsOfTicket(all, p.ticket) : null, curSnap: all,
       nth: i + 1, of: ps.length, sameAsHot: SHOUBU_ROWS.some((h) => h.key === x.key && h.ticket === p.ticket) }));
@@ -2432,13 +2441,15 @@ function aRows() {
   }
   return out;
 }
-// Ⓐ の組が🔥かⒹと同じで、そちらを買うなら重ねて買わない(自動投票と同じ・bet/selector.py)→ "hot" | "D" | ""
-function aDup(a) {
+// Ⓐ の組が🔥かⒹと同じで、そちらも買うか(自動投票と同じ・bet/selector.py)→ "hot" | "D" | ""
+function aSame(a) {
   if (!a) return "";
   if (a.sameAsHot && hotBuys(SHOUBU_ROWS.find((h) => h.key === a.key && h.ticket === a.ticket))) return "hot";
   if (BUY.d && D_ALL.some((d) => d.key === a.key && d.ticket === a.ticket && !dDup(d))) return "D";
   return "";
 }
+// 「1回だけ買う」設定(STACK = false)のときだけ、🔥・Ⓓと同じ組のⒶは買わない。既定は金額を足して買う
+function aDup(a) { return STACK ? "" : aSame(a); }
 // ---- 詳細: 展開予想・予想印(tenkai.js。前受け → 主導権 → 1着 → 2着 → 3着。hikitsugi §4-24) ----
 //   評価値の順(◎から順に並べるだけ)より、3連単の的中が 4.4% → 約12%(2025〜26年で確認)。買い方(🔥・モデルD)には使わない
 const TENKAI_READY = (async () => {
@@ -2618,7 +2629,7 @@ function evTopHtml(x) {
   if (!all) return '<div class="evbox wait">票がまだ薄く、期待値を計算できません</div>';
   // Ⓓ買いの印は、締切2分前を過ぎたら自動投票が決めたときの倍率で(一覧の期待値と倍率は今の倍率)
   const ds = decSnap(snap), decided = ds !== snap, dAll = decided ? EVD.evAll(x.riders, x.lines, x.place, ds.o, x.riders.length, x.seri) : all;
-  const pk = new Set(dAll ? EVD.picks(dAll).map((r) => r.ticket) : []);
+  const pk = new Set(dAll ? EVD.picks(dAll, true).map((r) => r.ticket) : []);
   const hot = (SHOUBU_ROWS.find((h) => h.key === x.key) || {}).ticket;
   const top = all.slice().sort((a, b) => b.ev - a.ev).slice(0, 5);
   const when = (snap.upd ? snap.upd + "現在" : String(snap.t || "").slice(0, 5) + "取得") + "・締切" + Math.max(0, Math.round(snap.left)) + "分前の倍率";
@@ -2629,7 +2640,7 @@ function evTopHtml(x) {
       '<span class="o">' + r.odds + '倍</span><span class="e' + (r.ev >= EVD.PICK.minEv ? " up" : "") + '">' + r.ev.toFixed(2) + '</span><span class="tg">' + tags + "</span></div>";
   }).join("") + "</div>" +
     '<p class="note" style="font-size:10px;margin-top:6px">右の数字が期待値（1.00 で元が取れる計算）。' + when + "。" +
-    "「Ⓓ買い」はモデルDの買い条件（期待値" + EVD.PICK.minEv.toFixed(2) + "以上・" + EVD.PICK.oddsHi + "倍以下）に入る組で、自動投票もこれだけ買います" +
+    "「Ⓓ買い」はモデルDの買い条件（期待値" + EVD.PICK.minEv.toFixed(2) + "以上・" + EVD.hiOf(true) + "倍以下）に入る組で、自動投票もこれだけ買います" +
     (decided ? "（締切" + DECIDE_MIN + "分前を過ぎたので、印は自動投票が決めたときの倍率 " + whenOf(ds) + " のもの）" : "") + "。ほかは参考（期待値1.05〜1.10は4年で回収102%・1.00〜1.05は95%）。</p>";
 }
 function paintEvTop() {
@@ -2771,8 +2782,8 @@ function paintBuy(p, r, b) {
       '<div class="buynote" style="font-size:12px;color:var(--muted)">' + esc(hotWhyNot(pl, p)) + "</div>" +
       (pl && pl.trio ? '<div class="buytk" style="opacity:.55">' + ticketBalls(pl.ticket, "s") + '<span class="kind">参考の3人（買わない）</span></div>' : "") + "</div>";
   }
-  // ---- Ⓓ モデルD(期待値1.10以上・20倍以下の組を全部) ----
-  const pk = typeof EVD !== "undefined" ? EVD.PICK : { minEv: 1.10, oddsHi: 20 };
+  // ---- Ⓓ モデルD(期待値1.10以上・締切前の倍率で23倍以下の組を全部。確定オッズで選んだ過去の日は20倍以下) ----
+  const pk = typeof EVD !== "undefined" ? EVD.PICK : { minEv: 1.10, oddsHi: 20 }, hiPre = typeof EVD !== "undefined" ? EVD.hiOf(true) : 23;
   let dh = "", dOn = false;
   if (today) {
     const allS = LIVE_ODDS && LIVE_ODDS.races ? LIVE_ODDS.races[today.key] : null, snap = decSnap(allS), decided = !!allS && snap !== allS;   // 締切2分前を過ぎたら決めたときの倍率
@@ -2781,9 +2792,9 @@ function paintBuy(p, r, b) {
     else if (snap.n && snap.n !== today.riders.length) dh = '<div class="buynote">倍率の組数が出走表と合わないので出しません</div>';
     else {
       const all = EVD.evAll(today.riders, today.lines, today.place, snap.o, today.riders.length, today.seri);
-      const ps = all ? EVD.picks(all) : [];
+      const ps = all ? EVD.picks(all, true) : [];
       if (!all) dh = '<div class="buynote">票がまだ薄く、期待値を計算できません</div>';
-      else if (!ps.length) dh = '<div class="buynote" style="font-size:12px;color:var(--muted)">このレースは買い目なし（期待値' + pk.minEv.toFixed(2) + "以上・" + pk.oddsHi + "倍以下の組が無い）</div>";
+      else if (!ps.length) dh = '<div class="buynote" style="font-size:12px;color:var(--muted)">このレースは買い目なし（期待値' + pk.minEv.toFixed(2) + "以上・" + hiPre + "倍以下の組が無い）</div>";
       else {
         dOn = !!BUY.d;
         dh = ps.map((q) => {
@@ -2791,12 +2802,12 @@ function paintBuy(p, r, b) {
           const dup = dDup({ key: today.key, ticket: q.ticket, sameAsHot: SHOUBU_ROWS.some((h) => h.key === today.key && h.ticket === q.ticket) }), yd = dup ? 0 : BUY.d;
           return '<div class="buyd">' + ticketBalls(q.ticket, "s") + '<span class="o">' + q.odds + "倍" + nowOdds(decided ? oddsOfTicket(allS, q.ticket) : null, q.odds) + "</span><span>期待値 <b>" + q.ev.toFixed(2) + "</b></span>" +
             '<span class="v ' + (dn ? (res.hit && yd ? "pos" : yd ? "neg" : "") : yd ? "pos" : "") + '">' +
-              (dup ? "🔥と同じ組（重ねない）" : dn ? (!yd ? "見送り" : res.hit ? "的中 " + (res.pay != null ? Math.round(res.pay * yd / 100).toLocaleString() + "円" : "") : yen(-yd) + "円") : yd ? "✓ 買う " + yd + "円" : "買わない設定") + "</span></div>";
+              (dup ? "🔥と同じ組（重ねない）" : dn ? (!yd ? "見送り" : res.hit ? "的中 " + (res.pay != null ? Math.round(res.pay * yd / 100).toLocaleString() + "円" : "") : yen(-yd) + "円") : yd ? "✓ 買う " + yd + "円" + (STACK && dSame({ key: today.key, ticket: q.ticket, sameAsHot: SHOUBU_ROWS.some((h) => h.key === today.key && h.ticket === q.ticket) }) ? "（🔥に足す）" : "") : "買わない設定") + "</span></div>";
         }).join("") + '<div class="buynote">' + (decided ? "締切" + DECIDE_MIN + "分前の倍率（" + whenOf(snap) + "）で決めた組。→ 今 = " + whenOf(allS) + "の倍率" : whenOf(snap) + "の倍率") + "</div>";
       }
     }
   } else if (P) {
-    const ds = day ? (day.d || []).filter((x) => x[0] === place && x[1] === rno && !(typeof x[8] === "number" && x[8] < pk.minEv) && !(typeof x[7] === "number" && x[7] > pk.oddsHi)) : [];
+    const ds = day ? (day.d || []).filter((x) => x[0] === place && x[1] === rno && !(typeof x[8] === "number" && x[8] < pk.minEv) && !(typeof x[7] === "number" && x[7] > (x[9] === "s" ? hiPre : pk.oddsHi))) : [];
     if (!ds.length) dh = '<div class="buynote" style="font-size:12px;color:var(--muted)">この日の記録では買い目なし</div>';
     else {
       dOn = !!BUY.d;
@@ -2807,7 +2818,7 @@ function paintBuy(p, r, b) {
     }
   } else dh = '<div class="buynote" style="font-size:12px;color:var(--muted)">倍率が無いので出せません（今日のレースは「今日」「レース」から開くと出ます）</div>';
   html += '<div class="buysec' + (dOn ? " on" : "") + '"><div class="buyh"><span class="kb d">Ⓓ</span>モデルD' +
-    '<small style="font-weight:500;color:var(--muted);font-size:11px">期待値' + pk.minEv.toFixed(2) + "以上・" + pk.oddsHi + "倍以下の組を全部</small></div>" + dh +
+    '<small style="font-weight:500;color:var(--muted);font-size:11px">期待値' + pk.minEv.toFixed(2) + "以上・" + hiPre + "倍以下の組を全部</small></div>" + dh +
     '<div class="buynote">2025年1月〜2026年9月で回収131%（1,297点）。' + (today ? "くわしくは下の「期待値 上位5」。" : "") + "</div></div>";
   // ---- Ⓐ AI が外した1番人気ライン(aifav.js。S級・4倍以上) ----
   //   今日 = 締切2分前(決めたとき)か今の倍率で judge / 過去 = その日の記録(day.a) / 貼り付け = AI予想が無いので出さない
@@ -2825,10 +2836,11 @@ function paintBuy(p, r, b) {
       const when = decided ? "締切" + DECIDE_MIN + "分前の倍率（" + whenOf(snap) + "）で判定" : whenOf(snap) + "の倍率（締切" + DECIDE_MIN + "分前の1番人気で決まる）";
       if (j.verdict === "buy") {
         const res = f3ResultOf(place, rno, j.ticket), dn = res && !res.pending;
-        const dup = aDup({ key: today.key, ticket: j.ticket, sameAsHot: SHOUBU_ROWS.some((h) => h.key === today.key && h.ticket === j.ticket) }), ya = dup ? 0 : BUY.a;
+        const aObj = { key: today.key, ticket: j.ticket, sameAsHot: SHOUBU_ROWS.some((h) => h.key === today.key && h.ticket === j.ticket) };
+        const dup = aDup(aObj), ya = dup ? 0 : BUY.a, smA = aSame(aObj);   // smA: 🔥かⒹも同じ組を買う(金額を足す)
         aOn = !!ya;
         aV = dup ? '<span class="buyv wait">' + (dup === "hot" ? "🔥" : "Ⓓ") + "と同じ組（重ねない）</span>" : dn ? (!ya ? '<span class="buyv wait">見送り（設定）</span>' : res.hit ? '<span class="buyv hit">✅ 的中</span>' : '<span class="buyv skip">✗ 不的中</span>')
-          : ya ? '<span class="buyv buy">✓ 買う ' + ya + "円</span>" : '<span class="buyv skip">✗ 見送り（設定）</span>';
+          : ya ? '<span class="buyv buy">✓ 買う ' + ya + "円" + (smA ? "（" + (smA === "hot" ? "🔥" : "Ⓓ") + "に足す）" : "") + "</span>" : '<span class="buyv skip">✗ 見送り（設定）</span>';
         ah = '<div class="buyd">' + ticketBalls(j.ticket, "s") + '<span class="o">' + j.odds + "倍" + nowOdds(decided ? oddsOfTicket(allS, j.ticket) : null, j.odds) + "</span><span>1番人気</span>" +
           (dn && ya ? '<span class="v ' + (res.hit ? "pos" : "neg") + '">' + (res.hit ? "的中 " + (res.pay != null ? Math.round(res.pay * ya / 100).toLocaleString() + "円" : "") : yen(-ya) + "円") + "</span>" : "") + "</div>" +
           '<div class="buynote">AI予想 ' + today.ai.join("・") + "（1番人気の3人をそろえていない）。" + when + "</div>";
@@ -2846,7 +2858,7 @@ function paintBuy(p, r, b) {
       ah = as.map((x) => '<div class="buyd">' + ticketBalls(x[3], "s") + '<span class="o">' + (x[7] != null ? x[7] + "倍" : "") + "</span><span>1番人気</span>" +
         '<span class="v ' + (x[5] === 1 && BUY.a ? "pos" : x[5] === 0 && BUY.a ? "neg" : "") + '">' +
         (!BUY.a ? "見送り（設定）" : x[5] === 1 ? "的中 " + (x[6] != null ? Math.round(x[6] * BUY.a / 100).toLocaleString() + "円" : "") : x[5] === 0 ? yen(-BUY.a) + "円" : "結果待ち") + "</span></div>").join("") +
-        '<div class="buynote">' + (as.some((x) => x[9] === "s") ? "締切前の倍率で選んだ組" : "確定オッズでさかのぼって選んだ組") + "（自動投票は🔥・Ⓓと同じ組なら重ねない）</div>";
+        '<div class="buynote">' + (as.some((x) => x[9] === "s") ? "締切前の倍率で選んだ組" : "確定オッズでさかのぼって選んだ組") + (STACK ? "（🔥・Ⓓと同じ組のときは金額を足して買う）" : "（🔥・Ⓓと同じ組なら重ねない設定）") + "</div>";
     }
   } else ah = '<div class="buynote" style="font-size:12px;color:var(--muted)">AI予想が無いので出せません（今日のレースは「今日」「レース」から開くと出ます）</div>';
   html += '<div class="buysec' + (aOn ? " on" : "") + '"><div class="buyh"><span class="kb a">Ⓐ</span>AI外しの1番人気' +
@@ -2989,10 +3001,11 @@ const BAND_LO = 4, BAND_HI = 15;       // engine.js の f3PlanFrom の bandLo/ba
 const BAND9_LO = 5, BAND9_HI = 15;     // 9車(2026-09-27〜。hikitsugi §4-12)
 // 表示する一覧: 🔥は day.h、モデルDは day.d、Ⓐは day.a(Ⓓと同じ形で期待値は空き。2026-11-03〜)(daily.json の1件 = [場, R, 車立て, 買い目, 着順, 的中, 配当, 倍率, 期待値, 出どころ])を
 // 🔥と同じ並び([…, 倍率, 空き, 期待値, 出どころ])に直して使う
-// 🔥の行の14番目(x[13]) = モデルD(evd.js)の期待値。その日のⒹの買い目(期待値1.10以上・20倍以下)に同じ組があればその期待値、無ければ null(1.10未満)。
-//   🔥は5〜15倍(7車は4〜15倍)なので「20倍以下」は必ず満たす。〜2026/9/25 のⒹはその年より前のデータで作ったモデル(d-past.json)
+// 🔥の行の14番目(x[13]) = モデルD(evd.js)の期待値。その日のⒹの買い目(期待値1.10以上・締切前の倍率なら23倍以下/確定オッズなら20倍以下)に同じ組があればその期待値、無ければ null(1.10未満)。
+//   🔥は5〜15倍(7車は4〜15倍)なので倍率の上限は必ず満たす。〜2026/9/25 のⒹはその年より前のデータで作ったモデル(d-past.json)
 // 合計(CAL.kind "all"。2026-11-03〜。前は「🔥全部」)= 🔥(いまの条件)・Ⓓ・Ⓐ を全部。15番目(x[14])に種類 "h" / "D" / "A"。
-//   同じレースの同じ組は1回だけ数える(自動投票と同じ: 🔥を買えば Ⓓ・Ⓐ は重ねない・Ⓓを買えば Ⓐ は重ねない)。重なった行は16番目(x[15])に印 → calPick で skipDup
+//   同じレースの同じ組を2つ以上が選んだら、それぞれの金額で数える(金額を足して買う。2026-11-11〜・STACK。過去の日もこの数え方)。
+//   「1回だけ買う」設定(STACK = false)のときは1回だけ数える(🔥を買えば Ⓓ・Ⓐ は重ねない・Ⓓを買えば Ⓐ は重ねない)。重なった行は16番目(x[15])に印 → calPick で skipDup
 const calKey3 = (x) => x[0] + "_" + x[1] + "_" + x[3];
 const calDRow = (x, k) => [x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[10] || null, x[8], x[9], null, null, null, k];
 function calHotRows(day) {
@@ -3006,10 +3019,12 @@ function calList(day) {
   if (CAL.kind !== "all") return calHotRows(day);
   const hs = calHotRows(day), ds = (day.d || []).map((x) => calDRow(x, "D")), as = (day.a || []).map((x) => calDRow(x, "A"));
   const bought = (x) => { const p = calPick(x); return p === "buy" || p === "open"; };
-  const hb = new Set(hs.filter(bought).map(calKey3));
-  ds.forEach((x) => { if (hb.has(calKey3(x))) x[15] = "h"; });
-  const db = new Set(ds.filter((x) => !x[15] && bought(x)).map(calKey3));
-  as.forEach((x) => { if (hb.has(calKey3(x))) x[15] = "h"; else if (db.has(calKey3(x))) x[15] = "D"; });
+  if (!STACK) {   // 「1回だけ買う」設定: 重なった行に印を付けて数えない
+    const hb = new Set(hs.filter(bought).map(calKey3));
+    ds.forEach((x) => { if (hb.has(calKey3(x))) x[15] = "h"; });
+    const db = new Set(ds.filter((x) => !x[15] && bought(x)).map(calKey3));
+    as.forEach((x) => { if (hb.has(calKey3(x))) x[15] = "h"; else if (db.has(calKey3(x))) x[15] = "D"; });
+  }
   const rn = (x) => parseInt(x[1], 10) || 0, ko = { h: 0, D: 1, A: 2 };
   return hs.concat(ds, as).sort((a, b) => String(a[8] || "").localeCompare(String(b[8] || "")) || a[0].localeCompare(b[0]) || rn(a) - rn(b) || ko[a[14]] - ko[b[14]]);
 }
@@ -3083,16 +3098,17 @@ function calYen(x) {
 }
 function calPick(x) {
   const p = calPick1(x);
-  return p && x[15] && (p === "buy" || p === "open") ? "skipDup" : p;   // 合計で、🔥かⒹと同じ組(重ねて買わない)
+  return p && x[15] && (p === "buy" || p === "open") ? "skipDup" : p;   // 合計で、🔥かⒹと同じ組(「1回だけ買う」設定のときだけ印が付く)
 }
 function calPick1(x) {
   const kind = calKindOf(x);
   if (kind === "A") return !BUY.a ? "skipSet" : x[5] !== 0 && x[5] !== 1 ? "open" : "buy";   // Ⓐは買った組だけが入っている
   if (kind === "D") {
-    // モデルDは買った組だけが入っている。いまの買い条件(evd.js の PICK。2026-10-14〜 期待値1.10以上・20倍以下)に入らない組は出さない
+    // モデルDは買った組だけが入っている。いまの買い条件(evd.js の PICK。期待値1.10以上・締切前の倍率で選んだ行は23倍以下/確定オッズで選んだ行は20倍以下)に入らない組は出さない
     //   (daily.json は毎晩作り直すが、それより前の分や古い daily.json でも今の条件で見えるように)
     const pk = typeof EVD !== "undefined" ? EVD.PICK : { minEv: 1.10, oddsHi: 20 };
-    if ((typeof x[9] === "number" && x[9] < pk.minEv) || (typeof x[7] === "number" && x[7] > pk.oddsHi)) return null;
+    const hi = x[10] === "s" && typeof EVD !== "undefined" ? EVD.hiOf(true) : pk.oddsHi;   // x[10] = 倍率の出どころ("s" = 締切前の記録)
+    if ((typeof x[9] === "number" && x[9] < pk.minEv) || (typeof x[7] === "number" && x[7] > hi)) return null;
     return !BUY.d ? "skipSet" : x[5] !== 0 && x[5] !== 1 ? "open" : "buy";
   }
   if (CAL.kind === "9" && x[2] < 8) return null;
@@ -3168,9 +3184,9 @@ function renderCal() {
     head.innerHTML = buyLineHtml() +
       '<div class="seg" id="calKind">' + [["all", "合計"], ["9", "🔥9車"], ["7", "🔥7車"], ["D", "Ⓓ モデルD"], ["A", "Ⓐ AI外し"]].map(([k, t]) =>
         '<button data-k="' + k + '" class="' + (CAL.kind === k ? "on" : "") + '">' + t + "</button>").join("") + "</div>" +
-      (CAL.kind === "D" ? '<div class="note" style="font-size:10px;margin:4px 0">全レースから期待値1.10以上・20倍以下の組を全部、買い方の金額ずつ（1行=1点。過去の日もこの条件で数え直し）。〜2026/9/25 はさかのぼり計算（その年より前のデータだけで作ったモデル・確定オッズ）。年ごと: 2023 109% / 2024 109% / 2025 151% / 2026 110%</div>' : "") +
-      (CAL.kind === "all" ? '<div class="note" style="font-size:10px;margin:4px 0">🔥（いまの買い方・下の条件）・Ⓓ モデルD・Ⓐ AI外しを、上の「変える」の金額で全部買った場合。同じレースの同じ組は1回だけ（自動投票と同じ。🔥を買えばⒹ・Ⓐは重ねない・Ⓓを買えばⒶは重ねない）。🔥7車は買わない設定なら数えない</div>' : "") +
-      (CAL.kind === "A" ? '<div class="note" style="font-size:10px;margin:4px 0">S級で、3連複の1番人気が同じライン（3人以上）の3人なのに AI予想（4車）がその3人をそろえていないとき、その1番人気を1点（4倍以上。2026/11/3〜）。🔥・Ⓓと重なる組もここでは数えます（自動投票は重ねて買わない）。〜2026/11/2 は確定オッズでのさかのぼり計算: 2025年1月〜2026年10月で 1,138R・回収114.7%（2025年 113.9% / 2026年 115.4%）</div>' : "") + filt;
+      (CAL.kind === "D" ? '<div class="note" style="font-size:10px;margin:4px 0">全レースから期待値1.10以上・23倍以下（締切前の倍率で。2026/11/11〜）の組を全部、買い方の金額ずつ（1行=1点。過去の日もこの条件で数え直し）。〜2026/9/25 はさかのぼり計算（その年より前のデータだけで作ったモデル・確定オッズで20倍以下）。年ごと: 2023 109% / 2024 109% / 2025 151% / 2026 110%</div>' : "") +
+      (CAL.kind === "all" ? '<div class="note" style="font-size:10px;margin:4px 0">🔥（いまの買い方・下の条件）・Ⓓ モデルD・Ⓐ AI外しを、上の「変える」の金額で全部買った場合。' + (STACK ? "同じレースの同じ組を2つ以上が選んだら、それぞれの金額で買う（金額を足す。2026/11/11〜。過去の日もこの数え方）" : "同じレースの同じ組は1回だけ（🔥を買えばⒹ・Ⓐは重ねない・Ⓓを買えばⒶは重ねない）") + '。🔥7車は買わない設定なら数えない</div>' : "") +
+      (CAL.kind === "A" ? '<div class="note" style="font-size:10px;margin:4px 0">S級で、3連複の1番人気が同じライン（3人以上）の3人なのに AI予想（4車）がその3人をそろえていないとき、その1番人気を1点（4倍以上。2026/11/3〜）。🔥・Ⓓと重なる組もここでは数えます。〜2026/11/2 は確定オッズでのさかのぼり計算: 2025年1月〜2026年10月で 1,138R・回収114.7%（2025年 113.9% / 2026年 115.4%）</div>' : "") + filt;
     head.querySelectorAll("#calKind button").forEach((b) => b.addEventListener("click", () => { CAL.kind = b.dataset.k; saveCal(); renderCal(); }));
     const fd = head.querySelector(".calfilt"); if (fd) fd.addEventListener("toggle", () => { CAL.filtOpen = fd.open; });
     for (const [id, k] of [["calBand", "band"], ["calEv", "ev"], ["calBrk", "brk"], ["calB1", "b1"]]) if ($(id)) $(id).addEventListener("change", (e) => { CAL[k] = e.target.checked; saveCal(); renderCal(); });
@@ -3233,18 +3249,21 @@ const BUY_DESC = {
   b1: "本命ラインの先頭のB率（最終バックを先頭で通る割合）がレースでいちばん。5年で回収139%",
   rest: "それ以外（B率が分からないレースも）。5年で回収116%",
   h7: "7車立ての🔥（4〜15倍）。5年とも回収100%未満なので既定は買わない。買わないときも成績は100円で参考に出す",
-  d: "全レースから期待値1.10以上・20倍以下の組を全部。2025年1月〜2026年9月で回収131%",
-  a: "S級で3連複の1番人気がライン3人なのに AI予想(4車)がその3人をそろえていないとき、その1番人気を1点(4倍以上)。確定オッズでさかのぼると回収114.7%(1,138R)。🔥・Ⓓと同じ組なら重ねない",
+  d: "全レースから期待値1.10以上・23倍以下（締切前の倍率で。確定では約20倍以下にあたる）の組を全部。2025年1月〜2026年9月で回収131%",
+  a: "S級で3連複の1番人気がライン3人なのに AI予想(4車)がその3人をそろえていないとき、その1番人気を1点(4倍以上)。確定オッズでさかのぼると回収114.7%(1,138R)",
 };
 function buyLineHtml() {
   const t = (k) => (BUY[k] ? "<b>" + BUY[k] + "円</b>" : "<b style=\"color:var(--dim)\">買わない</b>");
-  return '<div class="buyline"><span class="bl">💴 いまの買い方　🔥B率1位 ' + t("b1") + "・🔥それ以外 " + t("rest") + "・🔥7車 " + t("h7") + "・Ⓓ " + t("d") + "・Ⓐ " + t("a") + '</span><button type="button" data-open-buy>変える</button></div>';
+  return '<div class="buyline"><span class="bl">💴 いまの買い方　🔥B率1位 ' + t("b1") + "・🔥それ以外 " + t("rest") + "・🔥7車 " + t("h7") + "・Ⓓ " + t("d") + "・Ⓐ " + t("a") + "・同じ組 <b>" + (STACK ? "足す" : "1回だけ") + '</b></span><button type="button" data-open-buy>変える</button></div>';
 }
 function renderBuyRows() {
   const box = $("buyRows"); if (!box) return;
   box.innerHTML = Object.keys(BUY_DEF).map((k) => '<div class="brow"><div class="bn">' + BUY_NAME[k] + '</div><div class="bd">' + BUY_DESC[k] + '</div><div class="bopts">' +
     [0, 100, 200, 300, 500, 1000].map((v) => '<button type="button" data-k="' + k + '" data-v="' + v + '" class="' + (v ? "" : "off") + (BUY[k] === v ? " on" : "") + '">' + (v ? v + "円" : "買わない") + "</button>").join("") +
-    "</div></div>").join("");
+    "</div></div>").join("") +
+    // 同じ組が重なったとき(2026-11-11〜。hikitsugi §4-56)
+    '<div class="brow"><div class="bn">同じ組が重なったとき</div><div class="bd">🔥・Ⓓ・Ⓐ のうち2つ以上が同じレースの同じ組を選んだとき。2025年1月〜2026年10月で、重なった組は回収138%（176点）・1つだけの組は120%</div><div class="bopts">' +
+    [[1, "金額を足して買う"], [0, "1回だけ買う"]].map(([v, t]) => '<button type="button" data-stack="' + v + '" class="' + ((STACK ? 1 : 0) === v ? "on" : "") + '">' + t + "</button>").join("") + "</div></div>";
 }
 function openBuySheet() { renderBuyRows(); $("buySheet").classList.remove("hidden"); }
 function closeBuySheet() { $("buySheet").classList.add("hidden"); }
@@ -3253,6 +3272,8 @@ document.addEventListener("DOMContentLoaded", () => {
   $("openBuy").addEventListener("click", openBuySheet);
   sh.addEventListener("click", (e) => {
     if (e.target.closest("[data-close]")) return closeBuySheet();
+    const sb = e.target.closest("button[data-stack]");
+    if (sb) { STACK = sb.dataset.stack === "1"; saveStack(); renderBuyRows(); renderCal(); paintShoubu(); return; }
     const b = e.target.closest("button[data-k]"); if (!b) return;
     BUY[b.dataset.k] = +b.dataset.v; saveBuy(); renderBuyRows(); renderCal(); paintShoubu();
   });
@@ -3290,7 +3311,7 @@ function calDetail(d8, day) {
       od + (order ? '<span class="arrow">→</span>' + order : "") + right + "</div>";
   }).join("");
   return head + rows +
-    '<div style="font-size:10px;color:var(--dim);margin-top:6px">行を押すと、そのレースの詳細（出走表・展開予想）を開きます。' + (isD ? "モデルD(期待値1.10以上・20倍以下の組を全部)を「買い方」の金額ずつ。1行=1点。" : isA ? "Ⓐ(AIが外した1番人気ライン・S級・4倍以上)の3連複1点を「買い方」の金額ずつ。" : isT ? "🔥・Ⓓ・Ⓐを「買い方」の金額ずつ。同じ組は1回だけ（「重ねない」）。" : "3連複「本命ライン3人」を「買い方」の金額ずつ（B1 = 先頭のB率1位）。配当は買った金額ぶん。") +
+    '<div style="font-size:10px;color:var(--dim);margin-top:6px">行を押すと、そのレースの詳細（出走表・展開予想）を開きます。' + (isD ? "モデルD(期待値1.10以上・締切前の倍率で23倍以下の組を全部)を「買い方」の金額ずつ。1行=1点。" : isA ? "Ⓐ(AIが外した1番人気ライン・S級・4倍以上)の3連複1点を「買い方」の金額ずつ。" : isT ? "🔥・Ⓓ・Ⓐを「買い方」の金額ずつ。" + (STACK ? "同じ組が重なったら、それぞれの金額で買う（金額を足す）。" : "同じ組は1回だけ（「重ねない」）。") : "3連複「本命ライン3人」を「買い方」の金額ずつ（B1 = 先頭のB率1位）。配当は買った金額ぶん。") +
     (day.live ? "今日の分は10分おきの速報で、夜に確定集計します。" : "いまの買い方をその日の予想に当てはめたさかのぼり計算を含みます。") +
     (!isA && !isT && list.some((x) => x[2] === 7 && x[7] != null) ? "倍率は確定オッズ" + (day.live ? "ではなく今の倍率。" : "。") : "") +
     (isA ? (day.live ? "倍率は締切2分前か今の倍率。" : "倍率は締切前の記録（自動投票が決めたとき）か、無ければ確定オッズ。") : "") +
@@ -3382,11 +3403,11 @@ function renderMonths(days, months) {
     '<div class="tbl-scroll"><table class="mtbl"><thead><tr><th class="l">月</th><th>' + (CAL.kind === "D" || CAL.kind === "all" ? "点数" : "R数") + '</th><th>的中率</th><th>回収率</th><th class="l">収支(円)</th></tr></thead><tbody>' +
     rows.map((r) => tr(+r.ym.slice(0, 4) + "年" + +r.ym.slice(4, 6) + "月", r.g, r.ym)).join("") + tr("<b>全期間</b>", all, null) + "</tbody></table></div>" +
     '<div style="font-size:10px;color:var(--dim);margin-top:4px">' + (CAL.kind === "all"
-      ? "🔥（条件の設定どおり）・Ⓓ・Ⓐを買い方の金額で全部買った場合の合計。点数・的中率は1点ごと。同じ組は1回だけ。Ⓓ・Ⓐの過去の分はさかのぼり計算を含む（それぞれのボタンの説明を参照）。"
+      ? "🔥（条件の設定どおり）・Ⓓ・Ⓐを買い方の金額で全部買った場合の合計。点数・的中率は1点ごと。" + (STACK ? "同じ組が重なったら金額を足す（それぞれ1点と数える）。" : "同じ組は1回だけ。") + "Ⓓ・Ⓐの過去の分はさかのぼり計算を含む（それぞれのボタンの説明を参照）。"
       : CAL.kind === "A"
       ? "Ⓐ(AIが外した1番人気ライン・S級・4倍以上。2026/11/3〜)の成績。〜2026/11/2 は確定オッズでのさかのぼり計算(AI予想は WINTICKET に残っていたもの)。🔥・Ⓓと同じ組も数えます。"
       : CAL.kind === "D"
-      ? "モデルD(期待値1.10以上・20倍以下の組を全部。2026/10/14〜・過去の日もこの条件で数え直し)の成績。R数・的中率は1点ごと(1レースに2点以上のこともある)。〜2026/9/25 はその年より前のデータだけで作ったモデルと確定オッズでのさかのぼり計算。"
+      ? "モデルD(期待値1.10以上・締切前の倍率で23倍以下の組を全部。上限23倍は2026/11/11〜・過去の日もこの条件で数え直し)の成績。R数・的中率は1点ごと(1レースに2点以上のこともある)。〜2026/9/25 はその年より前のデータだけで作ったモデルと確定オッズ(20倍以下)でのさかのぼり計算。"
       : "上の「🔥9車/7車」と、条件（帯・切れる確率・期待値・B率1位）の設定がそのまま反映されます。期待値はモデルDと同じ計算で、その日のⒹの買い目に🔥と同じ組があれば1.10以上（〜2026/9/25 はその年より前のデータで作ったモデル）。") + (DAILY_AT ? "集計 " + new Date(DAILY_AT).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "") + "</div>";
   box.querySelectorAll("tr[data-ym]").forEach((t) => t.addEventListener("click", () => { CAL.ym = t.dataset.ym; CAL.sel = null; renderCal(); $("calBox").scrollIntoView({ behavior: "smooth", block: "start" }); }));
 }

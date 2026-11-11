@@ -603,6 +603,7 @@ function evForEntry(dir, e, d, ticket) {
 }
 // モデルD(evd.js)の買い目。2025-01-01〜2026-09-25 は d-past.json(その年より前のデータで作ったモデル・作り直した出走表・確定オッズで計算したもの)。
 // それより後は history の riders(府県つき)と倍率(締切前の記録があればそれ、無ければ確定オッズ)から毎晩計算する
+// 倍率の上限は、締切前の記録なら 23倍・確定オッズなら 20倍(evd.js の PICK.oddsHiPre / oddsHi)
 const EVD = require("./evd.js");
 let D_PAST = null;
 // 🔥9車の過去分の [買い目, 切れる確率, B率1位](hot-past.json。2025-01〜2026-10-13・作り直した出走表で、アプリの🔥と同じ買い目)。history に brk・b1 が無い日に使う
@@ -624,7 +625,8 @@ function dPicksOf(dir, e, d) {
   const fo = allOdds(dir, id);
   const [o, src] = sn && sn.n === n ? [sn.o, "s"] : fo && fo.cars === n ? [fo.o, "f"] : [null, null];
   if (!o) return [];
-  return EVD.picks(EVD.evAll(e.riders, e.lines, e.place, o, n, e.seri)).map((p) => [p.ticket, Math.round(p.ev * 1000) / 1000, p.odds, src]);
+  // 締切前の記録で選ぶ日は上限23倍(自動投票と同じ・2026-11-11〜。それより前の日もいまの条件で数え直す)、確定オッズで選ぶ日は20倍(hikitsugi §4-56)
+  return EVD.picks(EVD.evAll(e.riders, e.lines, e.place, o, n, e.seri), src === "s").map((p) => [p.ticket, Math.round(p.ev * 1000) / 1000, p.odds, src]);
 }
 // Ⓐ(aifav.js。AI が外した1番人気ライン・S級・4倍以上)の買い目 → [買い目, 倍率, 出どころ] か null。
 //   倍率はモデルDと同じ(締切前の記録 = 自動投票が決めたときの倍率。無ければ確定オッズ)。AI予想(e.ai)の無いレースは無し

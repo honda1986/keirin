@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""keirin_bet.py -- アプリの🔥（9車・5〜15倍）とモデルD（全レース・期待値1.10以上・20倍以下。条件は evd.js の PICK）と
+"""keirin_bet.py -- アプリの🔥（9車・5〜15倍）とモデルD（全レース・期待値1.10以上・締切前の倍率で23倍以下。条件は evd.js の PICK）と
 Ⓐ（AI が外した1番人気ライン・S級・4倍以上。条件は aifav.js。2026-11-03〜）を、オッズパークで自動購入する
+同じレースの同じ組を2つ以上の買い方が選んだら、金額を足して1回で買う（stack_same_ticket。2026-11-11〜）
 
   python keirin_bet.py --mode check   ブラウザを開かず、買う／見送るの判定を並べるだけ
   python keirin_bet.py --mode dry     ブラウザを開き、確認画面まで進んで押さない
@@ -103,18 +104,29 @@ class Runner:
             self._said.add(key)
             self.log.event(result, note)
 
+    @staticmethod
+    def _all(b):
+        """その買い目と、金額を足した買い目（Bet.parts）"""
+        return (b,) + tuple(getattr(b, "parts", ()) or ())
+
     def _decide_skip(self, b, reason):
-        """見送りと決める。live は bet_done.json に yen=0 で書く（決め直さない）"""
+        """見送りと決める。live は bet_done.json に yen=0 で書く（決め直さない）。金額を足した買い目も一緒に"""
         if self.mode == "live":
             try:
-                self.store.record(b, self.mode, 0, note="見送り: " + reason)
+                self.store.record_many([(x, 0, "見送り: " + reason) for x in self._all(b) if not self.store.has(x.key)], self.mode)
             except Exception as e:
-                self.decided.add(b.key)
+                self.decided.update(x.key for x in self._all(b))
                 self.log.bet(b, "見送り", f"{reason}（記録できず: {e}）")
                 return
         else:
-            self.decided.add(b.key)
+            self.decided.update(x.key for x in self._all(b))
         self.log.bet(b, "見送り", reason)
+
+    def _record_bought(self, b, note):
+        """買った（買う）記録。金額を足した買い目は、買い方ごとに自分の金額で1件ずつ（合計が実際に買った額）"""
+        own = getattr(b, "own_yen", b.yen)
+        items = [(b, own, note)] + [(p, p.yen, f"{note}｜{b.key} の買い目に足して購入") for p in self._all(b)[1:]]
+        self.store.record_many(items, self.mode)
 
     def cycle(self):
         """1周まわす。"stop" / "ok" / "abort"（この周は打ち切り） / "halt"（止める）"""
@@ -167,7 +179,7 @@ class Runner:
 
     def _one(self, b, today):
         if self.mode == "check":
-            self.decided.add(b.key)
+            self.decided.update(x.key for x in self._all(b))
             self.log.bet(b, "買い", f"（check なので購入しません）{b.note}")
             return "ok"
         if self.store.has(b.key) or b.key in self.decided:
@@ -192,13 +204,13 @@ class Runner:
 
         def before_press():
             try:
-                self.store.record(b, self.mode, b.yen, note="押す直前に記録（結果待ち）")
+                self._record_bought(b, "押す直前に記録（結果待ち）")
             except Exception as e:
                 raise RecordFailed(str(e))
             pressed["v"] = True
 
         if not live:
-            self.decided.add(b.key)            # dry は同じレースを何周も試さない
+            self.decided.update(x.key for x in self._all(b))            # dry は同じレースを何周も試さない
         try:
             note = self.bet_fn(b, live, guard, before_press)
         except op.BetUncertain as e:
@@ -246,6 +258,8 @@ class Runner:
             self.notifier.dry_done(b, note)
             return "ok"
         self.store.set_note(b.key, note)
+        for p in self._all(b)[1:]:
+            self.store.set_note(p.key, f"{note}｜{b.key} の買い目に足して購入")
         spent = self.store.spent_on(today)
         self.log.bet(b, "購入した", f"当日計 {spent}円 {note}")
         self.notifier.bought(b, spent, note)
@@ -264,7 +278,7 @@ class Runner:
             if self.store.has(b.key):
                 self.store.set_note(b.key, f"要確認（{e}）")
             else:
-                self.store.record(b, self.mode, b.yen, note=f"要確認（{e}）")
+                self._record_bought(b, f"要確認（{e}）")
             note = "購入済みとして記録しました"
         except Exception as e2:
             note = f"★記録もできませんでした（{e2}）。次に動かす前に bet_done.json を直すこと"
@@ -376,10 +390,11 @@ def main(argv=None):
             _raw = _json.load(f)
         print(f"（🔥の買い方: 9車立て={config_mod.HOT_MODE_LABEL[cfg.hot9_mode]} / 7車立て={config_mod.HOT_MODE_LABEL[cfg.hot7_mode]}。"
               f"Ⓐ（AIが外した1番人気ライン）: {'買う' if cfg.buy_ai_fav and config_mod.yen_for(cfg, 'A', 0, None)[0] else '買わない'}。"
+              f"同じ組が重なったとき: {'金額を足して買う' if cfg.stack_same_ticket else '1回だけ買う'}。"
               "run.bat の 7)（設定）で変えられます）")
         if cfg.buy_model_d and ((cfg.max_races_per_day is not None and cfg.max_races_per_day < 20)
                                 or (cfg.max_yen_per_day is not None and cfg.max_yen_per_day < 20 * cfg.bet_yen)):
-            print(f"（モデルDは「期待値1.10以上・20倍以下の組を全部」（2026-10-14〜）。🔥と合わせて1日平均3〜4点・多い日で15点ほど買います。"
+            print(f"（モデルDは「期待値1.10以上・締切前の倍率で23倍以下の組を全部」（上限23倍は2026-11-11〜）。🔥と合わせて1日平均4〜5点・多い日で20点ほど買います。"
                   f"いまの1日の上限（{cfg.max_yen_per_day or '無制限'}円・{cfg.max_races_per_day or '無制限'}点）だと多い日は後半のレースを買えません。"
                   "run.bat の 7) で上限を 2500円・25点 くらいにしてください）")
     except Exception:
