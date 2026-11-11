@@ -577,7 +577,7 @@
   <button data-t="all"><span class="ic">📋</span>レース</button>
   <button data-t="stats"><span class="ic">📈</span>成績</button>
 </nav>
-<script src="evd.js"></script>
+<script src="evd.js?v=20261111"></script>
 <script src="aifav.js"></script>
 <script src="front.js"></script>
 <script src="tenkai.js"></script>
@@ -2105,6 +2105,8 @@ const saveBuy = () => { try { localStorage.setItem("keirinBuy", JSON.stringify(B
 // 同じレースの同じ組を2つ以上の買い方(🔥・Ⓓ・Ⓐ)が選んだら、それぞれの金額を足して買う(2026-11-11〜。hikitsugi §4-56。自動投票の stack_same_ticket と同じ)。
 //   false = 1回だけ買う(🔥 > Ⓓ > Ⓐ の順。2026-11-10 までの買い方)。この端末に保存
 let STACK = true;
+// モデルDを締切前の倍率で選ぶときの上限(evd.js の PICK.oddsHiPre = 23)。ブラウザに古い evd.js が残っている間も落ちないように
+const dHiPre = () => (typeof EVD !== "undefined" && typeof EVD.hiOf === "function" ? EVD.hiOf(true) : 23);
 try { if (localStorage.getItem("keirinStack") === "0") STACK = false; } catch (e) {}
 const saveStack = () => { try { localStorage.setItem("keirinStack", STACK ? "1" : "0"); } catch (e) {} };
 const hotYen = (row) => (row.isTop ? (row.b1 === true ? BUY.b1 : BUY.rest) : BUY.h7);
@@ -2640,7 +2642,7 @@ function evTopHtml(x) {
       '<span class="o">' + r.odds + '倍</span><span class="e' + (r.ev >= EVD.PICK.minEv ? " up" : "") + '">' + r.ev.toFixed(2) + '</span><span class="tg">' + tags + "</span></div>";
   }).join("") + "</div>" +
     '<p class="note" style="font-size:10px;margin-top:6px">右の数字が期待値（1.00 で元が取れる計算）。' + when + "。" +
-    "「Ⓓ買い」はモデルDの買い条件（期待値" + EVD.PICK.minEv.toFixed(2) + "以上・" + EVD.hiOf(true) + "倍以下）に入る組で、自動投票もこれだけ買います" +
+    "「Ⓓ買い」はモデルDの買い条件（期待値" + EVD.PICK.minEv.toFixed(2) + "以上・" + dHiPre() + "倍以下）に入る組で、自動投票もこれだけ買います" +
     (decided ? "（締切" + DECIDE_MIN + "分前を過ぎたので、印は自動投票が決めたときの倍率 " + whenOf(ds) + " のもの）" : "") + "。ほかは参考（期待値1.05〜1.10は4年で回収102%・1.00〜1.05は95%）。</p>";
 }
 function paintEvTop() {
@@ -2783,7 +2785,7 @@ function paintBuy(p, r, b) {
       (pl && pl.trio ? '<div class="buytk" style="opacity:.55">' + ticketBalls(pl.ticket, "s") + '<span class="kind">参考の3人（買わない）</span></div>' : "") + "</div>";
   }
   // ---- Ⓓ モデルD(期待値1.10以上・締切前の倍率で23倍以下の組を全部。確定オッズで選んだ過去の日は20倍以下) ----
-  const pk = typeof EVD !== "undefined" ? EVD.PICK : { minEv: 1.10, oddsHi: 20 }, hiPre = typeof EVD !== "undefined" ? EVD.hiOf(true) : 23;
+  const pk = typeof EVD !== "undefined" ? EVD.PICK : { minEv: 1.10, oddsHi: 20 }, hiPre = dHiPre();
   let dh = "", dOn = false;
   if (today) {
     const allS = LIVE_ODDS && LIVE_ODDS.races ? LIVE_ODDS.races[today.key] : null, snap = decSnap(allS), decided = !!allS && snap !== allS;   // 締切2分前を過ぎたら決めたときの倍率
@@ -3107,7 +3109,7 @@ function calPick1(x) {
     // モデルDは買った組だけが入っている。いまの買い条件(evd.js の PICK。期待値1.10以上・締切前の倍率で選んだ行は23倍以下/確定オッズで選んだ行は20倍以下)に入らない組は出さない
     //   (daily.json は毎晩作り直すが、それより前の分や古い daily.json でも今の条件で見えるように)
     const pk = typeof EVD !== "undefined" ? EVD.PICK : { minEv: 1.10, oddsHi: 20 };
-    const hi = x[10] === "s" && typeof EVD !== "undefined" ? EVD.hiOf(true) : pk.oddsHi;   // x[10] = 倍率の出どころ("s" = 締切前の記録)
+    const hi = x[10] === "s" ? dHiPre() : pk.oddsHi;   // x[10] = 倍率の出どころ("s" = 締切前の記録)
     if ((typeof x[9] === "number" && x[9] < pk.minEv) || (typeof x[7] === "number" && x[7] > hi)) return null;
     return !BUY.d ? "skipSet" : x[5] !== 0 && x[5] !== 1 ? "open" : "buy";
   }
