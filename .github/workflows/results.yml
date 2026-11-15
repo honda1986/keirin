@@ -55,6 +55,8 @@ jobs:
       - name: 期待値用の倍率を用意する(締切前の記録)
         continue-on-error: true
         run: |
+          # 2026-11-15〜: WINTICKET が海外から取れない日は、確定オッズを Kドリームスから足す(odds.js。既にあるレースは触らない・hikitsugi §4-57)
+          node odds.js 3 --apply --conc=4 || true
           mkdir -p /tmp/snap
           if git ls-remote --exit-code origin refs/heads/odds-snap >/dev/null 2>&1; then
             # checkout ではなく archive で取り出す(checkout だと main の index に snap/ が入り、結果のコミットに混ざる)

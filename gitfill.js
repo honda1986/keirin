@@ -25,7 +25,7 @@
 const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
-const { raceDate, normalizeResult, makeEntry, saveFinalOdds } = require("./results.js");
+const { raceDate, normalizeResult, makeEntry, saveFinalOdds, isKd, kdHarai } = require("./results.js");
 // 2026-10-23 から結果は WINTICKET(wt.js)。その日の races.json の url(WINTICKET の出走表)から1レースずつ読む(hikitsugi §4-47)
 const WT = require("./wt.js");
 
@@ -111,14 +111,24 @@ async function main() {
     const races = best.get(d).races;
     const d8 = d.replace(/-/g, "");
     // まだ history に無いレースだけ取りに行く。Kドリームスの url のレース(〜10/22)は WINTICKET の同じレースを探す
-    const want = await WT.withUrl(races.filter((x) => !done.has(d8 + "_" + x.key)), d8, cupCache).catch((e) => { console.error("レースの url を探せず:", d, e.message); return null; });
-    if (!want) { failed.push(d); continue; }
+    // 2026-11-15〜: WINTICKET から取れない(海外から止められている GitHub など)・Kドリームスの url だけの日は、Kドリームスの払戻一覧(1日1ページ)から(hikitsugi §4-57)
+    const todo = races.filter((x) => !done.has(d8 + "_" + x.key));
     const day = {};
-    if (want.length) {
-      let got;
-      try { got = await WT.finishedRaces(want); } catch (e) { console.error("結果の取得に失敗:", d, e.message); failed.push(d); continue; }
-      for (const [k, g] of Object.entries(got)) if (g.res) day[k] = g.res;
-      for (const x of want) { const g = got[x.place + "_" + x.raceNo]; if (g && g.odds) finalOdds[d8 + "_" + x.key] = g.odds; }
+    let wtGot = 0, needKd = todo.length > 0 && todo.every((x) => isKd(x.url));
+    if (todo.length && !needKd) {
+      const want = await WT.withUrl(todo, d8, cupCache).catch((e) => { console.error("レースの url を探せず:", d, e.message); return null; });
+      if (want && want.length) {
+        let got = {};
+        try { got = await WT.finishedRaces(want); } catch (e) { console.error("結果の取得に失敗(WINTICKET):", d, e.message); }
+        for (const [k, g] of Object.entries(got)) { wtGot++; if (g.res) day[k] = g.res; }
+        for (const x of want) { const g = got[x.place + "_" + x.raceNo]; if (g && g.odds) finalOdds[d8 + "_" + x.key] = g.odds; }
+      }
+      needKd = !wtGot;
+    }
+    if (needKd) {
+      const kd = await kdHarai(d);
+      if (!kd) { failed.push(d); continue; }
+      for (const [k, v] of Object.entries(kd)) if (!day[k]) day[k] = v;
     }
     let a = 0, n = 0, k = 0;
     for (const x of races) {
