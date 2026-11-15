@@ -130,7 +130,8 @@ jobs:
               LASTLF=$NOW
             fi
             # 記録は PC が動いていても取る(手元に貯めるだけ)。送るのは PC が止まっているときだけ
-            if [ "$H" -ge 8 ] || [ "$H" -lt 1 ]; then
+            # 7時から(始発 8:30 の締切15分前 = 8:10 から記録が要る。余裕をもって 7時から・2026-11-16〜)
+            if [ "$H" -ge 7 ] || [ "$H" -lt 1 ]; then
               node snap.js || true
               if [ "$PC" = 0 ]; then node snap_live.js --push --source GitHub || true; fi   # アプリ用の最新の倍率(新しい記録があるときだけ送る)
             fi

@@ -7,10 +7,12 @@ name: 今日の結果(日中)
 #   そこで「1回起動したら、その中で10分おきに取り続ける」形にしている。
 #   ・1回の実行は GitHub の上限(6時間)の手前、5時間40分で区切る
 #   ・時間切れで区切ったときは、自分で次の実行を起動し直す(workflow_dispatch は GITHUB_TOKEN からでも起動できる)
-#   ・深夜1時〜朝8時(JST)はレースが無いので、その時間になったら起動し直さずに終わる
+#   ・2026-11-16〜 夜も止めずに鎖をつなぐ(1〜5時は待つだけ)。朝5時から AI予想を足し、出走表が来ていなければ main.yml を起動する
+#     (始発 8:30 までに出走表・AI予想をそろえるため。前は 1時に終わり、朝 8:07 の定時実行で起動し直していた)
 #   ・朝の起動は定時実行が飛んでも拾えるよう複数仕込む。動いている最中なら、同じグループで順番待ちになるだけ
 on:
   schedule:
+    - cron: '47 19 * * *'  # 04:47 JST (鎖が切れていたときの予備。2026-11-16〜)
     - cron: '7 23 * * *'   # 08:07 JST
     - cron: '37 1 * * *'   # 10:37 JST (予備)
     - cron: '7 5 * * *'    # 14:07 JST (予備)
@@ -40,18 +42,34 @@ jobs:
           node-version: 20
       - name: 10分おきに今日の結果を取る
         id: loop
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "race-bot"
           git config user.email "actions@github.com"
           END=$(( $(date +%s) + 340 * 60 ))
           RELAY=0
-          NIGHT=0
+          LASTDISP=0
+          RESDAY=""
           while :; do
-            H=$(TZ=Asia/Tokyo date +%-H)
-            if [ "$H" -ge 1 ] && [ "$H" -lt 8 ]; then echo "レースの時間外(JST ${H}時)なので終わります"; NIGHT=1; break; fi
             if [ "$(date +%s)" -ge "$END" ]; then echo "5時間40分たったので区切ります"; RELAY=1; break; fi
+            H=$(TZ=Asia/Tokyo date +%-H); M=$(TZ=Asia/Tokyo date +%-M); D=$(TZ=Asia/Tokyo date +%Y%m%d)
+            # ★2026-11-16〜 夜も止めずに待つ(朝の始発 8:30 に間に合わせるため。はむさん「8時半までにデータを取れるように」)。
+            #   1〜5時は何もしない。5時からは AI予想を足し、出走表が今日の分でなければ main.yml を起動する
+            if [ "$H" -ge 1 ] && [ "$H" -lt 5 ]; then sleep 600; continue; fi
+            # 夜の結果収集(日別成績)は 0:40 に起動する。Kドリームスは夜中(月曜 1:00〜7:00 など)にメンテナンスがあり、
+            #   1時すぎに動くと結果が0件になる(2026-11-16)。最終レースはだいたい 23:50 までに終わっている
+            if [ "$H" -eq 0 ] && [ "$M" -ge 40 ] && [ "$RESDAY" != "$D" ]; then
+              gh workflow run results.yml --ref main -R "$GITHUB_REPOSITORY" && echo "結果収集を起動しました" || true
+              RESDAY=$D
+            fi
             # 新しい races.json を取り込み、push の競合も避ける。取り込めなければ(races.json がぶつかった等)手元を捨てて main に合わせる
             git pull -q --rebase --autostash origin main || { git rebase --abort 2>/dev/null; git fetch -q origin main && git reset -q --hard origin/main; } || true
+            # 朝(5〜8時): 出走表がまだ今日の分でなければ main.yml を起動する(定時実行は数時間遅れることがあるため。45分に1回まで)
+            if [ "$H" -ge 5 ] && [ "$H" -lt 8 ] && [ $(( $(date +%s) - LASTDISP )) -ge 2700 ] && ! node snap.js --has-races; then
+              gh workflow run main.yml --ref main -R "$GITHUB_REPOSITORY" && echo "$(TZ=Asia/Tokyo date +%H:%M) 出走表がまだ今日の分でないので、全レース更新を起動しました" || true
+              LASTDISP=$(date +%s)
+            fi
             # PC が送った今日の AI予想(Ⓐ用)を races.json に足す(2026-11-15〜。WINTICKET が海外から取れないため・hikitsugi §4-58)
             node aimerge.js || echo "AI予想を足せませんでした(次の回でまた見ます)"
             node live.js || echo "今回は取得できませんでした(次の回でまた取ります)"
@@ -72,18 +90,8 @@ jobs:
             sleep 600
           done
           echo "relay=$RELAY" >> "$GITHUB_OUTPUT"
-          echo "night=$NIGHT" >> "$GITHUB_OUTPUT"
       - name: 時間切れなら次の実行を起動する
         if: steps.loop.outputs.relay == '1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run live.yml --ref main -R "$GITHUB_REPOSITORY"
-      # ★夜の結果収集(results.yml)は 23:50 の定時実行だが、GitHub の遅れで毎日 1〜3時頃にずれ込み、
-      #   日別成績が翌朝まで変わらなかった(しかも同じ頃に朝の出走表取得が races.json を翌日分へ替える)。
-      #   1時にここで終わるときに起動すれば、その日の races.json が残っているうちに確実に集計できる。
-      #   23:50 の定時実行は予備としてそのまま残す(二重に動いても、既にあるレースは足さないので害はない)。
-      - name: 夜になったら結果収集(日別成績の更新)を起動する
-        if: steps.loop.outputs.night == '1'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run results.yml --ref main -R "$GITHUB_REPOSITORY"
