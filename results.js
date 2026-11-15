@@ -172,9 +172,12 @@ async function main() {
     const d8 = dH.replace(/-/g, "");
     return !(early0 && d8 === today80) && !done.has(d8 + "_" + x.key);
   });
+  let wtMissed = [];
   if (want.length) {
     console.log("結果を取りに行くレース:", want.length, "件(WINTICKET)");
     const got = await WT.finishedRaces(want);
+    // 取れなかったレース(海外から止められた・失敗が続いて打ち切った)は、下で Kドリームスの払戻一覧から探す
+    wtMissed = want.filter((x) => !got[x.place + "_" + x.raceNo]);
     for (const x of want) {
       const g = got[x.place + "_" + x.raceNo]; if (!g) continue;
       const d8 = raceDate(x).replace(/-/g, "");
@@ -184,11 +187,31 @@ async function main() {
     console.log("確定していた:", Object.keys(results).length, "件 / 確定オッズ:", Object.keys(finalOdds).length, "件");
     saveFinalOdds(dir, finalOdds);
   }
+  // 2026-11-15 から、Kドリームスの出走表の日(WINTICKET が海外から取れないとき・fetch.js)は、2026-10-22 までと同じく
+  //   Kドリームスの払戻一覧(1日1ページ)で結果を取る。3連複の配当も同じページ(sanpuku.js のパーサー)。確定オッズは results.yml の odds.js(hikitsugi §4-57)
+  const kdWant = STATS_ONLY ? [] : races.filter((x) => {
+    const dH = raceDate(x); if (!dH || !isKd(x.url)) return false;
+    const d8 = dH.replace(/-/g, "");
+    return !(early0 && d8 === today80) && !done.has(d8 + "_" + x.key);
+  }).concat(wtMissed);
+  if (kdWant.length) {
+    console.log("結果を取りに行くレース:", kdWant.length, "件(Kドリームスの払戻一覧)");
+    // レース日 + その前日の一覧を見る(2026-10-22 までと同じ。結果キーにはページの日付を入れ、レース日と合うものだけ使う)
+    const ds = new Set();
+    for (const x of kdWant) { const dH = raceDate(x); ds.add(dH); const dt = new Date(dH + "T00:00:00Z"); dt.setUTCDate(dt.getUTCDate() - 1); ds.add(dt.toISOString().slice(0, 10)); }
+    let n0 = Object.keys(results).length;
+    for (const dH of ds) {
+      const day = await kdHarai(dH);
+      if (!day) continue;
+      for (const [k, v] of Object.entries(day)) results[dH.replace(/-/g, "") + "_" + k] = v;
+    }
+    console.log("払戻一覧から:", Object.keys(results).length - n0, "件");
+  }
 
   // 払戻一覧が1レースも返さないのは、取得元の一時的な不調か形式の変化。2026-09-23 分はこれで黙って0件になった。
   // 取り逃がしは results.yml の gitfill.js(直近3日)で埋まるが、ログで気付けるように目立たせておく。
-  if (!STATS_ONLY && want.length && !Object.keys(results).length) {
-    console.error("⚠ WINTICKET から結果が1レースも読めませんでした(" + want.length + "件)。取得元の不調か形式の変化の可能性。翌晩の gitfill.js で再取得されます。");
+  if (!STATS_ONLY && (want.length || kdWant.length) && !Object.keys(results).length) {
+    console.error("⚠ 結果が1レースも読めませんでした(WINTICKET " + want.length + "件・Kドリームス " + kdWant.length + "件)。取得元の不調か形式の変化の可能性。翌晩の gitfill.js で再取得されます。");
   }
   const entryById = new Map(hist.entries.map((e) => [e.id, e]));
   let added = 0, p2added = 0;
@@ -536,6 +559,18 @@ function oddsOf(dir, id, trio) {
 // SNAP_DIR に置いたもの)があればその「締切にいちばん近い記録」、無ければ確定オッズ。
 const EV = require("./ev.js");
 const WT = require("./wt.js");
+// Kドリームスの出走表のレースか(2026-11-15〜。WINTICKET が海外から取れない日は fetch.js が Kドリームスで取る)
+const isKd = (url) => /keirin\.kdreams\.jp\//.test(String(url || ""));
+// Kドリームスの払戻一覧(1日1ページ)→ { "場_nR": { first, second, third, p3pay, p2pay, p2first, p2second, f3, p3fpay } }。取れなければ null
+async function kdHarai(dH) {
+  const [y, mo, d] = dH.split("-");
+  const url = `https://keirin.kdreams.jp/harailist/${y}/${mo}/${d}/`;
+  try {
+    const day = require("./sanpuku.js").parseHaraiList(await get(url));
+    console.log("払戻一覧取得:", dH, "→", Object.keys(day).length, "レース");
+    return day;
+  } catch (e) { console.error("harai-list skip:", url, e.message); return null; }
+}
 // 確定オッズを odds-YYYYMM.json に足す(odds.js と同じ形 { updatedAt, races: { id: { cars, o } } })。既にある組は書き換えない
 function saveFinalOdds(dir, m) {
   const byMonth = {};
@@ -703,4 +738,4 @@ function writeDaily(dir, byDate, rankedOf) {
 // 直接実行したときだけ走らせる(gitfill.js から require して部品を使い回すため)
 if (require.main === module) main().catch((e) => { console.error(e); process.exit(1); });
 
-module.exports = { get, parseHaraiList, sujiHit, raceDate, normalizeResult, makeEntry, writeDaily, saveFinalOdds };
+module.exports = { get, parseHaraiList, sujiHit, raceDate, normalizeResult, makeEntry, writeDaily, saveFinalOdds, isKd, kdHarai };

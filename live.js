@@ -8,6 +8,8 @@
 // ・history.json には触らない(夜の results.yml の仕事)
 // ・2026-10-23 から WINTICKET(wt.js)。発走から1分たったレースだけ、1レース1ページの倍率ページの払戻を読む
 //   (確定すると3連単・3連複・2車単の当たり組に払戻が付く)。結果がそろったレースは取り直さない(hikitsugi §4-47)
+// ・2026-11-15 から、Kドリームスの出走表の日(WINTICKET が海外から取れないとき・fetch.js)は、2026-10-22 までと同じく
+//   Kドリームスの払戻一覧(1日1ページ。3連単・2車単・3連複が全部載っている。パーサーは sanpuku.js)を読む(hikitsugi §4-57)
 // ・races.json の「レース日」のページだけを見る。別日の同場・同レース番号の結果を
 //   取り違えないため(results.js と同じ考え方)
 // ・取得に失敗したら何も書かない。同じ日の結果は減らさない(足すだけ)
@@ -17,8 +19,9 @@
 // ============================================================
 const fs = require("fs");
 const path = require("path");
-const { raceDate } = require("./results.js");
+const { raceDate, get } = require("./results.js");
 const WT = require("./wt.js");
+const isKd = (url) => /keirin\.kdreams\.jp\//.test(String(url || ""));
 
 const OUT = path.join(__dirname, "results-today.json");
 
@@ -67,11 +70,22 @@ async function main() {
   const have = prev0 && prev0.date === day ? prev0.races || {} : {};
   const nowMin = (Date.now() + 9 * 3600e3) / 60000;
   const startMin = (hhmm) => { const [h, mi] = String(hhmm || "").split(":").map(Number); return Date.UTC(+day.slice(0, 4), +day.slice(5, 7) - 1, +day.slice(8, 10), h, mi) / 60000; };
-  const todo = list.filter((x) => raceDate(x) === day && WT.parseUrl(x.url) && /^\d{1,2}:\d{2}$/.test(x.startTime || "") && nowMin - startMin(x.startTime) >= 1)
+  const todo = list.filter((x) => raceDate(x) === day && (WT.parseUrl(x.url) || isKd(x.url)) && /^\d{1,2}:\d{2}$/.test(x.startTime || "") && nowMin - startMin(x.startTime) >= 1)
     .filter((x) => { const r = have[x.place + "_" + x.raceNo]; return !r || r.t == null || r.p3fpay == null; });
   const page = {};
+  // Kドリームスの出走表のレースは、払戻一覧(1日1ページ)を1回だけ読む
+  const kdTodo = todo.filter((x) => isKd(x.url));
+  if (kdTodo.length) {
+    const [y, m, d] = day.split("-");
+    const url = `https://keirin.kdreams.jp/harailist/${y}/${m}/${d}/`;
+    try {
+      const all = require("./sanpuku.js").parseHaraiList(await get(url));
+      for (const x of kdTodo) { const k = x.place + "_" + x.raceNo; if (all[k]) page[k] = all[k]; }
+      console.log("Kドリームスの払戻一覧:", Object.keys(all).length, "R");
+    } catch (e) { console.error("Kドリームスの払戻一覧の取得に失敗:", url, e.message); }
+  }
   let fails = 0;
-  for (const x of todo) {
+  for (const x of todo.filter((y) => !isKd(y.url))) {
     const u = WT.parseUrl(x.url);
     try {
       const { O } = await WT.raceOdds(u.slug, u.cupId, u.index, u.no);

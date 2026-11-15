@@ -26,6 +26,8 @@
 
 - **`www.winticket.jp`（2026-10-23 からの取得元・§4-47。前は `keirin.kdreams.jp`）への通信はネットワークポリシーで塞がれている**ことがある。
   ローカルでは実取得を検証できないので、GitHub Actions で回すこと。
+- **★2026-11-14 夜から WINTICKET は海外からのアクセスを止めた（403「海外からはサービスを利用できません」）。GitHub Actions（アメリカ）からは取れない。**
+  GitHub では Kドリームスで取る（§4-57）。日本の PC からは WINTICKET が取れる。海外からの制限を回り込む（日本の IP に見せかける等）はしない。
 - git履歴・history.json・odds-*.json を使った検証はローカルでできる。
 
 ---
@@ -39,7 +41,7 @@ GitHub Actions
   results.yml  1日1回  results.js → gitfill.js(直近3日の漏れ) → results.js --stats-only
                        → history.json + stats.json(成績・今日の結果・直近7日の🔥一覧)
   odds.yml     月1回   odds.js     → odds-YYYYMM.json(Kドリームスのまま。10/23 からは results.js が足す)
-  取得元は 2026-10-23 から WINTICKET(wt.js・§4-47)。PC の snap.js(締切前の倍率)も同じ
+  取得元は 2026-10-23 から WINTICKET(wt.js・§4-47)。2026-11-15 から、WINTICKET が取れなければ Kドリームス(§4-57。GitHub はいつもこちら)
                         ↓
               index.html (GitHub Pages) で表示
 ```
@@ -1936,6 +1938,26 @@ PC にしかできないのは**買うこと（bet/）と、その通知**だけ
 - Ⓓの「買うとき20〜23倍」の組の成績（6週間の記録では33点・129.7%・3的中。少なすぎて判断できない）
 - 重なった組の成績（さかのぼりでは 176点・137.8%）
 - 点数は3〜4割増える見込み。1日の上限（`max_yen_per_day` / `max_races_per_day`）に当たる日が出たら見直す
+
+## 4-57. WINTICKET が海外からのアクセスを止めた → 取れなければ Kドリームスで取る（2026-11-15）
+
+はむさん「予想止まってない？」。**11/14 19:31 から全レース更新が毎回「開催の一覧の取得に失敗: HTTP 403」で落ち、11/15 は出走表・倍率・結果が全部止まっていた。**
+
+- **原因**: WINTICKET が「アクセス制限 海外からはサービスを利用できません」を始めた（HTTP 403。Fastly の前段で、どの UA・見出しでも同じ。robots.txt だけは 200）。GitHub Actions の runner はアメリカ。
+  - わざと設けた制限なので、日本の IP に見せかけるなどで回り込むことはしない。
+- **楽天Kドリームスは復旧していて、GitHub から取れる**（11/15 に確認。keirin.jp・netkeiba も 200、オッズパークは 403）。
+- **直したこと**（レースの url がどちらのページかで取得元を決める）
+  - `fetch.js`: まず WINTICKET。開催の一覧が取れなければ Kドリームス（日別一覧 `/odds/YYYY/MM/DD/` → `/{場}/racedetail/{16桁}/`。2026-10-22 までと同じ `htmlToText(withNarabiText())` → `buildEntry`）。`KEIRIN_SOURCE=kd|wt` で片方だけ。
+  - `snap.js`: Kドリームスの url のレースは 3連複のオッズ画面（`parseTrio`。人気順＋高配当順で全組）と2車単・2車複（`odds2parse.js`）。11/15 に 7車35/35組・9車84/84組を確認。
+  - `live.js`: Kドリームスの url のレースは払戻一覧（1日1ページ・`sanpuku.js` のパーサー）。
+  - `results.js` / `gitfill.js`: Kドリームスの url のレースと、WINTICKET で取れなかったレースは払戻一覧（`kdHarai`。3連複の配当も同じページ）。確定オッズは results.yml の `odds.js 3 --apply` を戻した（既にあるレースは触らない）。
+  - PC（日本）は今まで通り WINTICKET で取れる（pc/runner.js の予備の fetch.js も同じ）。
+- **Kドリームスで取った日に無いもの**
+  - **AI予想（Ⓐの判定に使う）**: WINTICKET にしか無い。GitHub で作った races.json には `ai` が無いので、**Ⓐはアプリにも自動投票にも出ない**（aifav.js が「AI予想が無い」で見送り）。
+  - H（ホーム回数）: 予想には使っていない（§4-48）。`riders[12]` が null になるだけ。
+  - 倍率の「HH:MM現在」は Kドリームスの画面の表示（WINTICKET の oddsUpdatedAt と同じ意味）。
+- **止まっていた分**: 11/14 の 17時台より後の結果は、今夜の results.yml（gitfill.js の直近3日）が Kドリームスの払戻一覧から埋める。11/15 の朝〜15時の締切前の倍率は記録できていない。
+- **PC**: 心拍（odds-snap の pc/heartbeat.json）は 2026-11-03 20:58 が最後。PC は止まったまま（自動投票も動いていない）。
 
 ## 5. 次にやること
 
