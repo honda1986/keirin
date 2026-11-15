@@ -286,8 +286,15 @@ async function main() {
     // WINTICKET から1件も取れない(海外から止められている・メンテナンス・開催なし)→ Kドリームス
     if (SRC !== "kd") console.log("→ Kドリームスで取ります");
     const idxUrl = `https://keirin.kdreams.jp/odds/${d.slice(0, 4)}/${d.slice(5, 7)}/${d.slice(8, 10)}/`;
-    try { list = parseDayIndex(await get(idxUrl)); }
+    let idxHtml = "";
+    try { idxHtml = await get(idxUrl); list = parseDayIndex(idxHtml); }
     catch (e) { console.error("Kドリームスの日別一覧の取得に失敗:", e.message); process.exit(1); }
+    // Kドリームスは夜中(月曜 1:00〜7:00 など)にメンテナンスがあり、そのあいだは 200 で「メンテナンス中」のページだけを返す(2026-11-16 に確認)
+    if (!list.length && /メンテナンス/.test(idxHtml)) {
+      const m = idxHtml.replace(/<[^>]+>/g, " ").match(/メンテナンス時間[：:]\s*([\d:：～〜~\s-]+)/);
+      console.error("Kドリームスはメンテナンス中です" + (m ? "(" + m[1].trim() + ")" : "") + "。終わってから取り直してください");
+      process.exit(3);
+    }
     console.log("Kドリームスの日別一覧からレース:", list.length, "件");
   }
   console.log("今日のレース:", list.length, "件");

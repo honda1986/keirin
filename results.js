@@ -566,7 +566,10 @@ async function kdHarai(dH) {
   const [y, mo, d] = dH.split("-");
   const url = `https://keirin.kdreams.jp/harailist/${y}/${mo}/${d}/`;
   try {
-    const day = require("./sanpuku.js").parseHaraiList(await get(url));
+    const html = await get(url);
+    const day = require("./sanpuku.js").parseHaraiList(html);
+    // 夜中のメンテナンス(月曜 1:00〜7:00 など)は 200 で「メンテナンス中」のページ。0件として扱わず、取れなかった日にする(次の回が埋める)
+    if (!Object.keys(day).length && /メンテナンス/.test(html)) { console.error("払戻一覧: Kドリームスはメンテナンス中", dH); return null; }
     console.log("払戻一覧取得:", dH, "→", Object.keys(day).length, "レース");
     return day;
   } catch (e) { console.error("harai-list skip:", url, e.message); return null; }
