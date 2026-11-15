@@ -31,6 +31,7 @@ jobs:
       - name: 朝5時(JST)まで待つ(夜中の定時実行のとき)
         if: github.event_name == 'schedule'
         run: |
+          echo "JOB_T0=$(date +%s)" >> "$GITHUB_ENV"
           h=$(TZ=Asia/Tokyo date +%-H)
           if [ "$h" -lt 5 ]; then
             w=$(( $(TZ=Asia/Tokyo date -d "05:00" +%s) - $(date +%s) ))
@@ -43,8 +44,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      # Kドリームスは夜中(月曜 1:00〜7:00 など)にメンテナンスがある(2026-11-16)。WINTICKET は海外から取れないので(§4-57)、
+      # その時間に取れなかったら 07:03 まで待って1回だけ取り直す
       - name: レース取得
-        run: node fetch.js
+        run: |
+          node fetch.js && exit 0
+          h=$(TZ=Asia/Tokyo date +%-H)
+          if [ "$h" -ge 1 ] && [ "$h" -lt 7 ]; then
+            w=$(( $(TZ=Asia/Tokyo date -d "07:03" +%s) - $(date +%s) ))
+            used=$(( ($(date +%s) - ${JOB_T0:-$(date +%s)}) / 60 ))
+            if [ $(( used + w / 60 )) -gt 320 ]; then echo "07:03 まで待つとジョブの時間(330分)を超えるので、後の予備の回に任せます"; exit 1; fi
+            echo "$(TZ=Asia/Tokyo date +%H:%M) JST。取れなかったので 07:03 まで $((w / 60)) 分待って取り直します"
+            sleep "$w"
+            node fetch.js
+          else
+            exit 1
+          fi
       # PC が送った今日の AI予想(Ⓐ用)を races.json に足す(2026-11-15〜。WINTICKET が海外から取れないため・hikitsugi §4-58)
       - name: AI予想を足す
         continue-on-error: true
