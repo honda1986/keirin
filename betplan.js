@@ -141,6 +141,22 @@ function remoteSnaps(today, notes) {
   return j && j.date === today ? j : null;
 }
 
+// ---- PC が取った今日の AI予想(aiget.js が snapwork/ai/日付.json に書く。2026-11-15〜・hikitsugi §4-58) ----
+//   GitHub の races.json は WINTICKET が海外から取れない日は ai が無い(Kドリームスで取るため)。GitHub が足すのを待たずに、
+//   手元のファイルで ai が無い S級のレースに足す(Ⓐの判定に使う)
+function withLocalAi(races, today) {
+  let j = null;
+  try { j = JSON.parse(fs.readFileSync(path.join(WORK, "ai", today + ".json"), "utf8")); } catch (e) { return 0; }
+  if (!j || j.date !== today || !j.ai) return 0;
+  let n = 0;
+  for (const r of races) {
+    if (raceDay8(r) !== today || (Array.isArray(r.ai) && r.ai.length === 4)) continue;
+    const a = j.ai[r.key];
+    if (Array.isArray(a) && a.length === 4) { r.ai = a; n++; }
+  }
+  return n;
+}
+
 // ---- 1レースの判定(index.html の evOfRow / evInfo と同じ) ----
 // モデルD: そのレースの買う組(全部)
 function judgeD(r, snap) {
@@ -189,6 +205,8 @@ function main() {
   const today = day8Of(now);
   const notes = [];
   const { races, from } = loadRaces(today, notes);
+  const aiLocal = withLocalAi(races, today);
+  if (aiLocal) notes.push("AI予想を手元のファイルから " + aiLocal + "R 足しました(aiget.js)");
   const hot = races.filter((r) => r.plan && r.plan.hot && raceDay8(r) === today && r.plan.ticket);
 
   const local = localSnaps(today);

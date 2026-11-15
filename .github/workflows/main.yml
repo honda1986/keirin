@@ -45,6 +45,10 @@ jobs:
           node-version: 20
       - name: レース取得
         run: node fetch.js
+      # PC が送った今日の AI予想(Ⓐ用)を races.json に足す(2026-11-15〜。WINTICKET が海外から取れないため・hikitsugi §4-58)
+      - name: AI予想を足す
+        continue-on-error: true
+        run: node aimerge.js
       - name: コミット
         run: |
           git config user.name "race-bot"
