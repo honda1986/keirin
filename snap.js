@@ -53,6 +53,9 @@ const { toText: toText2, array2 } = require("./odds2parse.js");
 // 2026-10-23 から倍率は WINTICKET(wt.js)。races.json の url が WINTICKET の出走表になった(fetch.js)。
 //   3連複・2車単・2車複はページの JSON に全組そろっている。「HH:MM現在」は oddsUpdatedAt(hikitsugi §4-47)
 const WT = require("./wt.js");
+// 2026-11-15 から、WINTICKET が取れない日(GitHub は海外なので止められる)は races.json の url が Kドリームスになる(fetch.js)。
+//   そのレースは 2026-10-22 までと同じく Kドリームスの3連複のオッズ画面(人気順・高配当順の一覧)と2車単・2車複を読む(hikitsugi §4-57)
+const kdOf = (url) => { const m = String(url || "").match(/keirin\.kdreams\.jp\/([a-z]+)\/racedetail\/(\d{16})/); return m ? { roma: m[1], rid: m[2] } : null; };
 const CLOSE_BEFORE = 5;         // 締切は発走の5分前(index.html と同じ)
 const BUDGET_MS = 50 * 1000;    // 1回の持ち時間。超えたら残りは次の回へ
 const WAIT_MS = 700;            // 1リクエストごとの間隔(並列にしない)
@@ -154,8 +157,10 @@ async function main() {
     const prev = st.last[x.key] || 0;
     const every = left <= HOT_LAST_MIN ? HOT_EVERY_SEC : EVERY_SEC;
     if (Date.now() - prev < every * 1000) continue;
+    const kd = kdOf(x.url);
+    if (kd) { todo.push({ x, left, kd, rid: kd.rid }); continue; }
     const u = WT.parseUrl(x.url);
-    if (!u) { console.log("  " + x.key + ": レースURLが無い(WINTICKET の出走表でない)"); continue; }
+    if (!u) { console.log("  " + x.key + ": レースURLが無い(WINTICKET・Kドリームスの出走表でない)"); continue; }
     todo.push({ x, left, u, rid: u.cupId + "/" + u.index + "/" + u.no });
   }
   if (!todo.length) return;
@@ -163,11 +168,24 @@ async function main() {
   console.log(hms(), "締切" + WIN_LO + "〜" + WIN_HI + "分前 " + todo.length + "レース");
 
   const rows = [];
-  for (const { x, left, u, rid } of todo) {
+  for (const { x, left, u, kd, rid } of todo) {
     if (Date.now() - t0 > BUDGET_MS) { console.log("  持ち時間切れ。残りは次の回へ"); break; }
     let n = Array.isArray(x.riders) && x.riders.length ? x.riders.length : (x.plan && x.plan.cars) || 0;
     let p;
-    try {
+    if (kd) {
+      // Kドリームス(2026-10-22 までと同じ読み方)
+      try {
+        const html = await fetchText("https://keirin.kdreams.jp/" + kd.roma + "/racedetail/" + kd.rid + "/?pageType=odds&kakeshikiType=3renhuku");
+        const q = parseTrio(html);
+        const cs0 = combos(n || 9);
+        const extra = [...q.odds.keys()].filter((k) => !cs0.includes(k)).length;   // 車立ての読み違い
+        p = { o: cs0.map((k) => (q.odds.has(k) ? q.odds.get(k) : null)), upd: q.upd, t2: [], f2: [], clash: q.clash, extra };
+        if (left <= TWO_CAR_LAST_MIN && n) {
+          try { const txt = toText2(html); p.t2 = array2("2t", txt, n); p.f2 = array2("2f", txt, n); }
+          catch (e) { console.log("  " + x.key + ": 2車のオッズが読めない(" + e.message + ")"); }
+        }
+      } catch (e) { console.log("  " + x.key + ": 取得失敗(Kドリームス " + e.message + ")"); await sleep(WAIT_MS); continue; }
+    } else try {
       // ★WINTICKET のページは CDN に最長60秒残る(s-maxage=60)。倍率そのものは締切前は1分おきに新しくなるので、
       //   キャッシュの分だけ古い倍率を読んでいた(締切2分前の記録が Kドリームスより約1分古い)。自動投票が決める
       //   締切 HOT_LAST_MIN 分前からだけ、URL に時刻を付けてキャッシュを通さずに取る(2026-10-23 のミッドナイトで確かめた)
@@ -196,7 +214,8 @@ async function main() {
     rows.push(row);
     st.last[x.key] = Date.now();
     const bad = o.filter((v) => v != null && v >= 9999).length;
-    console.log("  " + x.key + " 締切" + row.left + "分前 " + (p.upd || "?") + "現在 " + got + "/" + cs.length + "組" +
+    console.log("  " + x.key + " 締切" + row.left + "分前 " + (p.upd || "?") + "現在 " + got + "/" + cs.length + "組" + (kd ? "(Kドリームス)" : "") +
+      (p.clash ? " ★人気順と高配当順で倍率が違う組 " + p.clash : "") + (p.extra ? " ★車立てと合わない組 " + p.extra : "") +
       (bad ? " (9999.9=" + bad + ")" : "") +
       (row.t2 ? " / 2車単" + row.t2.filter((v) => v != null).length + "・2車複" + (row.f2 || []).filter((v) => v != null).length + "組" : ""));
     await sleep(WAIT_MS);
