@@ -17,7 +17,7 @@
 //   5. 最新の倍率を odds-live ブランチへ送る(snap_live.js。新しい記録があれば毎分、無くても5分おき)
 //      ・アプリが期待値の計算に読む。これが PC の心拍も兼ねる
 //      ・GitHub の snap.yml は、PC の更新が15分以上止まると「PC が止まった」として代わりに記録を始める
-//   5b. 今日のS級レースの WINTICKET の AI予想を取り(aiget.js。10分おき・1回15Rまで)、新しく取れたら
+//   5b. 今日のS級レースの WINTICKET の AI予想を取り(aiget.js。5時から10分おき・1回15Rまで)、新しく取れたら
 //      合言葉で暗号化して odds-snap ブランチの ai/日付.json へすぐ送る(2026-11-15〜。WINTICKET が海外からの
 //      アクセスを止めたので、GitHub では AI予想が取れない。GitHub の aimerge.js が races.json に足す・hikitsugi §4-58)
 //   6. 1時間おきに odds-snap ブランチへ記録のまとめ(snap/日付.json.gz)を送る
@@ -187,7 +187,7 @@ const needLogin = (out) => /Authentication|could not read Username|terminal prom
 
 // ---- 5b. AI予想(Ⓐ用)を取って送る ----
 function aiOnce(st) {
-  if (DRY || jst().getUTCHours() < 6) return;
+  if (DRY || jst().getUTCHours() < 5) return;   // 5時から(朝5時の出走表のあと。始発 8:30 までに Ⓐ をそろえる)
   if (minsSince(st.lastAi) < AI_EVERY_MIN) return;
   st.lastAi = Date.now();
   saveState(st);
