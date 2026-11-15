@@ -50,13 +50,22 @@ jobs:
             H=$(TZ=Asia/Tokyo date +%-H)
             if [ "$H" -ge 1 ] && [ "$H" -lt 8 ]; then echo "レースの時間外(JST ${H}時)なので終わります"; NIGHT=1; break; fi
             if [ "$(date +%s)" -ge "$END" ]; then echo "5時間40分たったので区切ります"; RELAY=1; break; fi
-            git pull -q --rebase --autostash origin main || true      # 新しい races.json を取り込み、push の競合も避ける
+            # 新しい races.json を取り込み、push の競合も避ける。取り込めなければ(races.json がぶつかった等)手元を捨てて main に合わせる
+            git pull -q --rebase --autostash origin main || { git rebase --abort 2>/dev/null; git fetch -q origin main && git reset -q --hard origin/main; } || true
+            # PC が送った今日の AI予想(Ⓐ用)を races.json に足す(2026-11-15〜。WINTICKET が海外から取れないため・hikitsugi §4-58)
+            node aimerge.js || echo "AI予想を足せませんでした(次の回でまた見ます)"
             node live.js || echo "今回は取得できませんでした(次の回でまた取ります)"
-            git add results-today.json 2>/dev/null || true
+            git add results-today.json races.json 2>/dev/null || true
             if ! git diff --cached --quiet; then
               git commit -q -m "live results"
               for i in 1 2 3 4 5 6; do
                 if git pull -q --rebase --autostash origin main && git push -q; then echo "push成功"; break; fi
+                git rebase --abort 2>/dev/null || true
+                if [ "$i" -ge 3 ]; then
+                  # 出走表の取り直し(main.yml)と races.json がぶつかったとき。手元を捨てて、次の回(10分後)に足し直す
+                  echo "races.json がぶつかるので、この回の分は捨てて次の回にやり直します"
+                  git fetch -q origin main && git reset -q --hard origin/main; break
+                fi
                 echo "競合のためリトライ $i/6"; sleep 6
               done
             fi

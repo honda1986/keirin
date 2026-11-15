@@ -319,6 +319,11 @@ async function main() {
     const have = new Set(races.map((x) => x.key));
     const kept = same.filter((x) => !have.has(x.key));
     if (kept.length) { races.push(...kept); console.log(" 前回の races.json から残したレース:", kept.length, "件"); }
+    // Kドリームスで取り直すと AI予想が無い。PC が送って aimerge.js が足した ai は残す(2026-11-15〜・hikitsugi §4-58)
+    const prevAi = new Map(same.filter((x) => Array.isArray(x.ai) && x.ai.length === 4).map((x) => [x.key, x.ai]));
+    let keptAi = 0;
+    for (const e of races) if (!(Array.isArray(e.ai) && e.ai.length === 4) && prevAi.has(e.key) && e.klass === "s") { e.ai = prevAi.get(e.key); keptAi++; }
+    if (keptAi) console.log(" 前回の races.json から残した AI予想:", keptAi, "件");
   } catch (e) { /* 前回が無い・読めない(合言葉なし)ときは今回の分だけ */ }
 
   races.sort((a, b) => (a.startTime || "99:99").localeCompare(b.startTime || "99:99") || a.place.localeCompare(b.place));

@@ -17,6 +17,9 @@
 //   5. 最新の倍率を odds-live ブランチへ送る(snap_live.js。新しい記録があれば毎分、無くても5分おき)
 //      ・アプリが期待値の計算に読む。これが PC の心拍も兼ねる
 //      ・GitHub の snap.yml は、PC の更新が15分以上止まると「PC が止まった」として代わりに記録を始める
+//   5b. 今日のS級レースの WINTICKET の AI予想を取り(aiget.js。10分おき・1回15Rまで)、新しく取れたら
+//      合言葉で暗号化して odds-snap ブランチの ai/日付.json へすぐ送る(2026-11-15〜。WINTICKET が海外からの
+//      アクセスを止めたので、GitHub では AI予想が取れない。GitHub の aimerge.js が races.json に足す・hikitsugi §4-58)
 //   6. 1時間おきに odds-snap ブランチへ記録のまとめ(snap/日付.json.gz)を送る
 //      ・リモートを土台に置き直してから足し合わせる(rebase も --force も使わない)
 //      ・送れなくても何も消さない。次の回がまた送る
@@ -45,6 +48,8 @@ const PUSH_EVERY_MIN = 60;       // odds-snap(記録の保存)へ送る間隔。
                                  //   書き直すので、10分おきだと1年で1GB 以上に膨らむ。記録は PC にも14日残る。
                                  //   心拍と最新の倍率は snap_live.js が odds-live(履歴なし)へ毎分〜5分おきに送る
 const LOCAL_FETCH_EVERY_MIN = 20;
+const AI_EVERY_MIN = 10;         // AI予想(Ⓐ用)を見に行く間隔。取りに行くレースが無ければ通信しない
+const AI_MAX = 15;               // 1回に取るレース数(締切前の倍率の記録を遅らせないため。残りは次の回)
 const KEEP_DAYS = 14;            // snapwork の日別記録を残す日数(送り終わったものを掃除する)
 
 // ★git に「人に聞く」をさせない(v24 で実機が固まった)。タスクスケジューラには画面が無いので、
@@ -164,21 +169,66 @@ function snapOnce() {
 function countToday() {
   try { return fs.readFileSync(path.join(WORK, today8() + ".jsonl"), "utf8").split("\n").filter((l) => l.trim()).length; } catch (e) { return 0; }
 }
+// 記録用の作業フォルダ(odds-snap ブランチ)をリモートの最新にする。できなければ false
+function prepSnapbr() {
+  const f = git(["fetch", "-q", "origin", "refs/heads/odds-snap"]);
+  if (!f.ok) { log("odds-snap を取れず(次の回に持ち越し): " + f.out.split("\n").pop()); return false; }
+  if (!fs.existsSync(path.join(SNAPBR, ".git"))) {
+    git(["worktree", "prune"]);
+    const w = git(["worktree", "add", "-q", "--detach", SNAPBR, "FETCH_HEAD"]);
+    if (!w.ok) { log("記録用の作業フォルダを作れず: " + w.out.split("\n").pop()); return false; }
+  }
+  const f2 = git(["fetch", "-q", "origin", "refs/heads/odds-snap"], { cwd: SNAPBR });
+  const rs = f2.ok && git(["reset", "-q", "--hard", "FETCH_HEAD"], { cwd: SNAPBR });
+  if (!f2.ok || !rs.ok) { log("記録用の作業フォルダを最新にできず(次の回に持ち越し)"); return false; }
+  return true;
+}
+const needLogin = (out) => /Authentication|could not read Username|terminal prompts disabled|403|401/i.test(out);
+
+// ---- 5b. AI予想(Ⓐ用)を取って送る ----
+function aiOnce(st) {
+  if (DRY || jst().getUTCHours() < 6) return;
+  if (minsSince(st.lastAi) < AI_EVERY_MIN) return;
+  st.lastAi = Date.now();
+  saveState(st);
+  const out = path.join(WORK, "ai", today8() + ".json");
+  const r = node([path.join(REPO, "aiget.js"), "--out", out, "--max", String(AI_MAX)], { timeout: 4 * 60 * 1000 });
+  if (!r.ok || (r.out && !/取りに行くレースなし/.test(r.out))) log(r.out || "aiget.js が失敗");   // 何もしなかった回はログに出さない
+}
+function pushAi(st) {
+  if (DRY) return;
+  const t = today8();
+  let j;
+  try { j = JSON.parse(fs.readFileSync(path.join(WORK, "ai", t + ".json"), "utf8")); } catch (e) { return; }
+  if (!j || j.date !== t || !j.updatedAt || st.aiPushed === j.updatedAt) return;
+  const DF = require(path.join(REPO, "datafile.js"));
+  if (!DF.hasKey()) {   // 暗号化できないなら送らない(odds-snap は誰でも読める)
+    if (st.aiNoKey !== t) { st.aiNoKey = t; log("★AI予想を送れません: 合言葉が設定されていません。pc\\set_pass.bat で入れてください"); }
+    return;
+  }
+  for (let a = 1; a <= 3; a++) {
+    if (!prepSnapbr()) return;
+    fs.mkdirSync(path.join(SNAPBR, "ai"), { recursive: true });
+    fs.writeFileSync(path.join(SNAPBR, "ai", t + ".json"), DF.stringify(j, { date: t, updatedAt: j.updatedAt }));
+    const ad = git(["add", "ai"], { cwd: SNAPBR });
+    if (!ad.ok) { log("AI予想を送る準備に失敗: " + ad.out.split("\n").pop()); return; }
+    if (git(["diff", "--cached", "--quiet"], { cwd: SNAPBR }).ok) { st.aiPushed = j.updatedAt; return; }
+    const c = git(["-c", "user.name=keirin-pc", "-c", "user.email=keirin-pc@users.noreply.github.com",
+      "commit", "-q", "-m", "ai (PC) " + jst().toISOString().slice(0, 16).replace("T", " ")], { cwd: SNAPBR });
+    if (!c.ok) { log("AI予想の commit に失敗: " + c.out.split("\n").pop()); return; }
+    const p = git(["push", "-q", "origin", "HEAD:refs/heads/odds-snap"], { cwd: SNAPBR });
+    if (p.ok) { st.aiPushed = j.updatedAt; log("AI予想を送りました(" + Object.keys(j.ai || {}).length + "R)"); return; }
+    log("AI予想を送れず(" + a + "/3): " + p.out.split("\n").pop());
+    if (needLogin(p.out)) { log("★GitHub のログインが要ります。pc\\setup.bat をダブルクリックして、画面のある窓で1回ログインしてください"); return; }
+  }
+}
+
 function pushSnap(st) {
   if (DRY) return;
   if (minsSince(st.lastPush) < PUSH_EVERY_MIN) return;
   st.lastPush = Date.now();
   for (let a = 1; a <= 3; a++) {
-    const f = git(["fetch", "-q", "origin", "refs/heads/odds-snap"]);
-    if (!f.ok) { log("odds-snap を取れず(次の回に持ち越し): " + f.out.split("\n").pop()); return; }
-    if (!fs.existsSync(path.join(SNAPBR, ".git"))) {
-      git(["worktree", "prune"]);
-      const w = git(["worktree", "add", "-q", "--detach", SNAPBR, "FETCH_HEAD"]);
-      if (!w.ok) { log("記録用の作業フォルダを作れず: " + w.out.split("\n").pop()); return; }
-    }
-    const f2 = git(["fetch", "-q", "origin", "refs/heads/odds-snap"], { cwd: SNAPBR });
-    const rs = f2.ok && git(["reset", "-q", "--hard", "FETCH_HEAD"], { cwd: SNAPBR });
-    if (!f2.ok || !rs.ok) { log("記録用の作業フォルダを最新にできず(次の回に持ち越し)"); return; }
+    if (!prepSnapbr()) return;
     const pk = node([path.join(REPO, "snap_pack.js"), path.join(SNAPBR, "snap")]);
     if (!pk.ok) { log("まとめに失敗: " + pk.out.split("\n").pop()); return; }
     fs.mkdirSync(path.join(SNAPBR, "pc"), { recursive: true });
@@ -197,7 +247,7 @@ function pushSnap(st) {
     const p = git(["push", "-q", "origin", "HEAD:refs/heads/odds-snap"], { cwd: SNAPBR });
     if (p.ok) { log("odds-snap に送りました(今日の記録 " + countToday() + "回ぶん)"); return; }
     log("送れず(" + a + "/3): " + p.out.split("\n").pop());
-    if (/Authentication|could not read Username|terminal prompts disabled|403|401/i.test(p.out)) {
+    if (needLogin(p.out)) {
       log("★GitHub のログインが要ります。pc\\setup.bat をダブルクリックして、画面のある窓で1回ログインしてください");
       return;
     }
@@ -228,6 +278,8 @@ function main() {
     if (!snapOnce()) code = 1;
     // 最新の倍率をアプリ用に送る(新しい記録があれば毎分・無くても5分おき。これが PC の心拍になる)
     if (!DRY) { const lv = node([path.join(REPO, "snap_live.js"), "--push", "--source", "PC"], { timeout: 90 * 1000 }); if (lv.out) log(lv.out); }
+    try { aiOnce(st); } catch (e) { log("AI予想の取得で例外: " + e.message); }
+    try { pushAi(st); } catch (e) { log("AI予想を送る処理で例外: " + e.message); }
     try { pushSnap(st); } catch (e) { log("送る処理で例外: " + e.message); }
     saveState(st);
     cleanup();
@@ -240,4 +292,6 @@ function main() {
   return code;
 }
 
-process.exitCode = main();
+// 直接動かしたときだけ(テストは部品を require して使う)
+if (require.main === module) process.exitCode = main();
+else module.exports = { aiOnce, pushAi, prepSnapbr, needLogin };
