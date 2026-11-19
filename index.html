@@ -296,6 +296,7 @@
   .kb.a { background: rgba(196,150,255,.16); color: #C496FF; }
   .kb.ref { background: var(--panel2); color: var(--dim); }
   .kb.b1 { background: rgba(95,192,139,.16); color: var(--green); }
+  .kb.fav { background: rgba(234,242,239,.10); color: var(--text, #EAF2EF); border: 1px solid rgba(234,242,239,.18); }
   .buyset { margin: 0 0 10px; font-size: 12px; }
   .buyset .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line, rgba(127,127,127,.15)); }
   .buyset .row > span { flex: 1; min-width: 0; }
@@ -579,6 +580,7 @@
 </nav>
 <script src="evd.js?v=20261111"></script>
 <script src="aifav.js"></script>
+<script src="fav2.js?v=20261119"></script>
 <script src="front.js"></script>
 <script src="tenkai.js"></script>
 <script>
@@ -1727,6 +1729,20 @@ function isShoubu(ranked, lines, ss, seri) {
   const pl = f3PlanFrom(ranked || [], lines || [], { ss, seri });
   return !!(pl && pl.hot);
 }
+// ---- 参考: 3連複の1番人気が2倍以下のとき、その1番人気が当たる見込み(fav2.js。2026-11-19〜・hikitsugi §4-61。買い方には使わない) ----
+const FAV2_IN = {};        // レース → fav2.js の材料(renderShoubu が出走表を読んだときに入れる)
+let FAV2_MAP = {};         // レース → { ticket, odds, p }(今の倍率で。paintShoubu が入れる)
+function fav2Map() {
+  const out = {};
+  if (typeof FAV2 === "undefined" || !LIVE_ODDS || !LIVE_ODDS.races) return out;
+  for (const k of Object.keys(FAV2_IN)) {
+    const s = LIVE_ODDS.races[k], f = FAV2_IN[k];
+    if (!s || !Array.isArray(s.o) || (s.n && s.n !== f.n)) continue;
+    const j = FAV2.judge(f, s.o);
+    if (j) out[k] = { ticket: j.ticket, odds: j.odds, p: j.p };
+  }
+  return out;
+}
 function renderShoubu() {
   if (!$("shoubuCard")) return;
   const rows = [];
@@ -1740,6 +1756,8 @@ function renderShoubu() {
       r = predict(p, T[tn], tn, LEARN_W);
       pl = f3Plan(p, r);
     } catch (e) { continue; }
+    // 1番人気(3連複・2倍以下)の見込み(fav2.js)の材料。倍率が届いたら paintShoubu が計算する
+    if (typeof FAV2 !== "undefined") FAV2_IN[x.key] = { n: p.entries.length, place: p.place || x.place, lines: p.lines || [], E: FAV2.ridersOf(p.entries) };
     if (!pl || !pl.hot || !pl.trio) continue;
     rows.push({
       key: x.key, startTime: x.startTime || p.startTime || "",
@@ -1818,7 +1836,8 @@ function renderRaceList() {
     if (folded) continue;
     html += '<div class="vbox">' + rs.map((x) => '<div class="rrow' + (x.shoubu ? " hot" : "") + '" onclick="loadRace(\'' + esc2(x.key).replace(/'/g, "\\'") + '\')">' +
       '<span class="rno">' + rnoOf(x) + 'R</span><span class="rt">' + (x.startTime || "") + '</span><span class="rl">' + mini(x) + "</span>" +
-      '<span class="rr">' + (x.shoubu ? '<span class="kb hot">🔥</span>' : "") + (D_KEYS.has(x.key) ? '<span class="kb d">Ⓓ</span>' : "") + (A_KEYS.has(x.key) ? '<span class="kb a">Ⓐ</span>' : "") + resultChip(x) + "</span></div>").join("") + "</div>";
+      '<span class="rr">' + (x.shoubu ? '<span class="kb hot">🔥</span>' : "") + (D_KEYS.has(x.key) ? '<span class="kb d">Ⓓ</span>' : "") + (A_KEYS.has(x.key) ? '<span class="kb a">Ⓐ</span>' : "") +
+      (FAV2_MAP[x.key] ? '<span class="kb fav" title="3連複の1番人気(' + FAV2_MAP[x.key].odds + '倍)が当たる見込み。参考・買い方ではない">本命' + Math.round(FAV2_MAP[x.key].p * 100) + "%</span>" : "") + resultChip(x) + "</span></div>").join("") + "</div>";
   }
   box.innerHTML = html || '<div class="empty">' + (searchFilter === "shoubu" ? "🔥・Ⓓ・Ⓐ のレースは今のところありません（「すべて」で全レース。Ⓓ・Ⓐは締切15分前から）" : "該当なし") + "</div>";
 }
@@ -2866,6 +2885,27 @@ function paintBuy(p, r, b) {
   html += '<div class="buysec' + (aOn ? " on" : "") + '"><div class="buyh"><span class="kb a">Ⓐ</span>AI外しの1番人気' +
     '<small style="font-weight:500;color:var(--muted);font-size:11px">S級・ライン3人の1番人気・AIがそろえていない・4倍以上</small>' + aV + "</div>" + ah +
     '<div class="buynote">確定オッズでさかのぼると 2025年1月〜2026年10月で 1,138R・回収114.7%（締切前の倍率では確かめていない）。</div></div>';
+  // ---- 参考: 1番人気(3連複・2倍以下)が当たる見込み(fav2.js。買い方ではない) ----
+  //   今日のレースで、今の倍率(締切まで届く)の1番人気が2倍以下のときだけ出す。過去・貼り付けたレースは全部の組の倍率が無いので出さない
+  if (today && typeof FAV2 !== "undefined") {
+    const allS = LIVE_ODDS && LIVE_ODDS.races ? LIVE_ODDS.races[today.key] : null, nE = (p.entries || []).length;
+    const fj = allS && Array.isArray(allS.o) && (!allS.n || allS.n === nE) ? FAV2.judge({ n: nE, place: p.place || place, lines: p.lines || [], E: FAV2.ridersOf(p.entries) }, allS.o) : null;
+    if (fj) {
+      const pc = Math.round(fj.p * 100), pc0 = Math.round(fj.p0 * 100);
+      const fr = f3ResultOf(place, rno, fj.ticket), fdn = fr && !fr.pending;
+      const fv = fdn ? (fr.hit ? '<span class="buyv hit">✅ 当たった</span>' : '<span class="buyv skip">✗ 外れた</span>') : '<span class="buyv wait">見込み ' + pc + "%</span>";
+      const why = fj.parts.filter((q) => Math.abs(q.d) >= 0.5).map((q) => esc(q.label) + " " + (q.d > 0 ? "+" : "−") + Math.abs(q.d).toFixed(1) + "ポイント").join("・");
+      const t3 = fj.third;
+      const th = t3 ? "3番手（" + t3.car + "番）の競走得点は、相手でいちばん高い " + t3.opp + "番より " + Math.abs(t3.gap).toFixed(1) + "点" + (t3.gap >= 0 ? "高い" : "低い") +
+        "。この形で3番手が3着以内から消えたのは過去 " + t3.drop + "%（2倍以下の全体では " + t3.dropAll + "%）" + (t3.line4 ? "。本命ラインは4人以上で、3番手が崩れにくい形" : "") + "。倍率にほぼ入っているので、見込みには足していません。" : "";
+      html += '<div class="buysec"><div class="buyh"><span class="kb fav">本命</span>1番人気が当たる見込み' +
+        '<small style="font-weight:500;color:var(--muted);font-size:11px">3連複の1番人気が' + FAV2.MAX_ODDS.toFixed(1) + "倍以下のとき・参考（買い方ではない）</small>" + fv + "</div>" +
+        '<div class="buyd">' + ticketBalls(fj.ticket, "s") + '<span class="o">' + fj.odds + "倍</span><span>1番人気</span>" + '<span class="v">' + pc + "%</span></div>" +
+        '<div class="buynote">これまでの検証をまとめた見込み <b>' + pc + "%</b>（倍率だけなら " + pc0 + "%）" + (why ? "。" + why : "。ほかの条件では動いていません") + "。" + whenOf(allS) + "の倍率で計算。</div>" +
+        (th ? '<div class="buynote">' + th + "</div>" : "") +
+        '<div class="buynote" style="font-size:11px;color:var(--muted)">2022年〜2026年10月の「1番人気が2倍以下」22,032R（確定オッズ）で作った目安です。見込みどおり当たっても配当が安く、こうした1番人気を買い続けた回収は約8割でした。</div></div>';
+    }
+  }
   // 直近の事故(買い方の判定には入っていない)
   const kiken = (p.entries || []).filter((e) => e.kiken).map((e) => e.car);
   if (kiken.length) html += '<div class="buynote" style="font-size:11px;color:var(--gold)">⚠ ' + kiken.join("・") + "番は直近に棄権・落車・失格あり（買う・見送るの判定には入っていません）</div>";
@@ -2903,8 +2943,10 @@ function paintShoubu() {
   const aAll = aRows();
   const arows = aAll.filter((x) => { const m = minsToClose(x.startTime); return m != null && m <= 20; });
   // 全レースの一覧の Ⓓ・Ⓐ 印(倍率が届いたレースのうち買い目があるもの)
-  const dk = new Set(dAll.map((x) => x.key)), ak = new Set(aAll.map((x) => x.key)), sig = [...dk].sort().join(",") + "|" + [...ak].sort().join(",");
-  if (sig !== D_SIG) { D_KEYS = dk; A_KEYS = ak; D_SIG = sig; renderRaceList(); }
+  const fm = fav2Map();
+  const dk = new Set(dAll.map((x) => x.key)), ak = new Set(aAll.map((x) => x.key)),
+    sig = [...dk].sort().join(",") + "|" + [...ak].sort().join(",") + "|" + Object.keys(fm).sort().map((k) => k + ":" + Math.round(fm[k].p * 100)).join(",");
+  if (sig !== D_SIG) { D_KEYS = dk; A_KEYS = ak; FAV2_MAP = fm; D_SIG = sig; renderRaceList(); }
   const ord = { hot: 0, D: 1, A: 2 };
   const items = rows9.map((r) => ({ k: "hot", r })).concat(drows.map((r) => ({ k: "D", r })), arows.map((r) => ({ k: "A", r })))
     .sort((a, b) => byTime(a.r, b.r) || ord[a.k] - ord[b.k]);
