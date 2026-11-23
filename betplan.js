@@ -28,6 +28,8 @@
 //     使う倍率は判定と同じ記録(締切 DECIDE_MIN 分前より前の最後)。verdict は変えない。見送るかは bet/ の hot9_share2(既定 true)で決める
 //   ★2026-11-23(hikitsugi §4-63): 7車も。7車は本命ライン3人を全部🔥にした(engine.js)。s2Skip = 見送りか(9車 = 多い・7車 = 少なくない)。
 //     bet/ は s2Skip を見る(9車は hot9_share2・7車は hot7_share2)。s2Many は 9車だけ(前の形のまま)
+//   ★2026-11-23(hikitsugi §4-65): 7車の帯は締切前の倍率で 10〜15倍(hots2.js の BAND7.loPre〜hiPre。確定では9〜15倍にあたる)。
+//     races.json の plan が古い帯(4〜15倍)のままでも、ここで置き換える(9車の HOT9_BAND と同じ)
 //   ★2026-11-03(hikitsugi §4-50): Ⓐ「AI が外した1番人気ライン」(aifav.js)。kind:"A"・S級で AI予想(races.json の ai)があるレースだけ。
 //     締切前の倍率で、3連複の1番人気がライン3車・AI の4車にその3人がそろっていない・4倍以上なら verdict:"buy"(1点)。
 //     verdict: buy / none(条件に入らない。why に理由) / noAi / noOdds。🔥と同じ組なら sameAsHot、モデルDの組にあれば sameAsD(何点目か)
@@ -245,6 +247,7 @@ function main() {
   const hotOut = hot.map((r) => {
     const p = { ...r.plan }, c = closeOf(r), s = snapOf(r);
     if (p.cars >= 8) { p.needOdds = true; p.bandLo = HOT9_BAND[0]; p.bandHi = HOT9_BAND[1]; }
+    else if (p.cars === 7) { p.needOdds = true; p.bandLo = HOTS2.BAND7.loPre; p.bandHi = HOTS2.BAND7.hiPre; }
     const delta = EV.deltaFromRiders(r.riders, r.lines, r.place);
     const j = judge(p, delta, s);
     const brk = typeof p.brk === "number" ? p.brk : null;

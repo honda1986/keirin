@@ -149,11 +149,17 @@ class TestBetplan(unittest.TestCase):
         self.assertIsNone(go(ai=()))
 
     def test_7車は帯の外なら見送り(self):
+        # 7車の帯は締切前の倍率で 10〜15倍（2026-11-23〜。hots2.js の BAND7）。races.json の plan が古い 4〜15倍でも置き換える
         r = race(cars=7, need=True)
-        x = self.hot(self.run_plan([r], [{"t": "15:00:10", "k": "岐阜_3R", "left": 4.8, "n": 7, "o": self.odds(7, 16.0, base=200.0)}]))[0]
-        self.assertEqual((x["verdict"], x["odds"]), ("skipBand", 16.0))
-        x = self.hot(self.run_plan([r], [{"t": "15:00:10", "k": "岐阜_3R", "left": 4.8, "n": 7, "o": self.odds(7, 5.0, base=200.0)}]))[0]
-        self.assertIn(x["verdict"], ("buy", "skipEv"))
+        go = lambda v: self.hot(self.run_plan([r], [{"t": "15:00:10", "k": "岐阜_3R", "left": 4.8, "n": 7, "o": self.odds(7, v, base=200.0)}]))[0]
+        x = go(16.0)
+        self.assertEqual((x["verdict"], x["odds"], x["bandLo"], x["bandHi"]), ("skipBand", 16.0, 10, 15))
+        self.assertEqual((go(9.5)["verdict"], go(5.0)["verdict"]), ("skipBand", "skipBand"))   # 確定では9倍前後に下がるので、締切前は10倍から
+        self.assertFalse(go(9.9)["inBand"])
+        for v in (10.0, 12.0, 15.0):
+            x = go(v)
+            self.assertTrue(x["inBand"])
+            self.assertIn(x["verdict"], ("buy", "skipEv"))
 
     def test_票が薄い_倍率なし_本命でないレース(self):
         o = [9999.9] * 84
