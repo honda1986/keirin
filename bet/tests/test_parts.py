@@ -31,11 +31,15 @@ def cfg(**over):
 
 
 def race(close="15:05", verdict="buy", left=4.5, age=0.5, ev=1.2, odds=9.0, need=False, cars=9,
-         place="岐阜", rno=3, ticket="2=4=9", snap=True, kind="hot", same=False, bandlo=4, bandhi=15, tickets=None):
+         place="岐阜", rno=3, ticket="2=4=9", snap=True, kind="hot", same=False, bandlo=4, bandhi=15, tickets=None, loc="auto"):
     x = {"kind": kind, "key": f"{place}_{rno}R", "date": DATE, "place": place, "rno": rno, "raceNo": f"{rno}R",
             "close": close, "cars": cars, "ticket": ticket, "needOdds": need, "bandLo": bandlo if need else None,
             "bandHi": bandhi if need else None, "verdict": verdict, "ev": ev, "odds": odds, "sameAsHot": same,
             "snap": {"t": "14:59:30", "left": left, "age": age, "src": "PC"} if snap else None}
+    # 本命ラインの地元の位置(betplan.js の loc。2026-11-23〜)。7車は地元の番手・3番手のときだけ買う(既定)ので、
+    # ほかの条件を確かめるテストの7車は「番手が地元」(2)にしておく。9車は地元なし(0)。地元のテストは loc を渡す
+    if kind == "hot":
+        x["loc"] = (2 if cars < 8 else 0) if loc == "auto" else loc
     if tickets is not None:           # モデルDの複数点 [(組, 期待値, 倍率, 🔥と同じ?), ...]
         x["tickets"] = [{"ticket": t, "ev": e, "odds": o, "sameAsHot": sa} for t, e, o, sa in tickets]
         if tickets:
@@ -629,6 +633,47 @@ class TestHotLineBreak(unittest.TestCase):
     def test_2人だけ来る組_9車は_s2Skip_でも見る(self):
         x = self._race(brk=0.21, ok=True); x["s2Skip"] = True
         self.assertEqual(self.sel(plan(x), cfg()).bets, [])
+
+    def test_地元の番手の9車は金額を2倍(self):
+        x = self._race(brk=0.21, ok=True, loc=2)
+        r = self.sel(plan(x), cfg())
+        self.assertEqual([b.yen for b in r.bets], [200])                                   # 既定 2倍
+        self.assertEqual([b.yen for b in self.sel(plan(x), cfg(hot9_local_mult=3)).bets], [300])
+        self.assertEqual([b.yen for b in self.sel(plan(x), cfg(hot9_local_mult=1)).bets], [100])
+        self.assertEqual([b.yen for b in self.sel(plan(x), cfg(bet_yen=300)).bets], [600])
+        self.assertEqual(self.sel(plan(x), cfg(hot9_rest_yen=0)).bets, [])               # 買わない種類は買わないまま
+        for loc in (0, 1, None):
+            self.assertEqual([b.yen for b in self.sel(plan(self._race(brk=0.21, ok=True, loc=loc)), cfg()).bets], [100], loc)
+        self.assertEqual(config_mod.yen_for(cfg(), "hot", 9, True, 2), (200, "🔥9車（先頭のB率1位）・地元の番手で2倍"))
+        self.assertEqual(config_mod.yen_for(cfg(), "hot", 7, None, 2), (100, "🔥7車"))   # 7車は倍にしない
+        self.assertEqual(config_mod.yen_for(cfg(), "D", 9, None, 2)[0], 100)
+
+    def test_7車は先頭が地元なら見送り_地元の番手のときだけ買う(self):
+        c = cfg(hot7_mode="band")
+        r = self.sel(plan(self._race(cars=7, loc=1)), c)
+        self.assertEqual(r.bets, []); self.assertIn("先頭が地元", r.skips[0][1])
+        r = self.sel(plan(self._race(cars=7, loc=0)), c)
+        self.assertEqual(r.bets, []); self.assertIn("地元がいない", r.skips[0][1])
+        r = self.sel(plan(self._race(cars=7, loc=None)), c)
+        self.assertEqual(r.bets, []); self.assertIn("地元が分からない", r.skips[0][1])
+        self.assertEqual(len(self.sel(plan(self._race(cars=7, loc=2)), c).bets), 1)
+        # 設定を切れば今まで通り
+        self.assertEqual(len(self.sel(plan(self._race(cars=7, loc=0)), cfg(hot7_mode="band", hot7_local_only=False)).bets), 1)
+        self.assertEqual(self.sel(plan(self._race(cars=7, loc=1)), cfg(hot7_mode="band", hot7_local_only=False)).bets, [])
+        self.assertEqual(len(self.sel(plan(self._race(cars=7, loc=1)), cfg(hot7_mode="band", hot7_local_only=False, hot7_skip_local_head=False)).bets), 1)
+        # 9車は地元で見送らない
+        self.assertEqual(len(self.sel(plan(self._race(brk=0.21, ok=True, loc=1)), cfg()).bets), 1)
+
+    def test_地元の設定(self):
+        import settings
+        self.assertEqual((cfg().hot9_local_mult, cfg().hot7_skip_local_head, cfg().hot7_local_only), (2, True, True))
+        for bad in (0, 4, "2", 1.5):
+            with self.assertRaises(config_mod.ConfigError):
+                cfg(hot9_local_mult=bad)
+        keys = [k for _, k, _ in settings.ITEMS]
+        for k in ("hot9_local_mult", "hot7_skip_local_head", "hot7_local_only"): self.assertIn(k, keys)
+        self.assertEqual(settings.show({}, "hot9_local_mult", settings.MULT), "2倍")
+        self.assertEqual(settings.show({"hot9_local_mult": 1}, "hot9_local_mult", settings.MULT), "今まで通り（1倍）")
 
     def test_7車を買わない設定なら今日の数に入れない(self):
         p = plan(self._race(brk=0.21, ok=True), dict(self._race(cars=7), place="別府", rno=4, close="15:04"))

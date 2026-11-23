@@ -535,7 +535,9 @@ async function main() {
 //            (空き: アプリの今日の分は発走時刻), 期待値(無ければnull), 期待値の倍率の出どころ("s"=締切前の記録 / "f"=確定オッズ),
 //            本命ラインが切れる確率(2026-10-13〜・過去は hot-past.json。null = 不明), 先頭のB率1位(1/0。2026-10-14〜・過去は hot-past.json)]
 //            (どちらも分からない件は11個のまま)
-// 7車は「オッズ4〜15倍のときだけ買う」ので、確定オッズがあれば帯の外を見送り扱いにできるよう載せる。
+//            続き: 14番目 = 2人だけ来る組で見送り(1/0。§4-62・§4-63)・15番目 = 7車の締切前の倍率(§4-65)・16番目 = 本命ラインの地元の位置(0/1/2。§4-66)
+//            (分からない件は手前を null で埋めて、その位置まで)
+// 7車は「オッズ9〜15倍(締切前の倍率なら10〜15倍)のときだけ買う」ので、帯の中の行だけ残す。
 // 過去分は、いまの買い方(本命ライン3人・🔥条件)を当時の予想に当てはめたさかのぼり計算。
 const ODDS_CACHE = {};
 function oddsOf(dir, id, trio) {
@@ -644,6 +646,13 @@ function evForEntry(dir, e, d, ticket) {
 // 倍率の上限は、締切前の記録なら 23倍・確定オッズなら 20倍(evd.js の PICK.oddsHiPre / oddsHi)
 const EVD = require("./evd.js");
 const HOTS2 = require("./hots2.js");   // 🔥9車の「2人だけ来る組」(2026-11-23〜)
+const HOTLOC = require("./hotloc.js"); // 🔥の本命ラインの地元の位置(2026-11-23〜・hikitsugi §4-66)
+// history.json に府県が無い日(〜2026-09-25 ごろ)の🔥の [買い目, 地元の位置](hot-loc-past.json。府県は作り直した出走表、並びは history.json)
+let HOT_LOC_PAST = null;
+function hotLocPastOf(dir, id) {
+  if (HOT_LOC_PAST == null) { try { HOT_LOC_PAST = JSON.parse(fs.readFileSync(path.join(dir, "hot-loc-past.json"), "utf8")).loc || {}; } catch (x) { HOT_LOC_PAST = {}; } }
+  return HOT_LOC_PAST[id] || null;
+}
 let D_PAST = null;
 // 🔥9車の過去分の [買い目, 切れる確率, B率1位](hot-past.json。2025-01〜2026-10-13・作り直した出走表で、アプリの🔥と同じ買い目)。history に brk・b1 が無い日に使う
 let HOT_PAST = null;
@@ -745,6 +754,10 @@ function writeDaily(dir, byDate, rankedOf) {
       }
       // 15番目: 7車の買い目の締切前の倍率(判定と同じ時刻。§4-65)。アプリの成績はこれがあれば 10〜15倍、無ければ8番目(確定オッズ)で 9〜15倍を見る
       if (so7 != null) { while (row.length < 14) row.push(null); row.push(so7); }
+      // 16番目: 本命ラインの地元の位置(hotloc.js。0 = 地元なし / 1 = 先頭が地元 / 2 = 番手か3番手が地元。§4-66)。府県が無い日は hot-loc-past.json(買い目が同じときだけ)
+      let lc = HOTLOC.codeOf(e.lines, HOTLOC.prefOfRiders(e.riders), e.place, pl.ticket);
+      if (lc == null) { const lp = hotLocPastOf(dir, e.id || (d + "_" + e.place + "_" + e.raceNo)); if (lp && lp[0] === pl.ticket) lc = lp[1]; }
+      if (lc != null) { while (row.length < 15) row.push(null); row.push(lc); }
       h.push(row);
       keepRes(e);
     }
