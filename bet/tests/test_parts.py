@@ -87,7 +87,7 @@ class TestSelector(unittest.TestCase):
     def test_本命ラインの7車は既定では買わない(self):
         r = self.sel(plan(race(need=True, cars=7)))
         self.assertEqual(r.bets, [])
-        self.assertIn("7車", r.skips[0][1])
+        self.assertEqual((r.skips, len(r.quiet)), ([], 1))   # 2026-11-23 から黙って飛ばす（7車は本命ライン3人を全部🔥にしたので数が多い）
 
     def test_票が薄い倍率無しは見送り(self):
         for v in ("thin", "noOdds", "noDelta"):
@@ -307,7 +307,9 @@ class TestHotMode(unittest.TestCase):
                     r = self.sel(plan(self._race(case, cars)), cfg(**{key: mode}))
                     got = bool(r.bets)
                     self.assertEqual(got, case in want, f"{cars}車 {mode} {case}")
-                    if not got:
+                    if not got and cars == 7 and mode == "off":
+                        self.assertEqual((r.skips, len(r.quiet)), ([], 1), f"7車 off {case} は黙って飛ばす")
+                    elif not got:
                         self.assertEqual(len(r.skips), 1, f"{cars}車 {mode} {case} 見送りの理由が残る")
 
     def test_9車と7車は別々に効く(self):
@@ -316,7 +318,10 @@ class TestHotMode(unittest.TestCase):
         self.assertEqual([b.place for b in r.bets], ["別府"])
         r = self.sel(p, cfg(hot9_mode="band", hot7_mode="off"))
         self.assertEqual([b.place for b in r.bets], ["岐阜"])
-        self.assertIn("7車立ては買わない設定", r.skips[0][1])
+        self.assertEqual(r.skips, [])                 # 7車を買わない設定なら黙って飛ばす（2026-11-23〜）
+        self.assertEqual(len(r.quiet), 1)
+        r = self.sel(p, cfg(hot9_mode="off", hot7_mode="off"))
+        self.assertIn("9車立ては買わない設定", r.skips[0][1])   # 9車は今までどおり記録する
 
     def test_見送りの理由(self):
         r = self.sel(plan(self._race("noev_out", 9)), cfg(hot9_mode="both"))
@@ -611,13 +616,31 @@ class TestHotLineBreak(unittest.TestCase):
             x = self._race(brk=0.21, ok=True); x["s2Many"] = many
             self.assertEqual(len(self.sel(plan(x), cfg()).bets), 1, many)
 
-    def test_2人だけ来る組は7車には効かない(self):
-        x = self._race(cars=7); x["s2Many"] = True
+    def test_2人だけ来る組_7車は少ないときだけ買う(self):
+        x = self._race(cars=7); x["s2Many"] = True               # 前の形(s2Many)は7車には効かない
         self.assertEqual(len(self.sel(plan(x), cfg(hot7_mode="band")).bets), 1)
+        x["s2Skip"] = True                                        # 少なくない → 見送り
+        r = self.sel(plan(x), cfg(hot7_mode="band"))
+        self.assertEqual(r.bets, []); self.assertIn("少なくない", r.skips[0][1])
+        self.assertEqual(len(self.sel(plan(x), cfg(hot7_mode="band", hot7_share2=False)).bets), 1)
+        x["s2Skip"] = False                                       # 少ない → 買う
+        self.assertEqual(len(self.sel(plan(x), cfg(hot7_mode="band")).bets), 1)
+
+    def test_2人だけ来る組_9車は_s2Skip_でも見る(self):
+        x = self._race(brk=0.21, ok=True); x["s2Skip"] = True
+        self.assertEqual(self.sel(plan(x), cfg()).bets, [])
+
+    def test_7車を買わない設定なら今日の数に入れない(self):
+        p = plan(self._race(brk=0.21, ok=True), dict(self._race(cars=7), place="別府", rno=4, close="15:04"))
+        self.assertEqual(selector.summary(p, NOW)[0], 2)
+        self.assertEqual(selector.summary(p, NOW, cfg())[0], 1)
+        self.assertEqual(selector.summary(p, NOW, cfg(hot7_mode="band"))[0], 2)
 
     def test_設定(self):
         import settings
         self.assertTrue(cfg().hot9_share2)
+        self.assertTrue(cfg().hot7_share2)
+        self.assertIn("hot7_share2", [k for _, k, _ in settings.ITEMS])
         with self.assertRaises(config_mod.ConfigError):
             cfg(hot9_share2="yes")
         self.assertEqual(settings.show({}, "hot9_share2", settings.ONOFF), "する")
