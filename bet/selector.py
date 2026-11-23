@@ -159,7 +159,7 @@ def _bet(r, cfg, minutes, note="", t=None, n=1):
         kind=kind, n=n,
         date=r["date"], place=r["place"], rno=r["rno"], key=make_key(r["date"], r["place"], r["rno"], kind, n),
         ticket=t["ticket"], close=r["close"], cars=int(r.get("cars") or 0), need_odds=bool(r.get("needOdds")),
-        yen=yen_for(cfg, kind, r.get("cars"), r.get("b1"))[0], minutes=round(minutes, 1), ev=t.get("ev"), odds=t.get("odds"),
+        yen=yen_for(cfg, kind, r.get("cars"), r.get("b1"), r.get("loc") if kind == "hot" else None)[0], minutes=round(minutes, 1), ev=t.get("ev"), odds=t.get("odds"),
         verdict=r.get("verdict") or "", snap_left=snap.get("left"), snap_age=snap.get("age"), note=note,
     )
 
@@ -327,7 +327,17 @@ def select(plan, done_keys, spent_yen, races_bought, cfg, at, bought_keys=()):
             #   9車: 倍率ごとの目安より多ければ見送り（5年 回収96%・hikitsugi §4-62）/ 7車: 少ない（下から3分の1）ときだけ買う（hikitsugi §4-63）
             res.skips.append((_bet(r, cfg, minutes), "2人だけ来る組が少なくない（7車は少ないときだけ）" if is7 else "2人だけ来る組がよく買われている（目安より多い）"))
             continue
-        yen, cat = yen_for(cfg, "hot", r.get("cars"), r.get("b1"))
+        if is7 and (cfg.hot7_skip_local_head or cfg.hot7_local_only):
+            # 本命ラインの地元の位置（keirin の hotloc.js・betplan.js の loc。2026-11-23〜・hikitsugi §4-66）
+            #   7車: 先頭が地元（loc 1）は 5年 87%・アプリの記録 54% → 見送り / 番手か3番手が地元（loc 2）は 139%・131% → そのときだけ買う
+            loc = r.get("loc")
+            if cfg.hot7_skip_local_head and loc == 1:
+                res.skips.append((_bet(r, cfg, minutes), "本命ラインの先頭が地元（7車は見送り）"))
+                continue
+            if cfg.hot7_local_only and loc != 2:
+                res.skips.append((_bet(r, cfg, minutes), "本命ラインの番手・3番手に地元がいない（7車は地元のときだけ）" if loc is not None else "地元が分からない（7車は地元の番手・3番手のときだけ）"))
+                continue
+        yen, cat = yen_for(cfg, "hot", r.get("cars"), r.get("b1"), r.get("loc"))
         if yen == 0:
             # 種類ごとの金額が0 = 買わない（🔥9車は先頭のB率1位とそれ以外で分けられる。hikitsugi §4-32）
             res.skips.append((_bet(r, cfg, minutes), f"{cat}は買わない設定"))

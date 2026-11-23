@@ -40,6 +40,12 @@ DEFAULTS = {
     #   5年（4〜15倍・確定オッズ）: 全部 24,564点 88.7% / 少ない 8,249点 99.7%（2025〜2026 100.7%）。買うかは今までどおり hot7_mode・hot7_yen（既定は買わない）
     #   ★2026-11-23（hikitsugi §4-65）: 帯は締切前の倍率で 10〜15倍（確定ではおよそ9〜15倍。確定9〜15倍・少ない 2,447点 105.0%）。帯は betplan.js が出す
     "hot7_share2": True,
+    # 🔥の本命ラインの「地元の位置」（2026-11-23〜。hikitsugi §4-66・keirin の hotloc.js。betplan.js が loc に書く）
+    #   地元 = 選手の府県が開催場の府県と同じ。loc 1 = 先頭が地元 / 2 = 先頭は地元でなく番手か3番手が地元 / 0 = 地元なし / null = 分からない
+    #   2022〜2026/10（確定オッズ）: 🔥9車 loc 2 119点 175%（アプリの記録 223%）・地元なし 135% / 🔥7車 loc 2 294点 139%（131%）・loc 1 87%（54%）
+    "hot9_local_mult": 2,          # 🔥9車で loc 2 なら金額を何倍にするか（1 = 今まで通り・2・3）。0円（買わない）の種類は0円のまま
+    "hot7_skip_local_head": True,  # 🔥7車で先頭が地元（loc 1）なら見送る
+    "hot7_local_only": True,       # 🔥7車は loc 2（番手か3番手が地元）のときだけ買う（地元が分からないレースも見送る）。7車を買うかは今までどおり hot7_mode・hot7_yen
     # 1点の金額をレースの種類ごとに（2026-10-14〜。hikitsugi §4-32）。null = bet_yen と同じ・0 = 買わない・100円単位
     #   🔥9車は「本命ラインの先頭のB率がレースでいちばん」（5年 139%）とそれ以外（116%）で分ける。B率が分からないレースは「それ以外」
     "hot9_b1_yen": None,
@@ -99,6 +105,9 @@ class Config:
     hot9_line_break: bool = True
     hot9_share2: bool = True
     hot7_share2: bool = True
+    hot9_local_mult: int = 2
+    hot7_skip_local_head: bool = True
+    hot7_local_only: bool = True
     hot9_b1_yen: "int | None" = None
     hot9_rest_yen: "int | None" = None
     hot7_yen: "int | None" = None
@@ -201,13 +210,19 @@ def _as_yen_opt(d, key):
 
 
 # レースの種類 → 1点の金額（0 = 買わない）と、その種類の名前
-def yen_for(cfg, kind, cars, b1):
+#   loc: 🔥の本命ラインの地元の位置（betplan.js の loc。2 = 番手か3番手が地元）。🔥9車で loc 2 なら hot9_local_mult 倍（2026-11-23〜・hikitsugi §4-66）
+def yen_for(cfg, kind, cars, b1, loc=None):
     if kind == "D":
         v, name = cfg.model_d_yen, "モデルD"
     elif kind == "A":
         v, name = cfg.ai_fav_yen, "Ⓐ AI外しの1番人気"
     elif int(cars or 0) >= 8:
         v, name = (cfg.hot9_b1_yen, "🔥9車（先頭のB率1位）") if b1 is True else (cfg.hot9_rest_yen, "🔥9車（B率1位以外）")
+        y = cfg.bet_yen if v is None else v
+        mult = getattr(cfg, "hot9_local_mult", 1) or 1
+        if loc == 2 and mult > 1 and y > 0:
+            return y * mult, name + f"・地元の番手で{mult}倍"
+        return y, name
     else:
         v, name = cfg.hot7_yen, "🔥7車"
     return (cfg.bet_yen if v is None else v), name
@@ -271,6 +286,9 @@ def from_dict(d, base_dir="."):
         hot9_line_break=_as_bool(d, "hot9_line_break"),
         hot9_share2=_as_bool(d, "hot9_share2"),
         hot7_share2=_as_bool(d, "hot7_share2"),
+        hot9_local_mult=_as_int(d, "hot9_local_mult", lo=1, hi=3),
+        hot7_skip_local_head=_as_bool(d, "hot7_skip_local_head"),
+        hot7_local_only=_as_bool(d, "hot7_local_only"),
         hot9_b1_yen=_as_yen_opt(d, "hot9_b1_yen"),
         hot9_rest_yen=_as_yen_opt(d, "hot9_rest_yen"),
         hot7_yen=_as_yen_opt(d, "hot7_yen"),

@@ -148,6 +148,21 @@ class TestBetplan(unittest.TestCase):
         self.assertIsNone(go(klass="a12"))          # S級以外・AI予想が無いレースは出さない
         self.assertIsNone(go(ai=()))
 
+    def test_本命ラインの地元の位置(self):
+        # riders の府県(8番目): 奇数の車 = 岐阜・偶数 = 愛知。岐阜(場の府県 = 岐阜)の 1=2=3(ライン[1,2,3]) → 先頭が地元(1)
+        snaps = lambda k: [{"t": "15:00:10", "k": k, "left": 4.8, "n": 9, "o": self.odds(9, 6.0)}]
+        x = self.hot(self.run_plan([race()], snaps("岐阜_3R")))[0]
+        self.assertEqual(x["loc"], 1)
+        # 名古屋(愛知): 先頭(1)は岐阜・番手(2)が愛知 → 2
+        x = self.hot(self.run_plan([race("名古屋_3R")], snaps("名古屋_3R")))[0]
+        self.assertEqual(x["loc"], 2)
+        # 広島: 地元なし → 0
+        x = self.hot(self.run_plan([race("広島_3R")], snaps("広島_3R")))[0]
+        self.assertEqual(x["loc"], 0)
+        # 府県が無い古い riders → null
+        r = race(); r["riders"] = [x_[:7] for x_ in r["riders"]]
+        self.assertIsNone(self.hot(self.run_plan([r], snaps("岐阜_3R")))[0]["loc"])
+
     def test_7車は帯の外なら見送り(self):
         # 7車の帯は締切前の倍率で 10〜15倍（2026-11-23〜。hots2.js の BAND7）。races.json の plan が古い 4〜15倍でも置き換える
         r = race(cars=7, need=True)

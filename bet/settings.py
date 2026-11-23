@@ -27,6 +27,7 @@ PAY = "pay"
 TERMS = "terms"
 TOPIC = "topic"
 SENDTEST = "sendtest"
+MULT = "mult"          # 何倍(1〜3)
 
 TERMS_NOTE = """
   これは「オッズパークの利用規約を自分で読んで、
@@ -45,6 +46,9 @@ ITEMS = [
     ("🔥9車立ては本命ラインが切れやすいときだけ（離れる確率17%以上）", "hot9_line_break", ONOFF),
     ("🔥9車立ては2人だけ来る組がよく買われていたら見送る", "hot9_share2", ONOFF),
     ("🔥7車立ては2人だけ来る組が少ないときだけ買う", "hot7_share2", ONOFF),
+    ("🔥9車で本命ラインの番手か3番手が地元（先頭は地元でない）なら金額を何倍に", "hot9_local_mult", MULT),
+    ("🔥7車で本命ラインの先頭が地元なら見送る", "hot7_skip_local_head", ONOFF),
+    ("🔥7車は本命ラインの番手か3番手が地元のときだけ買う", "hot7_local_only", ONOFF),
     ("🔥9車（先頭のB率1位）を買う・金額", "hot9_b1_yen", YENOPT),
     ("🔥9車（B率1位以外）を買う・金額", "hot9_rest_yen", YENOPT),
     ("🔥7車を買う・金額（買い方が「買わない」なら買わない）", "hot7_yen", YENOPT),
@@ -122,6 +126,8 @@ def show(d, key, kind):
         return "OPコイン" if v == "opcoin" else "投票資金"
     if kind == TOPIC:
         return v or "通知しない"
+    if kind == MULT:
+        return "今まで通り（1倍）" if v == 1 else f"{v}倍"
     if kind == YENOPT:
         if v is None:
             return f"買う・1点あたりの金額と同じ（{d.get('bet_yen', config_mod.DEFAULTS['bet_yen']):,} 円）"
@@ -180,6 +186,8 @@ def ask(label, kind, now):
         print("  数字を入れてください。0 なら無制限")
     elif kind == YEN:
         print("  数字を入れてください（100円単位）")
+    elif kind == MULT:
+        print("  1 = 今まで通り / 2 = 2倍 / 3 = 3倍（地元の番手・3番手の🔥9車。5年 175%・アプリの記録 223%）")
     elif kind == YENOPT:
         print(YENOPT_NOTE)
         print("  金額を入れてください（100円単位）。0 = 買わない / - = 1点あたりの金額（ふだん）と同じ")
@@ -198,6 +206,10 @@ def ask(label, kind, now):
         if s not in ("1", "2"):
             return None, "1 か 2 を入れてください"
         return s == "1", ""
+    if kind == MULT:
+        if s not in ("1", "2", "3"):
+            return None, "1・2・3 のどれかを入れてください"
+        return int(s), ""
     try:
         n = float(s) if kind == MINUTES else int(s)
     except ValueError:
