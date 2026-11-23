@@ -318,6 +318,10 @@ def select(plan, done_keys, spent_yen, races_bought, cfg, at, bought_keys=()):
             pct = f"{brk * 100:.0f}%・" if isinstance(brk, (int, float)) else ""
             res.skips.append((_bet(r, cfg, minutes), f"本命ラインが切れにくい（離れる確率{pct}17%未満）"))
             continue
+        if not is7 and cfg.hot9_share2 and r.get("s2Many") is True:
+            # 2人だけ来る組（🔥の3人のうち2人を含むほかの組）がよく買われている（倍率ごとの目安より多い）。5年 回収96%（hikitsugi §4-62）
+            res.skips.append((_bet(r, cfg, minutes), "2人だけ来る組がよく買われている（目安より多い）"))
+            continue
         yen, cat = yen_for(cfg, "hot", r.get("cars"), r.get("b1"))
         if yen == 0:
             # 種類ごとの金額が0 = 買わない（🔥9車は先頭のB率1位とそれ以外で分けられる。hikitsugi §4-32）

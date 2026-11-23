@@ -598,8 +598,30 @@ class TestHotLineBreak(unittest.TestCase):
         r = self.sel(plan(self._race(brk=0.12, ok=False, close="15:10")), cfg())
         self.assertEqual((r.bets, r.skips), ([], []))
 
+    def test_2人だけ来る組が多い9車は見送る(self):
+        x = self._race(brk=0.21, ok=True); x["s2"], x["s2Many"] = 0.42, True
+        r = self.sel(plan(x), cfg())
+        self.assertEqual(r.bets, [])
+        self.assertIn("2人だけ来る組", r.skips[0][1])
+        self.assertEqual(self.sel(plan(x), cfg(hot9_mode="all")).bets, [])            # 全部でも見送る
+        self.assertEqual(len(self.sel(plan(x), cfg(hot9_share2=False)).bets), 1)      # 設定を切れば買う
+
+    def test_2人だけ来る組が目安以下か分からない9車は今までどおり(self):
+        for many in (False, None):
+            x = self._race(brk=0.21, ok=True); x["s2Many"] = many
+            self.assertEqual(len(self.sel(plan(x), cfg()).bets), 1, many)
+
+    def test_2人だけ来る組は7車には効かない(self):
+        x = self._race(cars=7); x["s2Many"] = True
+        self.assertEqual(len(self.sel(plan(x), cfg(hot7_mode="band")).bets), 1)
+
     def test_設定(self):
         import settings
+        self.assertTrue(cfg().hot9_share2)
+        with self.assertRaises(config_mod.ConfigError):
+            cfg(hot9_share2="yes")
+        self.assertEqual(settings.show({}, "hot9_share2", settings.ONOFF), "する")
+        self.assertIn("hot9_share2", [k for _, k, _ in settings.ITEMS])
         self.assertTrue(cfg().hot9_line_break)
         with self.assertRaises(config_mod.ConfigError):
             cfg(hot9_line_break="yes")

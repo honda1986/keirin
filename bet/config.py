@@ -33,6 +33,9 @@ DEFAULTS = {
     # 🔥9車立ては「3人のラインが切れる確率（番手か3番手が前について行けない確率）17%以上」のときだけ（2026-10-13〜。hikitsugi §4-26）
     #   5年（5〜15倍）: 17%以上 1,138R 回収125%（5年とも114%以上）/ 17%未満 1,105R 99%。確率が分からないレースは見送らない
     "hot9_line_break": True,
+    # 🔥9車立ては「2人だけ来る組（🔥の3人のうち2人を含むほかの組）の人気」が倍率ごとの目安より多いと見送る（2026-11-23〜。hikitsugi §4-62）
+    #   5年（今の🔥・確定オッズ）: 多い 480点 回収96%（5年中4年100%未満）/ それ以外 949点 140%。判定は keirin の hots2.js（betplan.js が s2Many に書く）
+    "hot9_share2": True,
     # 1点の金額をレースの種類ごとに（2026-10-14〜。hikitsugi §4-32）。null = bet_yen と同じ・0 = 買わない・100円単位
     #   🔥9車は「本命ラインの先頭のB率がレースでいちばん」（5年 139%）とそれ以外（116%）で分ける。B率が分からないレースは「それ以外」
     "hot9_b1_yen": None,
@@ -90,6 +93,7 @@ class Config:
     hot9_mode: str = "band"
     hot7_mode: str = "off"
     hot9_line_break: bool = True
+    hot9_share2: bool = True
     hot9_b1_yen: "int | None" = None
     hot9_rest_yen: "int | None" = None
     hot7_yen: "int | None" = None
@@ -260,6 +264,7 @@ def from_dict(d, base_dir="."):
         buy_7car_hot=_as_bool(d, "buy_7car_hot"),
         buy_model_d=_as_bool(d, "buy_model_d"),
         hot9_line_break=_as_bool(d, "hot9_line_break"),
+        hot9_share2=_as_bool(d, "hot9_share2"),
         hot9_b1_yen=_as_yen_opt(d, "hot9_b1_yen"),
         hot9_rest_yen=_as_yen_opt(d, "hot9_rest_yen"),
         hot7_yen=_as_yen_opt(d, "hot7_yen"),
