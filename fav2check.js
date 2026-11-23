@@ -7,8 +7,11 @@ for (const r of fx.races) {
   const E = {}; for (const [k, v] of Object.entries(r.E)) E[+k] = v;
   const j = FAV2.judge({ n: r.n, place: r.place, lines: r.lines, E }, r.o);
   if (!j || j.ticket !== r.ticket || j.odds !== r.odds) { bad++; console.log("✗", r.id, "1番人気が合わない", j && j.ticket, r.ticket); continue; }
-  const d = Math.max(Math.abs(j.p - r.p), Math.abs(j.p0 - r.p0)); max = Math.max(max, d);
-  if (d > 1e-9) { bad++; console.log("✗", r.id, j.p, r.p, j.p0, r.p0); }
+  const s2 = FAV2.share2Of(r.o, r.n, j.trio);
+  const d = Math.max(Math.abs(j.p - r.p), Math.abs(j.p0 - r.p0), Math.abs(s2 - r.s2)); max = Math.max(max, d);
+  if (d > 1e-9) { bad++; console.log("✗", r.id, j.p, r.p, j.p0, r.p0, s2, r.s2); }
+  const fx2 = FAV2.featuresOf({ n: r.n, place: r.place, lines: r.lines, E }, j.trio, j.odds, r.o).x, q2 = j.parts.find((q) => q.k === "s2");
+  if (q2 && Math.sign(q2.d) !== Math.sign(fx2.s2 - fx2.s2typ)) { bad++; console.log("✗", r.id, "2人だけ来る組の理由の向き"); }
 }
 // 当てはまらない例: 2倍より上・1番人気が2組・倍率の数が合わない
 const r0 = fx.races[0], E0 = {}; for (const [k, v] of Object.entries(r0.E)) E0[+k] = v;
