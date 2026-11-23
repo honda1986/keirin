@@ -156,7 +156,7 @@ class Runner:
             if not self.store.has(key) and key not in self.decided:
                 self._once("late:" + key, "見送り", text)
 
-        n_hot, nxt = selector.summary(plan, at)
+        n_hot, nxt = selector.summary(plan, at, self.cfg)
         head = f"今日の🔥・モデルD・Ⓐ {n_hot}（出走表:{plan.get('racesFrom')} 倍率:{plan.get('oddsFrom')}）/ いま買う {len(res.bets)}件 / {nxt}"
         key0 = (nxt.split("（")[0], len(res.bets), len(res.skips))
         if key0 != self._last_summary[0] or time.time() - self._last_summary[1] > SUMMARY_EVERY or res.bets:

@@ -8,11 +8,15 @@
 //   検証(確定オッズ。今の🔥の条件 = 9車・5〜15倍・切れる確率17%以上・SS無し):
 //     2022〜2026/10: 多い 480点 回収96.0%(年ごと 80/90/139/87/89%)・それ以外 949点 139.7%。当たった率は5年とも「多い」が低い
 //     2025〜2026(境目を決めたあとの期間): 今の🔥 490点 113.3% +6,540円 → 多いを見送る 323点 126.5% +8,560円
+//   ★2026-11-23(hikitsugi §4-63): 7車立ても。7車は「2人だけ来る組が少ない(下から3分の1)」ときだけ買う(RULE7。目安と境目は 2022〜2024 の
+//     7車の本命ライン3人・4〜15倍・競りなし 16,083点で決めた)。7車の本命ライン3人(4〜15倍)は全部で 88.7%(24,564点)・少ない 99.7%(8,249点)・
+//     2025〜2026 は 100.7%。もうけはほぼゼロなので、買うかは今までどおり設定(既定は買わない)
 //   ★確定オッズで決めた。本番は締切2分前の倍率で判定する(入れたあとの記録で確かめること)
 // ============================================================
 (function (root) {
   "use strict";
-  const RULE = { A: 0.5773571823529675, B: -0.08768999098900528, TH: 0.021699134142198748 };
+  const RULE = { A: 0.5773571823529675, B: -0.08768999098900528, TH: 0.021699134142198748 };      // 9車(8車以上): over ≥ TH なら見送り
+  const RULE7 = { A: 0.5679384083863769, B: -0.07853322957752044, TH: -0.05164880051609013 };    // 7車: over < TH(少ない)のときだけ買う
   const COMBOS = {};
   function trioCombos(n) {
     if (!COMBOS[n]) { const o = []; for (let a = 1; a <= n; a++) for (let b = a + 1; b <= n; b++) for (let c = b + 1; c <= n; c++) o.push([a, b, c]); COMBOS[n] = o; }
@@ -34,8 +38,11 @@
     }
     return tot > 0 && found ? s2 / tot : null;
   }
-  // → null(倍率が無い) か { s2, exp(目安), over(s2 − 目安), many(目安より多い = 見送り) }
+  // → null(倍率が無い・6車以下) か { s2, exp(目安), over(s2 − 目安), many(目安より多い), few(目安よりずっと少ない), skip(見送り) }
+  //   9車(8車以上): skip = many / 7車: skip = !few(少ないときだけ買う)
   function judge(o, n, ticket) {
+    if (!(n >= 7)) return null;
+    const R = n >= 8 ? RULE : RULE7;
     const cs = trioCombos(n);
     if (!Array.isArray(o) || o.length !== cs.length) return null;
     const i = cs.findIndex((c) => c.join("=") === ticket);
@@ -43,10 +50,11 @@
     if (!(odds > 0 && odds < 9999)) return null;
     const s2 = share2(o, n, ticket);
     if (s2 == null) return null;
-    const exp = RULE.A + RULE.B * Math.log(odds), over = s2 - exp;
-    return { s2, exp, over, many: over >= RULE.TH, odds };
+    const exp = R.A + R.B * Math.log(odds), over = s2 - exp;
+    const many = over >= RULE.TH && n >= 8, few = n === 7 && over < RULE7.TH;
+    return { s2, exp, over, many, few, skip: n >= 8 ? many : !few, odds };
   }
-  const api = { RULE, share2, judge, trioCombos };
+  const api = { RULE, RULE7, share2, judge, trioCombos };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.HOTS2 = api;
 })(typeof window !== "undefined" ? window : this);

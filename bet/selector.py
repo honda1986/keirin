@@ -308,7 +308,10 @@ def select(plan, done_keys, spent_yen, races_bought, cfg, at, bought_keys=()):
         mode = cfg.hot7_mode if is7 else cfg.hot9_mode       # 7車立て・9車立て（8車以上）で別々に決める
         side = "7車立て" if is7 else "9車立て"
         if mode == "off":
-            res.skips.append((_bet(r, cfg, minutes), f"🔥の{side}は買わない設定"))
+            if is7:
+                res.quiet.append(key)          # 7車は本命ライン3人を全部🔥にした（1日30R以上。2026-11-23〜）ので、買わない設定なら記録もログもしない
+            else:
+                res.skips.append((_bet(r, cfg, minutes), f"🔥の{side}は買わない設定"))
             continue
         if minutes > cfg.decide_at_minutes:
             continue                      # まだ決めない（締切 decide_at_minutes 分前まで待つ）
@@ -318,9 +321,11 @@ def select(plan, done_keys, spent_yen, races_bought, cfg, at, bought_keys=()):
             pct = f"{brk * 100:.0f}%・" if isinstance(brk, (int, float)) else ""
             res.skips.append((_bet(r, cfg, minutes), f"本命ラインが切れにくい（離れる確率{pct}17%未満）"))
             continue
-        if not is7 and cfg.hot9_share2 and r.get("s2Many") is True:
-            # 2人だけ来る組（🔥の3人のうち2人を含むほかの組）がよく買われている（倍率ごとの目安より多い）。5年 回収96%（hikitsugi §4-62）
-            res.skips.append((_bet(r, cfg, minutes), "2人だけ来る組がよく買われている（目安より多い）"))
+        s2_skip = r.get("s2Skip") if r.get("s2Skip") is not None else (r.get("s2Many") if not is7 else None)
+        if (cfg.hot7_share2 if is7 else cfg.hot9_share2) and s2_skip is True:
+            # 2人だけ来る組（🔥の3人のうち2人を含むほかの組）の人気（keirin の hots2.js・betplan.js の s2Skip）
+            #   9車: 倍率ごとの目安より多ければ見送り（5年 回収96%・hikitsugi §4-62）/ 7車: 少ない（下から3分の1）ときだけ買う（hikitsugi §4-63）
+            res.skips.append((_bet(r, cfg, minutes), "2人だけ来る組が少なくない（7車は少ないときだけ）" if is7 else "2人だけ来る組がよく買われている（目安より多い）"))
             continue
         yen, cat = yen_for(cfg, "hot", r.get("cars"), r.get("b1"))
         if yen == 0:
@@ -368,10 +373,13 @@ def select(plan, done_keys, spent_yen, races_bought, cfg, at, bought_keys=()):
     return res
 
 
-def summary(plan, at):
-    """(今日の🔥の数, 次のレースの説明)。動いていることが分かるように毎周1行出す（モデルDは買う組があるものだけ）"""
+def summary(plan, at, cfg=None):
+    """(今日の🔥の数, 次のレースの説明)。動いていることが分かるように毎周1行出す（モデルDは買う組があるものだけ）。
+    7車の🔥は、7車を買わない設定（hot7_mode = off）なら数えない（2026-11-23 から本命ライン3人を全部🔥にしたので1日30R以上ある）"""
+    skip7 = cfg is not None and getattr(cfg, "hot7_mode", "off") == "off"
     races = [r for r in (plan or {}).get("races") or [] if isinstance(r, dict)
-             and (r.get("kind") not in ("D", "A") or r.get("verdict") == "buy")]
+             and (r.get("kind") not in ("D", "A") or r.get("verdict") == "buy")
+             and not (skip7 and r.get("kind") not in ("D", "A") and int(r.get("cars") or 0) == 7)]
     nxt = None
     for r in races:
         m = minutes_to_close(r.get("date"), r.get("close"), at)

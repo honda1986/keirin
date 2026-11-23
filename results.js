@@ -714,6 +714,8 @@ function writeDaily(dir, byDate, rankedOf) {
       const done = e.t != null;
       const hit = done ? ([e.f, e.s, e.t].sort((a, b) => a - b).join("=") === pl.ticket ? 1 : 0) : -1;
       const trio = pl.ticket.split("=").map(Number);
+      // 7車は 2026-11-23 から本命ライン3人を全部🔥にした(1日30R以上)。成績には確定オッズが帯(4〜15倍)の中のレースだけ残す(帯の外はどのみち見送り)
+      if (pl.cars === 7) { const fo7 = oddsOf(dir, e.id || (d + "_" + e.place + "_" + e.raceNo), trio); if (fo7 != null && (fo7 < 4 || fo7 > 15)) continue; }
       const [ev, evSrc] = evForEntry(dir, e, d, pl.ticket);
       const row = [e.place, e.raceNo, pl.cars, pl.ticket, e.f + "-" + e.s + "-" + (done ? e.t : "?"), hit,
         hit === 1 ? (e.p3fpay != null ? e.p3fpay : null) : 0, oddsOf(dir, e.id || (d + "_" + e.place + "_" + e.raceNo), trio),
@@ -726,12 +728,12 @@ function writeDaily(dir, byDate, rankedOf) {
         if (hp && hp[0] === pl.ticket) hb = hb ? [hb[0], hb[1] != null ? hb[1] : hp[1], hp[2]] : hp;
       }
       if (hb) { row.push(hb[1] != null ? hb[1] : null); if (hb[2] != null) row.push(hb[2] ? 1 : 0); }
-      // 14番目: 2人だけ来る組が多い(1)・目安以下(0)(hots2.js。9車だけ。2026-11-23〜・hikitsugi §4-62)。
+      // 14番目: 2人だけ来る組で見送り(1)・買う(0)(hots2.js。9車 = 多い(§4-62)・7車 = 少なくない(§4-63)。2026-11-23〜)。
       //   倍率は締切前の記録(SNAP_DIR の判定と同じ時刻)があればそれ、無ければ確定オッズ。分からなければ付けない(アプリは見送らない)
-      if (pl.cars >= 8) {
+      if (pl.cars >= 7) {
         const id = e.id || (d + "_" + e.place + "_" + e.raceNo), sn = snapOdds(d, e.place + "_" + e.raceNo), fo = allOdds(dir, id);
         const j2 = sn && sn.n && Array.isArray(sn.o) ? HOTS2.judge(sn.o, sn.n, pl.ticket) : fo && Array.isArray(fo.o) ? HOTS2.judge(fo.o, fo.cars, pl.ticket) : null;
-        if (j2) { while (row.length < 13) row.push(null); row.push(j2.many ? 1 : 0); }
+        if (j2) { while (row.length < 13) row.push(null); row.push(j2.skip ? 1 : 0); }
       }
       h.push(row);
       keepRes(e);
