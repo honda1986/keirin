@@ -470,7 +470,7 @@
       <div class="plist" id="doneList"></div>
     </div>
     <div id="shoubuEmpty" class="empty">今日のレースを読み込んでいます…</div>
-    <details class="fold" id="ref7" style="display:none"><summary>参考: 🔥7車立て <span id="ref7n"></span><small>4〜15倍・2人だけ来る組が少ないときだけ（5年 99.7%）。既定は買わない</small></summary>
+    <details class="fold" id="ref7" style="display:none"><summary>参考: 🔥7車立て <span id="ref7n"></span><small>締切前10〜15倍（確定でおよそ9〜15倍）・2人だけ来る組が少ないときだけ（5年 105.0%）。既定は買わない</small></summary>
       <div class="plist" id="shoubuList"></div>
     </details>
     <details class="fold"><summary>この画面の見方</summary>
@@ -580,7 +580,7 @@
 </nav>
 <script src="evd.js?v=20261111"></script>
 <script src="aifav.js"></script>
-<script src="hots2.js?v=20261123"></script>
+<script src="hots2.js?v=20261123b"></script>
 <script src="fav2.js?v=20261123"></script>
 <script src="front.js"></script>
 <script src="tenkai.js"></script>
@@ -1643,7 +1643,7 @@ $("clearList").addEventListener("click", () => { raceList = []; renderSearch(); 
 // ===== 3連複「本命ライン3人」(🔥) =====
 // いまの買い方(2022〜2026年・確定オッズ): 9車立て・単騎1人以下・5〜15倍・本命ラインが切れる確率17%以上・S班なし・2人だけ来る組が目安以下(hots2.js。2026-11-23〜)
 //   1,126R 回収125.5%(5年とも115%以上)。先頭のB率1位は139%・それ以外116%(hikitsugi §4-31・§4-32)
-//   7車立て(本命ライン3人・4〜15倍・2人だけ来る組が少ない。2026-11-23〜)は5年 99.7%(8,249点)。もうけはほぼゼロなので既定では買わない
+//   7車立て(本命ライン3人・2人だけ来る組が少ない。2026-11-23〜)は確定9〜15倍で5年 105.0%(2,447点)。締切前の倍率では10〜15倍(§4-65)。既定では買わない
 //   9車で帯を20倍以下に広げても収支は増えず回収が下がる(15倍超〜20倍は約80%。§4-44)
 // 全員が単騎(ガールズ等)の隊形表記「1-1-1-1-1-1」は横に長く画面が崩れるので出さない
 function patLabel(pat) {
@@ -1690,13 +1690,15 @@ function f3PlanFrom(ranked, lines, opt) {
     o.note = "9車立て・単騎1人以下。市場がライン決着を過小評価。実測 回収107.3%(2,252R・的中17.8%)。";
   } else if (cars === 7) {
     // 2026-11-23〜(hikitsugi §4-63): 7車立ては本命ライン3人を全部🔥にする(評価順位の合計12以上だけ、はやめた)。
-    //   買うのは締切前の倍率が4〜15倍で、さらに「2人だけ来る組」(3人のうち2人を含むほかの組)の人気が少ない(hots2.js の RULE7・下から3分の1)ときだけ。
-    //   2022〜2026/10(確定オッズ・競りなし): 4〜15倍 24,564点 88.7% / そのうち少ない 8,249点 99.7%(97/102/98/99/103%)。もうけはほぼゼロなので既定では買わない
-    o.hot = true; o.roi = 99.7; o.hitRate = 15.1;
-    o.needOdds = true; o.bandLo = 4; o.bandHi = 15;
-    o.oddsHint = "オッズが4〜15倍で、2人だけ来る組の人気が少ないときだけ買う。";
-    o.bandNote = "4〜15倍で2人だけ来る組が少ない 実測99.7%(8,249点) / 4〜15倍を全部 88.7%(24,564点)。";
-    o.note = "7車立て・本命ライン3人(評価順位の合計" + rankSum + ")。オッズ4〜15倍・2人だけ来る組が少ないときだけで実測 回収99.7%(8,249点)。";
+    //   買うのは「2人だけ来る組」(3人のうち2人を含むほかの組)の人気が少ない(hots2.js の RULE7・下から3分の1)ときだけ。
+    //   ★2026-11-23(hikitsugi §4-65): 倍率は 9〜15倍だけ(確定オッズ)。締切前の倍率で買うときは 10〜15倍(hots2.js の BAND7。確定までに1〜2割下がるぶん)。
+    //     bandLo/bandHi は買うとき(締切前の倍率)の帯。2022〜2026/10(確定オッズ・競りなし): 少ない・9〜15倍 2,447点 105.0%(82/114/114/110/106%)
+    //     / 少ない・4〜15倍 8,249点 99.7%。買うときの倍率でまねると約103%。既定では買わない
+    o.hot = true; o.roi = 105.0; o.hitRate = 9.4;
+    o.needOdds = true; o.bandLo = 10; o.bandHi = 15;
+    o.oddsHint = "締切前の倍率が10〜15倍(確定ではおよそ9〜15倍)で、2人だけ来る組の人気が少ないときだけ買う。";
+    o.bandNote = "確定9〜15倍で2人だけ来る組が少ない 実測105.0%(2,447点) / 4〜15倍で少ない 99.7%(8,249点)。";
+    o.note = "7車立て・本命ライン3人(評価順位の合計" + rankSum + ")。確定オッズ9〜15倍・2人だけ来る組が少ないときだけで実測 回収105.0%(2,447点)。";
   } else {
     o.roi = cars === 6 ? 79.1 : 85.7; o.hitRate = cars === 6 ? 34.2 : 29.4;
     o.note = cars + "車立て。実測 回収" + o.roi + "%で長期はマイナス。";
@@ -1767,7 +1769,7 @@ function renderShoubu() {
       cars: pl.cars, rankSum: pl.rankSum, trio: pl.trio, lines: p.lines || [],
       ticket: pl.ticket, tickets: [pl.ticket],
       // 2026-09-27 の見直し(hikitsugi §4-12): 9車も帯 5〜15倍の中だけ買う・7車は5年とも100%未満なので見送り
-      needOdds: pl.cars >= 8 ? true : !!pl.needOdds, bandLo: pl.cars >= 8 ? 5 : pl.bandLo, bandHi: pl.cars >= 8 ? 15 : pl.bandHi,
+      needOdds: pl.cars >= 8 ? true : !!pl.needOdds, bandLo: pl.cars >= 8 ? 5 : pl.cars === 7 ? BAND_LO_PRE : pl.bandLo, bandHi: pl.cars >= 8 ? 15 : pl.cars === 7 ? BAND_HI_PRE : pl.bandHi,
       bandNote: pl.cars >= 8 ? "9車立ては5〜15倍のときだけ（2022〜2026年の5年とも回収100%超えだったのはこの帯だけ）" : pl.bandNote, note: pl.note,
       skip7: pl.cars < 8,
       isTop: pl.cars >= 8,
@@ -2337,7 +2339,7 @@ function evInfo(row) {
   //   7車は「2人だけ来る組が少ない(下から3分の1)」ときだけ買う(2026-11-23〜・hikitsugi §4-63)
   const s2 = typeof HOTS2 !== "undefined" && snap && Array.isArray(snap.o) ? HOTS2.judge(snap.o, snap.n || row.cars, row.ticket) : null;
   let verdict = null;   // "buy" | "skipBand" | "skip7" | "skipBrk"(ラインが切れにくい) | "skipS2"(2人だけ来る組が多い) | null(判定できない)
-  if (row.skip7 && !BUY.h7) verdict = "skip7";   // 7車は「買い方」で金額を入れたときだけ帯(4〜15倍)で判定
+  if (row.skip7 && !BUY.h7) verdict = "skip7";   // 7車は「買い方」で金額を入れたときだけ帯(締切前の倍率で10〜15倍)で判定
   else if (brkSkip(row)) verdict = "skipBrk";
   else if (e.odds != null) verdict = !inBand ? "skipBand" : s2 && s2.skip ? (row.isTop ? "skipS2" : "skipS2f") : "buy";
   return { ...e, inBand, verdict, s2 };
@@ -2743,7 +2745,9 @@ function paintBuy(p, r, b) {
   const H = row ? { cars: row.cars, ticket: row.ticket, rankSum: row.rankSum } : px ? { cars: px[2], ticket: px[3], rankSum: pl && pl.hot && pl.ticket === px[3] ? pl.rankSum : null }
     : pl && pl.hot && pl.trio ? { cars: pl.cars, ticket: pl.ticket, rankSum: pl.rankSum } : null;
   if (H) {
-    const isTop = H.cars >= 8, lo = isTop ? BAND9_LO : BAND_LO, hi = isTop ? BAND9_HI : BAND_HI;
+    // 7車の帯: 今日・貼り付け = 買うとき(締切前の倍率)の 10〜15倍 / 過去 = 締切前の記録(daily の15番目)があればそれで 10〜15倍、無ければ確定オッズで 9〜15倍(§4-65)
+    const isTop = H.cars >= 8;
+    let lo = isTop ? BAND9_LO : BAND_LO_PRE, hi = isTop ? BAND9_HI : BAND_HI_PRE, preLbl = "";
     let brk = null, b1 = null, calc = false;
     if (row) { brk = row.brk; b1 = row.b1; }
     else if (px) { brk = typeof px[11] === "number" ? px[11] : null; b1 = px[12] === 1 ? true : px[12] === 0 ? false : null; }
@@ -2766,6 +2770,8 @@ function paintBuy(p, r, b) {
       verdict = hotSkipOf(row, ei) || (ei && ei.verdict === "buy" ? "buy" : null);
     } else if (px) {
       odds = typeof px[7] === "number" ? px[7] : null; oddsSub = "確定オッズ";
+      if (!isTop && typeof px[14] === "number") { oddsSub = "締切" + DECIDE_MIN + "分前の倍率で判定" + (odds != null ? "・確定 " + odds + "倍" : ""); odds = px[14]; preLbl = "決めたとき "; }
+      else if (!isTop) { lo = BAND_LO; hi = BAND_HI; }
       const dm = (day.d || []).find((z) => z[0] === place && z[1] === rno && z[3] === H.ticket);
       if (dm && typeof dm[8] === "number") ev = dm[8]; else evLow = true;
       verdict = odds != null && (odds < lo || odds > hi) ? "skipBand" : isTop && brk != null && brk < HOT9_BRK ? "skipBrk" : isTop && px[13] === 1 ? "skipS2" :
@@ -2784,7 +2790,7 @@ function paintBuy(p, r, b) {
     const ck = [];
     ck.push(ckLi("✓", "形", isTop ? H.cars + "車立て・本命ライン3人・単騎1人以下" : "7車立て・本命ライン3人"));
     ck.push(ckLi(odds == null ? "…" : odds >= lo && odds <= hi ? "✓" : "✗", "倍率 " + lo + "〜" + hi + "倍",
-      odds != null ? (P ? "確定 " : oddsLbl) + odds + "倍" : today ? "締切前の倍率待ち" : P ? "記録なし" : "締切前に確認",
+      odds != null ? (P ? preLbl || "確定 " : oddsLbl) + odds + "倍" : today ? "締切前の倍率待ち" : P ? "記録なし" : "締切前に確認",
       odds != null ? oddsSub : today ? "締切15分前ごろから届きます（6分前からは1分おき）" : ""));
     if (isTop) {
       ck.push(ckLi(brk == null ? "–" : brk >= HOT9_BRK ? "✓" : "✗", "本命ラインが切れる確率 17%以上",
@@ -2803,7 +2809,7 @@ function paintBuy(p, r, b) {
       const f7 = s7 ? s7.few : px && (px[13] === 1 || px[13] === 0) ? px[13] === 0 : null;
       ck.push(ckLi(f7 == null ? (today ? "…" : "–") : f7 ? "✓" : "✗", "2人だけ来る組が少ない",
         s7 ? (s7.few ? "少ない" : "少なくない") + "（" + (s7.over >= 0 ? "目安より +" : "目安より −") + Math.abs(s7.over * 100).toFixed(1) + "ポイント）" : f7 == null ? (today ? "倍率待ち" : "記録なし") : f7 ? "少ない" : "少なくない",
-        "7車は🔥の3人のうち2人を含むほかの組があまり買われていない（下から3分の1）ときだけ買う（5年 99.7%）"));
+        "7車は🔥の3人のうち2人を含むほかの組があまり買われていない（下から3分の1）ときだけ買う（確定9〜15倍で5年 105.0%）"));
     }
     ck.push(ckLi(y ? "✓" : "✗", "金額", y ? y + "円" : "買わない設定", "右上の 💴 買い方 で変えられる（この端末だけ）"));
     if (ev != null || evLow) { const em = typeof EVD !== "undefined" ? EVD.PICK.minEv : 1.1;
@@ -2813,7 +2819,7 @@ function paintBuy(p, r, b) {
       '<div class="buytk">' + ticketBalls(H.ticket, "l") + '<span class="kind">3連複<br>1点</span></div>' +
       '<ul class="buyck">' + ck.join("") + "</ul>" +
       (res ? buyResLine(res.order, res.hit === true ? 1 : res.hit === false ? 0 : res.pending ? -1 : res.hit, res.pay, bought ? y : 0) : "") +
-      '<div class="buynote">' + (isTop ? HOT9_NOTE + "。" : "7車立ては本命ライン3人を、" + lo + "〜" + hi + "倍で2人だけ来る組が少ないときだけ（2022〜26年10月で回収99.7%・8,249点・確定オッズ。全部買うと88.7%）。もうけはほぼゼロなので、既定では買いません（金額を入れたときだけ買う）。") +
+      '<div class="buynote">' + (isTop ? HOT9_NOTE + "。" : "7車立ては本命ライン3人を、" + lo + "〜" + hi + "倍（" + (lo === BAND_LO_PRE ? "締切前の倍率。確定までに1〜2割下がるので、確定でおよそ9〜15倍" : "確定オッズ") + "）で2人だけ来る組が少ないときだけ（確定9〜15倍で2022〜26年10月 回収105.0%・2,447点。締切前の倍率で買うと約103%の見込み）。もうけは小さいので、既定では買いません（金額を入れたときだけ買う）。") +
         (P && !px ? " ※この日の成績の記録には、このレースの🔥がありません（いまの計算では🔥になる）。" : "") +
         (px && pl && pl.trio && pl.ticket !== px[3] ? " ※いまの計算では本命ライン3人が " + pl.ticket + " になります（その日の予想と並び・順位が違う）。" : "") + "</div></div>";
   } else {
@@ -2989,7 +2995,7 @@ function paintShoubu() {
   $("doneSub").textContent = done.length ? done.length + "件" : "";
   doneL.innerHTML = done.slice().reverse().map(doneRow).join("");
   const ref = $("ref7");
-  // 7車は本命ライン3人を全部🔥にした(2026-11-23〜)ので、参考に出すのは倍率が届いて 4〜15倍・2人だけ来る組が少ない(買う条件どおり)レースだけ
+  // 7車は本命ライン3人を全部🔥にした(2026-11-23〜)ので、参考に出すのは倍率が届いて 10〜15倍(締切前の倍率)・2人だけ来る組が少ない(買う条件どおり)レースだけ
   const rows7c = rows7.filter((r) => { const e7 = evInfo(r); return e7 && e7.odds != null && e7.inBand && e7.s2 && !e7.s2.skip; });
   if (ref) { ref.style.display = rows7c.length ? "" : "none"; $("ref7n").textContent = rows7c.length + "件"; $("shoubuList").innerHTML = rows7c.map((r) => doneRowRef(r)).join(""); }
   empty.style.display = items.length ? "none" : "";
@@ -3059,15 +3065,19 @@ function resultChip(x) {
 //   daily.json の1件 = [場, R, 車立て, 買い目, 着順, 的中(1/0/-1=3着不明), 3複配当, 買い目の確定オッズ, 発走, 期待値, 出どころ, ラインが切れる確率]
 //   13番目 = 先頭のB率1位(1/0)・14番目 = 2人だけ来る組で見送り(1)/買う(0)(hots2.js。9車 = 多い・7車 = 少なくない。2026-11-23〜。無ければ見送らない)
 //   ラインが切れる確率(12番目)は 2026-10-13 から。9車でこれが17%未満なら見送り(無い日は見送らない)
-//   7車は「三連複オッズ4〜15倍のときだけ買う」。確定オッズがあれば帯の外は見送りとして数えない
-//   (締切前に見るオッズと確定オッズは少しずれるので、目安)。オッズが無いレースは買った扱い。
+//   7車は「三連複オッズ 確定で9〜15倍(締切前の倍率で10〜15倍)のときだけ買う」(2026-11-23〜・hikitsugi §4-65)。
+//   15番目(x[14]) = 7車の締切前の倍率(判定と同じ時刻)。あればそれで10〜15倍、無ければ確定オッズ(x[7])で9〜15倍。帯の外は見送り。オッズが無いレースは買った扱い。
 // ===================================================================
-const BAND_LO = 4, BAND_HI = 15;       // engine.js の f3PlanFrom の bandLo/bandHi と同じ(7車)
+// 7車の帯(hots2.js の BAND7。2026-11-23〜・hikitsugi §4-65): 確定オッズで数えるとき 9〜15倍 / 締切前の倍率(買うとき)は 10〜15倍(確定までに1〜2割下がるぶん)
+const B7 = (typeof HOTS2 !== "undefined" && HOTS2.BAND7) || { lo: 9, hi: 15, loPre: 10, hiPre: 15 };
+const BAND_LO = B7.lo, BAND_HI = B7.hi, BAND_LO_PRE = B7.loPre, BAND_HI_PRE = B7.hiPre;
+// 7車の1件が帯の外か(締切前の倍率 pre があればそれで、無ければ確定オッズ fin で。どちらも無ければ外ではない)
+const out7 = (pre, fin) => (typeof pre === "number" ? pre < BAND_LO_PRE || pre > BAND_HI_PRE : fin != null && (fin < BAND_LO || fin > BAND_HI));
 const BAND9_LO = 5, BAND9_HI = 15;     // 9車(2026-09-27〜。hikitsugi §4-12)
 // 表示する一覧: 🔥は day.h、モデルDは day.d、Ⓐは day.a(Ⓓと同じ形で期待値は空き。2026-11-03〜)(daily.json の1件 = [場, R, 車立て, 買い目, 着順, 的中, 配当, 倍率, 期待値, 出どころ])を
 // 🔥と同じ並び([…, 倍率, 空き, 期待値, 出どころ])に直して使う
 // 🔥の行の14番目(x[13]) = モデルD(evd.js)の期待値。その日のⒹの買い目(期待値1.10以上・締切前の倍率なら23倍以下/確定オッズなら20倍以下)に同じ組があればその期待値、無ければ null(1.10未満)。
-//   🔥は5〜15倍(7車は4〜15倍)なので倍率の上限は必ず満たす。〜2026/9/25 のⒹはその年より前のデータで作ったモデル(d-past.json)
+//   🔥は5〜15倍(7車は9〜15倍)なので倍率の上限は必ず満たす。〜2026/9/25 のⒹはその年より前のデータで作ったモデル(d-past.json)
 // 合計(CAL.kind "all"。2026-11-03〜。前は「🔥全部」)= 🔥(いまの条件)・Ⓓ・Ⓐ を全部。15番目(x[14])に種類 "h" / "D" / "A"。
 //   同じレースの同じ組を2つ以上が選んだら、それぞれの金額で数える(金額を足して買う。2026-11-11〜・STACK。過去の日もこの数え方)。
 //   「1回だけ買う」設定(STACK = false)のときは1回だけ数える(🔥を買えば Ⓓ・Ⓐ は重ねない・Ⓓを買えば Ⓐ は重ねない)。重なった行は16番目(x[15])に印 → calPick で skipDup
@@ -3075,8 +3085,8 @@ const calKey3 = (x) => x[0] + "_" + x[1] + "_" + x[3];
 const calDRow = (x, k) => [x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[10] || null, x[8], x[9], null, null, null, k];
 function calHotRows(day) {
   const dEv = new Map((day.d || []).map((x) => [calKey3(x), x[8]]));
-  // daily.json の14番目(2人だけ来る組が多い 1/0)は r[16] に移す(r[13] はⒹの期待値・r[14] は種類・r[15] は重ねない印に使う)
-  return (day.h || []).map((x) => { const r = x.slice(); r[16] = x[13] === 1 || x[13] === 0 ? x[13] : null; const v = dEv.get(calKey3(x)); r[13] = typeof v === "number" ? v : null; r[14] = "h"; return r; });
+  // daily.json の14番目(2人だけ来る組が多い 1/0)は r[16] に、15番目(7車の締切前の倍率)は r[17] に移す(r[13] はⒹの期待値・r[14] は種類・r[15] は重ねない印に使う)
+  return (day.h || []).map((x) => { const r = x.slice(); r[16] = x[13] === 1 || x[13] === 0 ? x[13] : null; r[17] = typeof x[14] === "number" ? x[14] : null; const v = dEv.get(calKey3(x)); r[13] = typeof v === "number" ? v : null; r[14] = "h"; return r; });
 }
 function calList(day) {
   if (!day) return [];
@@ -3126,7 +3136,8 @@ function liveDay() {
     const row = [x.place, x.raceNo, x.cars, x.ticket, r ? r.order : "", hit, r && r.hit ? r.pay : 0, ei && ei.odds != null ? ei.odds : null, x.startTime || "",
       ei && !ei.thin ? Math.round(ei.ev * 1e4) / 1e4 : null, ei && !ei.thin ? "s" : null, x.brk,
       x.b1 != null ? (x.b1 ? 1 : 0) : null,          // 13番目: 先頭のB率1位(daily.json と同じ)
-      ei && ei.s2 ? (ei.s2.skip ? 1 : 0) : null];     // 14番目: 2人だけ来る組で見送り(1)・買う(0)(9車 = 多い・7車 = 少なくない)。2026-11-23〜
+      ei && ei.s2 ? (ei.s2.skip ? 1 : 0) : null,      // 14番目: 2人だけ来る組で見送り(1)・買う(0)(9車 = 多い・7車 = 少なくない)。2026-11-23〜
+      x.cars === 7 && ei && ei.odds != null ? ei.odds : null];   // 15番目: 7車の締切前の倍率(今日は判定に使う倍率。§4-65)
     return row;
   });
   const d = dRows().map((x) => {
@@ -3180,7 +3191,7 @@ function calPick1(x) {
   }
   if (CAL.kind === "9" && x[2] < 8) return null;
   if (CAL.kind === "7" && x[2] !== 7) return null;
-  if (CAL.band && x[2] === 7 && x[7] != null && (x[7] < BAND_LO || x[7] > BAND_HI)) return "skip";
+  if (CAL.band && x[2] === 7 && out7(x[17], x[7])) return "skip";   // 7車: 締切前の倍率があれば10〜15倍・無ければ確定で9〜15倍(§4-65)
   if (CAL.band && x[2] >= 8 && x[7] != null && (x[7] < BAND9_LO || x[7] > BAND9_HI)) return "skip";
   if (CAL.brk && x[2] >= 8 && x[11] != null && x[11] < HOT9_BRK) return "skipBrk";
   if (CAL.s2 && x[16] === 1) return "skipS2";     // 2人だけ来る組で見送り(9車 = 多い・7車 = 少なくない。分からない件は見送らない。2026-11-23〜)
@@ -3244,7 +3255,7 @@ function renderCal() {
   if (head) {
     const filt = CAL.kind === "D" || CAL.kind === "A" ? "" :
       '<details class="more calfilt"' + (CAL.filtOpen ? " open" : "") + '><summary>' + (CAL.kind === "all" ? "🔥の" : "") + "条件を変えて見る（" + (calIsDefault() ? "いまは<b>いまの買い方どおり</b>" : '<b style="color:var(--gold)">条件を変えています</b>') + "）</summary>" +
-      '<label class="bandsw"><input type="checkbox" id="calBand"' + (CAL.band ? " checked" : "") + ">オッズの帯の中だけ（9車" + BAND9_LO + "〜" + BAND9_HI + "倍・7車" + BAND_LO + "〜" + BAND_HI + "倍）</label>" +
+      '<label class="bandsw"><input type="checkbox" id="calBand"' + (CAL.band ? " checked" : "") + ">オッズの帯の中だけ（9車" + BAND9_LO + "〜" + BAND9_HI + "倍・7車" + BAND_LO + "〜" + BAND_HI + "倍。7車は締切前の倍率なら" + BAND_LO_PRE + "〜" + BAND_HI_PRE + "倍）</label>" +
       '<label class="bandsw"><input type="checkbox" id="calBrk"' + (CAL.brk ? " checked" : "") + ">9車は本命ラインが切れやすいレースだけ（離れる確率17%以上）</label>" +
       '<label class="bandsw"><input type="checkbox" id="calS2"' + (CAL.s2 ? " checked" : "") + ">2人だけ来る組で見送る（9車は目安より多いとき・7車は少なくないとき）</label>" +
       '<label class="bandsw"><input type="checkbox" id="calEv"' + (CAL.ev ? " checked" : "") + ">期待値" + (typeof EVD !== "undefined" ? EVD.PICK.minEv : 1.1).toFixed(2) + "以上だけ（モデルDと同じ期待値・同じ線。いまの買い方では使っていない・参考）</label>" +
@@ -3317,7 +3328,7 @@ function renderTrend(days, keys) {
 const BUY_DESC = {
   b1: "本命ラインの先頭のB率（最終バックを先頭で通る割合）がレースでいちばん。5年で回収139%",
   rest: "それ以外（B率が分からないレースも）。5年で回収116%",
-  h7: "7車立ての🔥（4〜15倍）。5年とも回収100%未満なので既定は買わない。買わないときも成績は100円で参考に出す",
+  h7: "7車立ての🔥（確定9〜15倍＝締切前10〜15倍・2人だけ来る組が少ないとき。5年 105.0%・締切前の倍率では約103%の見込み）。もうけが小さいので既定は買わない。買わないときも成績は100円で参考に出す",
   d: "全レースから期待値1.10以上・23倍以下（締切前の倍率で。確定では約20倍以下にあたる）の組を全部。2025年1月〜2026年9月で回収131%",
   a: "S級で3連複の1番人気がライン3人なのに AI予想(4車)がその3人をそろえていないとき、その1番人気を1点(4倍以上)。確定オッズでさかのぼると回収114.7%(1,138R)",
 };

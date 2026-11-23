@@ -12,11 +12,19 @@
 //     7車の本命ライン3人・4〜15倍・競りなし 16,083点で決めた)。7車の本命ライン3人(4〜15倍)は全部で 88.7%(24,564点)・少ない 99.7%(8,249点)・
 //     2025〜2026 は 100.7%。もうけはほぼゼロなので、買うかは今までどおり設定(既定は買わない)
 //   ★確定オッズで決めた。本番は締切2分前の倍率で判定する(入れたあとの記録で確かめること)
+//   ★2026-11-23(hikitsugi §4-65): 7車は 9〜15倍だけにした(BAND7)。「少ない」の中で 9〜15倍は 2,447点 105.0%(4〜9倍は 96%)。
+//     買うときの倍率は確定までに1〜2割下がる(締切前の記録 2,020R: 確定÷買うとき 4〜15倍で 0.79〜0.84)ので、
+//     締切前の倍率で買うときは 10〜15倍(loPre・hiPre)。上限を上げないのは、確定15〜17倍の「少ない」が 70.2%(450点)と悪いから。
+//     過去5年にこの動きを当てはめて買うときの決まりをまねると: 買うとき10〜15倍 102.9% / 9〜15倍 102.8% / 10.5〜17.5倍(確定に合わせた帯) 98.8%
+//     「少ない」の境目はずらさない(買うときは s2 が少し多めに出る = 少しきびしくなる。まねると、そのほうが回収は少し高い)
 // ============================================================
 (function (root) {
   "use strict";
   const RULE = { A: 0.5773571823529675, B: -0.08768999098900528, TH: 0.021699134142198748 };      // 9車(8車以上): over ≥ TH なら見送り
   const RULE7 = { A: 0.5679384083863769, B: -0.07853322957752044, TH: -0.05164880051609013 };    // 7車: over < TH(少ない)のときだけ買う
+  // 7車の倍率の帯: 確定オッズで数えるとき lo〜hi / 締切前の倍率(買うとき)で決めるとき loPre〜hiPre(2026-11-23〜・hikitsugi §4-65)
+  const BAND7 = { lo: 9, hi: 15, loPre: 10, hiPre: 15 };
+  const inBand7 = (odds, pre) => odds != null && odds >= (pre ? BAND7.loPre : BAND7.lo) && odds <= (pre ? BAND7.hiPre : BAND7.hi);
   const COMBOS = {};
   function trioCombos(n) {
     if (!COMBOS[n]) { const o = []; for (let a = 1; a <= n; a++) for (let b = a + 1; b <= n; b++) for (let c = b + 1; c <= n; c++) o.push([a, b, c]); COMBOS[n] = o; }
@@ -54,7 +62,7 @@
     const many = over >= RULE.TH && n >= 8, few = n === 7 && over < RULE7.TH;
     return { s2, exp, over, many, few, skip: n >= 8 ? many : !few, odds };
   }
-  const api = { RULE, RULE7, share2, judge, trioCombos };
+  const api = { RULE, RULE7, BAND7, inBand7, share2, judge, trioCombos };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.HOTS2 = api;
 })(typeof window !== "undefined" ? window : this);

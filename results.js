@@ -714,8 +714,16 @@ function writeDaily(dir, byDate, rankedOf) {
       const done = e.t != null;
       const hit = done ? ([e.f, e.s, e.t].sort((a, b) => a - b).join("=") === pl.ticket ? 1 : 0) : -1;
       const trio = pl.ticket.split("=").map(Number);
-      // 7車は 2026-11-23 から本命ライン3人を全部🔥にした(1日30R以上)。成績には確定オッズが帯(4〜15倍)の中のレースだけ残す(帯の外はどのみち見送り)
-      if (pl.cars === 7) { const fo7 = oddsOf(dir, e.id || (d + "_" + e.place + "_" + e.raceNo), trio); if (fo7 != null && (fo7 < 4 || fo7 > 15)) continue; }
+      // 7車は 2026-11-23 から本命ライン3人を全部🔥にした(1日30R以上)。成績には帯の中のレースだけ残す(帯の外はどのみち見送り)
+      //   帯(hots2.js の BAND7。§4-65): 締切前の記録がある日はその倍率(判定と同じ時刻)で 10〜15倍 / 無い日は確定オッズで 9〜15倍。
+      //   どちらの倍率も無いレースは残さない(帯が狭いので、買ったかどうか分からない。前は「買った扱い」で成績を下げていた: 2025年に92件・回収19%)
+      let so7 = null;
+      if (pl.cars === 7) {
+        const sn7 = snapOdds(d, e.place + "_" + e.raceNo);
+        if (sn7 && Array.isArray(sn7.o) && (sn7.n || 7) === 7) { const i7 = HOTS2.trioCombos(7).findIndex((c) => c.join("=") === pl.ticket), v7 = i7 >= 0 ? sn7.o[i7] : null; so7 = v7 > 0 && v7 < 9999 ? v7 : null; }
+        const fo7 = oddsOf(dir, e.id || (d + "_" + e.place + "_" + e.raceNo), trio);
+        if (so7 != null ? !HOTS2.inBand7(so7, true) : !HOTS2.inBand7(fo7, false)) continue;
+      }
       const [ev, evSrc] = evForEntry(dir, e, d, pl.ticket);
       const row = [e.place, e.raceNo, pl.cars, pl.ticket, e.f + "-" + e.s + "-" + (done ? e.t : "?"), hit,
         hit === 1 ? (e.p3fpay != null ? e.p3fpay : null) : 0, oddsOf(dir, e.id || (d + "_" + e.place + "_" + e.raceNo), trio),
@@ -735,6 +743,8 @@ function writeDaily(dir, byDate, rankedOf) {
         const j2 = sn && sn.n && Array.isArray(sn.o) ? HOTS2.judge(sn.o, sn.n, pl.ticket) : fo && Array.isArray(fo.o) ? HOTS2.judge(fo.o, fo.cars, pl.ticket) : null;
         if (j2) { while (row.length < 13) row.push(null); row.push(j2.skip ? 1 : 0); }
       }
+      // 15番目: 7車の買い目の締切前の倍率(判定と同じ時刻。§4-65)。アプリの成績はこれがあれば 10〜15倍、無ければ8番目(確定オッズ)で 9〜15倍を見る
+      if (so7 != null) { while (row.length < 14) row.push(null); row.push(so7); }
       h.push(row);
       keepRes(e);
     }
