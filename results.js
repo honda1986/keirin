@@ -643,6 +643,7 @@ function evForEntry(dir, e, d, ticket) {
 // それより後は history の riders(府県つき)と倍率(締切前の記録があればそれ、無ければ確定オッズ)から毎晩計算する
 // 倍率の上限は、締切前の記録なら 23倍・確定オッズなら 20倍(evd.js の PICK.oddsHiPre / oddsHi)
 const EVD = require("./evd.js");
+const HOTS2 = require("./hots2.js");   // 🔥9車の「2人だけ来る組」(2026-11-23〜)
 let D_PAST = null;
 // 🔥9車の過去分の [買い目, 切れる確率, B率1位](hot-past.json。2025-01〜2026-10-13・作り直した出走表で、アプリの🔥と同じ買い目)。history に brk・b1 が無い日に使う
 let HOT_PAST = null;
@@ -725,6 +726,13 @@ function writeDaily(dir, byDate, rankedOf) {
         if (hp && hp[0] === pl.ticket) hb = hb ? [hb[0], hb[1] != null ? hb[1] : hp[1], hp[2]] : hp;
       }
       if (hb) { row.push(hb[1] != null ? hb[1] : null); if (hb[2] != null) row.push(hb[2] ? 1 : 0); }
+      // 14番目: 2人だけ来る組が多い(1)・目安以下(0)(hots2.js。9車だけ。2026-11-23〜・hikitsugi §4-62)。
+      //   倍率は締切前の記録(SNAP_DIR の判定と同じ時刻)があればそれ、無ければ確定オッズ。分からなければ付けない(アプリは見送らない)
+      if (pl.cars >= 8) {
+        const id = e.id || (d + "_" + e.place + "_" + e.raceNo), sn = snapOdds(d, e.place + "_" + e.raceNo), fo = allOdds(dir, id);
+        const j2 = sn && sn.n && Array.isArray(sn.o) ? HOTS2.judge(sn.o, sn.n, pl.ticket) : fo && Array.isArray(fo.o) ? HOTS2.judge(fo.o, fo.cars, pl.ticket) : null;
+        if (j2) { while (row.length < 13) row.push(null); row.push(j2.many ? 1 : 0); }
+      }
       h.push(row);
       keepRes(e);
     }

@@ -24,6 +24,8 @@
 //     verdict は変えない。見送るかは bet/ の hot9_line_break(既定 true)で決める
 //   ★2026-10-14(hikitsugi §4-32): 🔥に b1(本命ラインの先頭のB率がいちばんか。fetch.js の plan.b1。分からなければ null)を足す。
 //     金額(買わない=0)は bet/ の hot9_b1_yen / hot9_rest_yen で分ける
+//   ★2026-11-23(hikitsugi §4-62): 🔥の9車立てに s2(2人だけ来る組の人気)と s2Many(倍率ごとの目安より多いか。hots2.js。倍率が無ければ null)を足す。
+//     使う倍率は判定と同じ記録(締切 DECIDE_MIN 分前より前の最後)。verdict は変えない。見送るかは bet/ の hot9_share2(既定 true)で決める
 //   ★2026-11-03(hikitsugi §4-50): Ⓐ「AI が外した1番人気ライン」(aifav.js)。kind:"A"・S級で AI予想(races.json の ai)があるレースだけ。
 //     締切前の倍率で、3連複の1番人気がライン3車・AI の4車にその3人がそろっていない・4倍以上なら verdict:"buy"(1点)。
 //     verdict: buy / none(条件に入らない。why に理由) / noAi / noOdds。🔥と同じ組なら sameAsHot、モデルDの組にあれば sameAsD(何点目か)
@@ -45,6 +47,7 @@ const { spawnSync } = require("child_process");
 const EV = require("./ev.js");
 const EVD = require("./evd.js");
 const AIFAV = require("./aifav.js");
+const HOTS2 = require("./hots2.js");
 const DF = require("./datafile.js");
 const HOT9_BAND = [5, 15];         // 🔥の9車立ての帯(2026-09-27〜)
 const HOT9_BRK = 0.17;             // 🔥の9車立て: 3人のラインが切れる確率がこれ以上のときだけ(2026-10-13〜。index.html の HOT9_BRK と同じ)
@@ -245,7 +248,10 @@ function main() {
     const brk = typeof p.brk === "number" ? p.brk : null;
     const brkOk = p.cars >= 8 && brk != null ? brk >= HOT9_BRK : null;
     const b1 = typeof p.b1 === "boolean" ? p.b1 : null;   // 本命ラインの先頭のB率がいちばん(fetch.js の plan.b1。2026-10-14〜)。bet/ が金額を分ける
-    return { kind: "hot", ...base(r, c, s), cars: p.cars, ticket: p.ticket, needOdds: !!p.needOdds, bandLo: p.bandLo, bandHi: p.bandHi, brk, brkOk, b1, ...j };
+    // 2人だけ来る組の人気(hots2.js。9車だけ)。目安より多ければ s2Many: true(bet/ が見送る)。倍率が無ければ null
+    const h2 = p.cars >= 8 && s && Array.isArray(s.o) ? HOTS2.judge(s.o, s.n || p.cars, p.ticket) : null;
+    const s2 = h2 ? Math.round(h2.s2 * 10000) / 10000 : null, s2Many = h2 ? h2.many : null;
+    return { kind: "hot", ...base(r, c, s), cars: p.cars, ticket: p.ticket, needOdds: !!p.needOdds, bandLo: p.bandLo, bandHi: p.bandHi, brk, brkOk, b1, s2, s2Many, ...j };
   });
   const hotTicket = {};
   for (const x of hotOut) hotTicket[x.key] = x.ticket;
@@ -290,7 +296,8 @@ function main() {
       ? x.tickets.map((t) => `${t.ticket}(期待値${t.ev.toFixed(2)} ${t.odds}倍)`).join(" ") + ` ${x.cars}車 ${x.verdict}`
       : `${x.ticket} ${x.cars}車 ${x.verdict}${x.ev != null ? " 期待値" + x.ev.toFixed(2) : ""}${x.odds != null ? " " + x.odds + "倍" : ""}` +
         (x.kind === "hot" && x.brk != null ? ` 切れる確率${Math.round(x.brk * 100)}%${x.brkOk === false ? "(17%未満)" : ""}` : "") +
-        (x.kind === "hot" && x.b1 != null ? (x.b1 ? " B率1位" : " B率2位以下") : "");
+        (x.kind === "hot" && x.b1 != null ? (x.b1 ? " B率1位" : " B率2位以下") : "") +
+        (x.kind === "hot" && x.s2Many != null ? (x.s2Many ? " 2人だけ来る組が多い(見送り)" : " 2人だけ来る組は目安以下") : "");
     console.log(`  ${x.kind === "D" ? "Ⓓ" : x.kind === "A" ? "Ⓐ" : "🔥"} 締切${x.close}(あと${x.minutesToClose}分) ${x.key.padEnd(8, "　")} ${tk}` +
       (x.snap ? ` [倍率 締切${x.snap.left}分前・${x.snap.age}分前に取得・${x.snap.src}]` : ""));
   }
