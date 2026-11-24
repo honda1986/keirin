@@ -70,16 +70,18 @@ jobs:
         run: node results.js --stats-only
 
       # 成績タブで過去のレースを押すと詳細を開くため、その日の出走表のテキストを pastcard ブランチに残す(hikitsugi §4-33)
-      - name: その日の出走表を pastcard ブランチに残す
+      #   2026-11-24〜: 全レースの結果(res-YYYYMM.json.gz)も。アプリの「レース」タブで過去の日の全レースを開くため(pastres.js・hikitsugi §4-69)
+      - name: その日の出走表と結果を pastcard ブランチに残す
         continue-on-error: true
         run: |
           git fetch -q --depth=1 origin refs/heads/pastcard
           rm -rf /tmp/pcb && git worktree add -q --detach /tmp/pcb FETCH_HEAD
           node dayraw.js /tmp/pcb
+          node pastres.js /tmp/pcb
           cd /tmp/pcb
-          git add dayraw-*.json.gz
+          git add dayraw-*.json.gz res-*.json.gz
           git diff --cached --quiet && echo "変更なし" && exit 0
-          git -c user.name=race-bot -c user.email=actions@github.com commit -qm "dayraw: その日の出走表"
+          git -c user.name=race-bot -c user.email=actions@github.com commit -qm "dayraw: その日の出走表と結果"
           for i in 1 2 3 4 5; do
             if git push -q origin HEAD:refs/heads/pastcard; then echo "push成功 (試行 $i)"; exit 0; fi
             sleep 5; git fetch -q origin refs/heads/pastcard && git rebase -q FETCH_HEAD || { git rebase --abort; exit 1; }

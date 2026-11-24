@@ -304,6 +304,11 @@
   .kb.cf0 { background: rgba(228,114,107,.14); color: var(--red); }
   .kb.cfn { background: var(--panel2); color: var(--dim); font-weight: 700; }
   .confnote { font-size: 10px; color: var(--muted); margin: 6px 2px 0; line-height: 1.6; }
+  /* レースタブの日付(過去の日の全レース。2026-11-24〜・hikitsugi §4-69) */
+  .daynav { display: flex; gap: 6px; align-items: center; margin: 0 0 8px; }
+  .daynav input { flex: 1; min-width: 0; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 7px 8px; font: inherit; font-size: 13px; font-weight: 700; color-scheme: dark; }
+  .daynav.past input { border-color: var(--gold); color: var(--gold); }
+  .daynav .chipbtn:disabled { opacity: .35; cursor: default; }
   .confnote b { color: var(--text); }
   .pr .cfw { font-size: 10px; color: var(--dim); white-space: nowrap; }
   .conftbl { width: 100%; border-collapse: collapse; font-size: 11px; margin: 8px 0 4px; font-variant-numeric: tabular-nums; }
@@ -508,6 +513,13 @@
 
   <!-- ===== レース: 今日の全レース(場ごと) ===== -->
   <section id="searchCard" data-tab="all">
+    <!-- 日付: 過去の日を選ぶと、その日の全レースの出走表から予想(展開予想・印・買い目)と結果を開ける(2026-11-24〜・hikitsugi §4-69) -->
+    <div class="daynav" id="dayNav">
+      <button type="button" class="chipbtn" id="dayPrev" aria-label="前の日">◀</button>
+      <input type="date" id="dayPick" min="2022-01-01" aria-label="レースの日">
+      <button type="button" class="chipbtn" id="dayNext" aria-label="次の日">▶</button>
+      <button type="button" class="chipbtn" id="dayToday">今日</button>
+    </div>
     <div class="toolbar">
       <div class="seg" id="searchFilters">
         <button class="sfBtn" data-f="all">すべて</button>
@@ -1820,7 +1832,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".sfBtn").forEach((b) => b.addEventListener("click", () => { searchFilter = b.dataset.f; renderRaceList(); }));
   const fa = document.getElementById("foldAll");
   if (fa) fa.addEventListener("click", () => {
-    const venues = [...new Set(raceList.map((x) => (x.label || "").split(" ")[0]))];
+    const venues = [...new Set(PAST_DAY ? PAST_LIST.map((x) => x.place) : raceList.map((x) => (x.label || "").split(" ")[0]))];
     if (foldedVenues.size) { foldedVenues.clear(); fa.textContent = "場を全部たたむ"; }
     else { venues.forEach((v) => foldedVenues.add(v)); fa.textContent = "場を全部ひらく"; }
     renderRaceList();
@@ -1835,8 +1847,20 @@ function renderSearch() {
 }
 // 全レースの一覧(場ごと)。Ⓓ の印は締切前の倍率で変わるので、paintShoubu から D_KEYS が変わったときだけ描き直す
 let D_KEYS = new Set(), D_SIG = "", A_KEYS = new Set();   // A_KEYS = Ⓐ(AI が外した1番人気ライン)の買い目があるレース
+// 並び予想の小さい図(レースの一覧の1行)。x = { lines, front, seri }
+function miniLines(x) {
+  const L = x.lines || [], fr = x.front;
+  const top = Array.isArray(fr) && fr.length === L.length ? fr.indexOf(Math.max(...fr)) : -1;
+  const SR = Array.isArray(x.seri) ? x.seri : [];
+  return L.map((l, i) => '<span class="g' + (i === top ? " front" : "") + '">' + l.map((c, k) => {
+    if (SR.some((q) => q[0] === c && q[1] === l[k + 1])) return '<span class="sr">' + ball(c, "s");
+    if (SR.some((q) => q[1] === c && q[0] === l[k - 1])) return ball(c, "s") + "</span>";
+    return ball(c, "s");
+  }).join("") + "</span>").join("");
+}
 function renderRaceList() {
   const box = $("raceListBox"); if (!box) return;
+  if (PAST_DAY) return renderPastList();
   if (!raceList.length) { box.innerHTML = '<div class="empty">まだレースがありません</div>'; return; }
   const venueOf = (x) => (x.label || "").split(" ")[0] || "?";
   const rnoOf = (x) => { const m = (x.label || "").match(/(\d{1,2})R/); return m ? parseInt(m[1]) : 99; };
@@ -1848,16 +1872,7 @@ function renderRaceList() {
   document.querySelectorAll(".sfBtn").forEach((b) => b.classList.toggle("on", b.dataset.f === searchFilter));
   const nHot = raceList.filter(shoubuOn).length;
   $("shoubuHint").textContent = "全" + raceList.length + "レース ・ 🔥 " + nHot + "件" + (D_KEYS.size ? " ・ Ⓓ " + D_KEYS.size + "件" : "") + (A_KEYS.size ? " ・ Ⓐ " + A_KEYS.size + "件" : "") + " ・ 緑の枠 = 前受けしそうなライン ・ 赤の点線 = 競り";
-  const mini = (x) => {
-    const L = x.lines || [], fr = x.front;
-    const top = Array.isArray(fr) && fr.length === L.length ? fr.indexOf(Math.max(...fr)) : -1;
-    const SR = Array.isArray(x.seri) ? x.seri : [];
-    return L.map((l, i) => '<span class="g' + (i === top ? " front" : "") + '">' + l.map((c, k) => {
-      if (SR.some((q) => q[0] === c && q[1] === l[k + 1])) return '<span class="sr">' + ball(c, "s");
-      if (SR.some((q) => q[1] === c && q[0] === l[k - 1])) return ball(c, "s") + "</span>";
-      return ball(c, "s");
-    }).join("") + "</span>").join("");
-  };
+  const mini = miniLines;
   let html = "";
   for (const v of venueOrder) {
     const rs = venues[v].filter(pass).sort((a, b) => rnoOf(a) - rnoOf(b));
@@ -1867,11 +1882,115 @@ function renderRaceList() {
     if (folded) continue;
     html += '<div class="vbox">' + rs.map((x) => '<div class="rrow' + (shoubuOn(x) ? " hot" : "") + '" onclick="loadRace(\'' + esc2(x.key).replace(/'/g, "\\'") + '\')">' +
       '<span class="rno">' + rnoOf(x) + 'R</span><span class="rt">' + (x.startTime || "") + '</span><span class="rl">' + mini(x) + "</span>" +
-      '<span class="rr">' + (shoubuOn(x) ? '<span class="kb hot">🔥</span>' : "") + (D_KEYS.has(x.key) ? '<span class="kb d">Ⓓ</span>' : "") + (A_KEYS.has(x.key) ? '<span class="kb a">Ⓐ</span>' : "") +
+      '<span class="rr">' + (shoubuOn(x) ? '<span class="kb hot">🔥</span>' + confBadge(SHOUBU_ROWS.find((r) => r.key === x.key), false) : "") + (D_KEYS.has(x.key) ? '<span class="kb d">Ⓓ</span>' : "") + (A_KEYS.has(x.key) ? '<span class="kb a">Ⓐ</span>' : "") +
       (FAV2_MAP[x.key] ? '<span class="kb fav" title="3連複の1番人気(' + FAV2_MAP[x.key].odds + '倍)が当たる見込み。参考・買い方ではない">本命' + Math.round(FAV2_MAP[x.key].p * 100) + "%</span>" : "") + resultChip(x) + "</span></div>").join("") + "</div>";
   }
   box.innerHTML = html || '<div class="empty">' + (searchFilter === "shoubu" ? "🔥・Ⓓ・Ⓐ のレースは今のところありません（「すべて」で全レース。Ⓓ・Ⓐは締切15分前から）" : "該当なし") + "</div>";
 }
+// ---- 過去の日のレース(レースタブの日付。2026-11-24〜・hikitsugi §4-69) ----
+//   出走表 = pastcard ブランチの pcraw(2022-01〜2026-10-15)・dayraw(2026-10-14〜。毎晩 results.yml が足す)
+//   結果 = daily.json の res(🔥・Ⓓ・Ⓐを買ったレース)か pastcard ブランチの res-YYYYMM.json.gz(全レース。2025-01〜。pastres.js)
+//   予想(展開予想・印・買い目)は今のエンジンでその日の出走表から計算する。その日に出していた🔥・Ⓓ・Ⓐは daily.json から
+let PAST_DAY = null, PAST_LIST = [], PAST_LOADING = false;
+const d8ToIso = (d8) => d8.slice(0, 4) + "-" + d8.slice(4, 6) + "-" + d8.slice(6, 8);
+const todayD8 = () => (RACE_DAY ? RACE_DAY.replace(/-/g, "") : new Date(jstNowMs()).toISOString().slice(0, 10).replace(/-/g, ""));
+const shiftD8 = (d8, n) => new Date(Date.UTC(+d8.slice(0, 4), +d8.slice(4, 6) - 1, +d8.slice(6, 8)) + n * 86400e3).toISOString().slice(0, 10).replace(/-/g, "");
+const pastDayLabel = (d8) => (d8.slice(0, 4) !== todayD8().slice(0, 4) ? +d8.slice(0, 4) + "年" : "") + d8Label(d8);
+async function setRaceDay(d8) {
+  if (!d8 || d8 >= todayD8()) { PAST_DAY = null; PAST_LIST = []; PAST_LOADING = false; syncDayNav(); renderRaceList(); return; }
+  if (d8 < "20220101") d8 = "20220101";
+  PAST_DAY = d8; PAST_LIST = []; PAST_LOADING = true; syncDayNav(); renderRaceList();
+  const list = await pastDayList(d8);
+  if (PAST_DAY !== d8) return;     // 読んでいるあいだに日を変えた
+  PAST_LIST = list; PAST_LOADING = false; renderRaceList();
+}
+function syncDayNav() {
+  const pk = $("dayPick"); if (!pk) return;
+  const t8 = todayD8();
+  pk.max = d8ToIso(t8); pk.value = d8ToIso(PAST_DAY || t8);
+  $("dayNav").classList.toggle("past", !!PAST_DAY);
+  $("dayNext").disabled = !PAST_DAY; $("dayToday").disabled = !PAST_DAY;
+}
+async function pastDayList(d8) {
+  const ym = d8.slice(0, 6);
+  if (DAILY == null) await loadDaily();
+  const [pc, dr, rs] = await Promise.all([pastRawMonth("pcraw", ym), pastRawMonth("dayraw", ym), pastRawMonth("res", ym)]);
+  const raws = {};
+  for (const m of [dr, pc]) if (m) for (const id of Object.keys(m)) if (id.startsWith(d8 + "_")) raws[id] = m[id];   // 両方あれば pcraw
+  const day = (DAILY || {})[d8] || {};
+  const out = [];
+  for (const [id, raw] of Object.entries(raws)) {
+    const key = id.slice(9), i = key.lastIndexOf("_"), place = key.slice(0, i), raceNo = key.slice(i + 1);
+    let p = null; try { p = parseCard(raw, TRACK_NAMES); } catch (e) {}
+    out.push({ id, key, d8, place, raceNo, rno: parseInt(raceNo, 10) || 0,
+      startTime: (String(raw).match(/発走予定\s*(\d{1,2}:\d{2})/) || [])[1] || (p && p.startTime) || "",
+      raw, lines: p && Array.isArray(p.lines) ? p.lines : [], seri: p && Array.isArray(p.seri) && p.seri.length ? p.seri : null,
+      res: (day.res && day.res[key]) || (rs && rs[id]) || null,
+      h: (day.h || []).find((x) => x[0] === place && x[1] === raceNo) || null,
+      d: (day.d || []).filter((x) => x[0] === place && x[1] === raceNo), a: (day.a || []).filter((x) => x[0] === place && x[1] === raceNo) });
+  }
+  return out;
+}
+// 過去の日の1レースの結果(着順・🔥の当たり外れか3連複の配当)
+function pastResChip(x) {
+  const r = x.res; if (!r || r[0] == null) return "";
+  const order = [r[0], r[1], r[2]].filter((c) => c != null).map((c) => ball(c, "s")).join("");
+  let tail = "";
+  if (x.h && x.h[5] === 1) tail = ' <b class="pos">✅ ' + (x.h[6] != null ? x.h[6].toLocaleString() + "円" : "") + "</b>";
+  else if (x.h && x.h[5] === 0) tail = ' <b class="neg">✗</b>';
+  else if (r[3] != null) tail = " <span>3複" + r[3].toLocaleString() + "円</span>";
+  return '<div class="reschip">' + order + tail + "</div>";
+}
+function renderPastList() {
+  const box = $("raceListBox"), d8 = PAST_DAY, hint = $("shoubuHint");
+  document.querySelectorAll(".sfBtn").forEach((b) => b.classList.toggle("on", b.dataset.f === searchFilter));
+  if (PAST_LOADING) { box.innerHTML = '<div class="empty">' + pastDayLabel(d8) + " のレースを読み込んでいます…</div>"; hint.textContent = ""; return; }
+  if (!PAST_LIST.length) {
+    box.innerHTML = '<div class="empty">' + pastDayLabel(d8) + (typeof DecompressionStream === "undefined" ? " — このブラウザでは過去の出走表を開けません" : " の出走表が見つかりませんでした（開催が無い日か、まだ保存されていない日。前の日の分は夜中に足されます）") + "</div>";
+    hint.textContent = ""; return;
+  }
+  const has = (x) => !!(x.h || x.d.length || x.a.length);
+  const pass = (x) => searchFilter === "all" || has(x);
+  const nH = PAST_LIST.filter((x) => x.h).length, nD = PAST_LIST.filter((x) => x.d.length).length, nA = PAST_LIST.filter((x) => x.a.length).length;
+  hint.textContent = pastDayLabel(d8) + "（過去の日）全" + PAST_LIST.length + "レース" + (d8 < "20250101" ? "" : " ・ 🔥 " + nH + "件" + (nD ? " ・ Ⓓ " + nD + "件" : "") + (nA ? " ・ Ⓐ " + nA + "件" : "")) +
+    " ・ 押すとその日の出走表から予想（展開予想・印・買い目）と結果" + (d8 < "20250101" ? " ・ その日の🔥・Ⓓ・Ⓐと結果の記録は2025年から" : "");
+  const venues = {};
+  for (const x of PAST_LIST) (venues[x.place] = venues[x.place] || []).push(x);
+  const first = (g) => g.map((x) => x.startTime || "99:99").sort()[0];
+  let html = "";
+  for (const v of Object.keys(venues).sort((a, b) => first(venues[a]).localeCompare(first(venues[b])))) {
+    const rs = venues[v].filter(pass).sort((a, b) => a.rno - b.rno);
+    if (!rs.length) continue;
+    const folded = foldedVenues.has(v);
+    html += '<div class="vhead" onclick="toggleVenue(\'' + esc2(v).replace(/'/g, "\\'") + '\')">' + (folded ? "▸ " : "▾ ") + esc2(v) + " <small>" + rs.length + "R ・ " + (rs[0].startTime || "") + "〜</small></div>";
+    if (folded) continue;
+    html += '<div class="vbox">' + rs.map((x) => {
+      const h = x.h, is9 = h && h[2] >= 8, cp = is9 && h[16] >= 1 && h[16] <= 4 ? h[16] : null;
+      const cf = cp != null ? confBadge({ isTop: true, cpos: cp, loc: h[15] === 0 || h[15] === 1 || h[15] === 2 ? h[15] : null, cm: "1" }, false) : "";
+      return '<div class="rrow' + (is9 ? " hot" : "") + '" onclick="openPastRace(\'' + esc2(x.key).replace(/'/g, "\\'") + '\')">' +
+        '<span class="rno">' + x.rno + 'R</span><span class="rt">' + (x.startTime || "") + '</span><span class="rl">' + miniLines(x) + "</span>" +
+        '<span class="rr">' + (h ? '<span class="kb ' + (is9 ? "hot" : "ref") + '">🔥' + (is9 ? "" : "7") + "</span>" + cf : "") + (x.d.length ? '<span class="kb d">Ⓓ</span>' : "") + (x.a.length ? '<span class="kb a">Ⓐ</span>' : "") +
+        pastResChip(x) + "</span></div>";
+    }).join("") + "</div>";
+  }
+  box.innerHTML = html || '<div class="empty">この日は🔥・Ⓓ・Ⓐ のレースがありません（「すべて」で全レース）</div>';
+}
+window.openPastRace = (key) => {
+  const it = PAST_LIST.find((y) => y.key === key); if (!it) return;
+  const day = (DAILY || {})[it.d8] || {};
+  const x = it.h ? calHotRows({ h: [it.h], d: day.d })[0] : it.d[0] ? calDRow(it.d[0], "D") : it.a[0] ? calDRow(it.a[0], "A") : null;
+  openPastRaceAt(it.d8, it.key, x, it.raw, it.res);
+};
+// 成績タブの日 → レースタブのその日の全レース
+window.showPastDay = (d8) => { showTab("all"); window.scrollTo(0, 0); setRaceDay(d8); };
+document.addEventListener("DOMContentLoaded", () => {
+  if (!$("dayPick")) return;
+  $("dayPick").addEventListener("change", (e) => setRaceDay(String(e.target.value || "").replace(/-/g, "")));
+  $("dayPrev").addEventListener("click", () => setRaceDay(shiftD8(PAST_DAY || todayD8(), -1)));
+  $("dayNext").addEventListener("click", () => { if (PAST_DAY) setRaceDay(shiftD8(PAST_DAY, 1)); });
+  $("dayToday").addEventListener("click", () => setRaceDay(null));
+  syncDayNav();
+});
 window.loadRace = (key) => {
   const x = raceList.find((y) => y.key === key);
   if (!x) return;
@@ -1961,6 +2080,7 @@ async function loadTodayRaces(quiet) {
     });
     RACE_DAY = raceDayOf(data.races);
     RACES_META = data;          // 出走表待ち(pending)を今日の自信度に出すため、描く前に入れる
+    syncDayNav();
     renderSearch();
     setAppUpd(data);
     loadResults();
@@ -2884,7 +3004,8 @@ function paintBuy(p, r, b) {
       "7車は先頭が地元なら見送り（5年 87%）" + (H7LOC ? "・番手か3番手が地元のときだけ買う（139%。💴 で変えられる）" : "・地元に関係なく買う設定")));
     // 朝の自信度(出走表の印の◎の位置 × 地元の位置。hotconf.js。2026-11-24〜・§4-67): 今日 = 今日の行 / 過去 = daily の17番目。表示だけ
     if (isTop && typeof HOTCONF !== "undefined") {
-      const cpos = row ? row.cpos : px ? (px[16] >= 1 && px[16] <= 4 ? px[16] : null) : null;
+      // 過去の日で記録(daily の17番目)が無い・貼り付けた出走表は、出走表のテキストの印から(1番車の印は推定。§4-69)
+      const cpos = row ? row.cpos : px && px[16] >= 1 && px[16] <= 4 ? px[16] : !today ? HOTCONF.posOf(p.lines || [], H.ticket, HOTCONF.marksFromText(P ? P.raw : $("src").value || "").cm) : null;
       const lvC = HOTCONF.level(cpos, loc), LC = lvC == null ? null : HOTCONF.LV[lvC];
       ck.push(ckLi(LC ? (lvC >= 2 ? "✓" : lvC === 0 ? (HON9 ? "✗" : "•") : "•") : "–", "朝の自信度（出走表の印）",
         LC ? LC.mk + " " + (lvC === 0 && !HON9 ? "見送り候補" : LC.name) + "（" + HOTCONF.POS_NAME[cpos] + (lvC === 3 ? "・地元が番手か3番手" : "") + "）" : row ? (row.cm ? "◎の位置が分からない" : "出走表の印がまだ") : px ? "記録なし" : "分からない",
@@ -3445,7 +3566,7 @@ function confTable(days, inMonth, keys, y, mo) {
   if (!rowsH) return "";
   return '<details class="more"><summary>朝の自信度ごと（出走表の印の◎の位置・地元の位置）</summary>' +
     '<table class="conftbl"><tr><th>自信度</th><th>' + y + "年" + mo + "月</th><th>全期間（" + (+keys[0].slice(0, 4)) + "年" + (+keys[0].slice(4, 6)) + "月〜）</th></tr>" + rowsH + "</table>" +
-    '<div class="note" style="font-size:10px;margin:2px 0 6px">上の条件で「買う」になったレースを100円ずつで数えたもの（金額の設定は使わない）。× は見送りにしているが（2026/11/24〜）、ここでは見送らなかった場合の成績。〜2026/10 は作り直した出走表の印、2026/11/24ごろからは朝の出走表の印（その間の11月は記録が無いので「分からない」）。</div></details>';
+    '<div class="note" style="font-size:10px;margin:2px 0 6px">上の条件で「買う」になったレースを100円ずつで数えたもの（金額の設定は使わない）。× は見送りにしているが（2026/11/24〜）、ここでは見送らなかった場合の成績。〜2026/10 は作り直した出走表の印、2026/11/15〜23 はその日の出走表の印、2026/11/24ごろからは朝の出走表の印（2026/11/1〜14 は印の無い出走表なので「分からない」）。</div></details>';
 }
 // 通算の収支(いま選んでいる種類・条件で、日ごとの収支を足していった線)。月をまたいだ流れと、いちばん落ち込んだ幅が一目で分かる
 function renderTrend(days, keys) {
@@ -3535,7 +3656,8 @@ function calDetail(d8, day) {
   const head = '<div class="dayh"><span>' + d8Label(d8) + (day.live ? ' <span style="color:var(--blue);font-size:10px">速報</span>' : "") +
     (isD ? "　Ⓓ" : isA ? "　Ⓐ" : isT ? "　合計" : "　🔥") + list.length + (isD || isT ? "点" : "R") + (g.n ? " 的中" + g.hit : "") + "</span>" +
     (g.n ? '<span class="' + (g.pl >= 0 ? "pos" : "neg") + '">' + yen(g.pl) + "円" + (g.roi != null ? ' <small style="color:var(--muted);font-weight:500">回収' + g.roi + "%</small>" : "") + "</span>" : "<span></span>") + "</div>";
-  if (!list.length) return head + '<div class="empty" style="padding:10px">この日は該当する' + (isD ? "モデルDの買い目" : isA ? "Ⓐの買い目" : isT ? "買い目" : "🔥") + "がありません</div>";
+  const allBtn = d8 < todayD8() ? '<div style="text-align:right;margin:6px 0 0"><button type="button" class="chipbtn" onclick="showPastDay(\'' + d8 + '\')">この日の全レースの予想を見る ›</button></div>' : "";
+  if (!list.length) return head + '<div class="empty" style="padding:10px">この日は該当する' + (isD ? "モデルDの買い目" : isA ? "Ⓐの買い目" : isT ? "買い目" : "🔥") + "がありません</div>" + allBtn;
   const rows = list.map((x, i) => {
     const k = calPick(x), rk = calKindOf(x);
     const odT = x[7] != null ? x[7] + "倍" : "";
@@ -3562,7 +3684,7 @@ function calDetail(d8, day) {
     (day.live ? "今日の分は10分おきの速報で、夜に確定集計します。" : "いまの買い方をその日の予想に当てはめたさかのぼり計算を含みます。") +
     (!isA && !isT && list.some((x) => x[2] === 7 && x[7] != null) ? "倍率は確定オッズ" + (day.live ? "ではなく今の倍率。" : "。") : "") +
     (isA ? (day.live ? "倍率は締切2分前か今の倍率。" : "倍率は締切前の記録（自動投票が決めたとき）か、無ければ確定オッズ。") : "") +
-    (isD || (!isA && CAL.ev) ? "期待値はモデルDの計算（" + (day.live ? "締切2分前か今の倍率" : d8 <= "20260925" ? "その年より前のデータで作ったモデル・確定オッズ" : "締切前の倍率(記録があるレース)か確定オッズ") + "）。" : "") + "</div>";
+    (isD || (!isA && CAL.ev) ? "期待値はモデルDの計算（" + (day.live ? "締切2分前か今の倍率" : d8 <= "20260925" ? "その年より前のデータで作ったモデル・確定オッズ" : "締切前の倍率(記録があるレース)か確定オッズ") + "）。" : "") + "</div>" + allBtn;
 }
 // ---- 成績の一覧から、そのレースの詳細を開く(hikitsugi §4-33) ----
 //   今日のレースは races.json から(loadRace)。過去は pastcard ブランチの出走表テキスト:
@@ -3587,21 +3709,25 @@ async function pastRaw(id) {
 }
 async function openCalRace(i) {
   const x = CAL_ROWS[i], d8 = CAL_ROWS_D8; if (!x || !d8) return;
-  const key = x[0] + "_" + x[1];
+  openPastRaceAt(d8, x[0] + "_" + x[1], x);
+}
+// 過去のレースを開く。x = その日の買い目の行(成績の一覧の形。無ければ null)・raw0 / res0 = 先に読んである出走表・結果(レースタブの過去の日から)
+async function openPastRaceAt(d8, key, x, raw0, res0) {
   if (RACE_DAY && d8 === RACE_DAY.replace(/-/g, "") && raceList.some((y) => y.key === key)) { PAST_RACE = null; loadRace(key); return; }
-  enterRace(); setRaceBar(x[0] + " " + x[1]);
+  const ki = key.lastIndexOf("_"), place = key.slice(0, ki), raceNo = key.slice(ki + 1);
+  enterRace(); setRaceBar(place + " " + raceNo);
   ["bankCard","parseCard","scoreCard","tenkaiCard","markCard","betCard","evTopCard","frontCard","dataFold","raceRes"].forEach((id) => { if ($(id)) $(id).classList.add("hidden"); });
   const rh = $("raceHead");
-  if (rh) { rh.innerHTML = '<div class="t">' + esc(x[0] + " " + x[1]) + '</div><div class="m">' + d8Label(d8) + " ・ 出走表を読み込んでいます…</div>"; rh.classList.remove("hidden"); }
+  if (rh) { rh.innerHTML = '<div class="t">' + esc(place + " " + raceNo) + '</div><div class="m">' + d8Label(d8) + " ・ 出走表を読み込んでいます…</div>"; rh.classList.remove("hidden"); }
   if ($("anaEmpty")) $("anaEmpty").style.display = "none";
-  const raw = await pastRaw(d8 + "_" + key);
+  const raw = raw0 || await pastRaw(d8 + "_" + key);
   if (!raw) {
-    if (rh) rh.innerHTML = '<div class="t">' + esc(x[0] + " " + x[1]) + '</div><div class="m">' + d8Label(d8) + " ・ この日の出走表が見つかりませんでした（" +
+    if (rh) rh.innerHTML = '<div class="t">' + esc(place + " " + raceNo) + '</div><div class="m">' + d8Label(d8) + " ・ この日の出走表が見つかりませんでした（" +
       (typeof DecompressionStream === "undefined" ? "このブラウザでは過去の出走表を開けません" : "まだ保存されていない日です") + "）</div>";
     return;
   }
-  const isD = calKindOf(x) === "D", isA = calKindOf(x) === "A";
-  PAST_RACE = { raw, d8, x, isD, isA, yen: calYen(x) };
+  const isD = !!x && calKindOf(x) === "D", isA = !!x && calKindOf(x) === "A";
+  PAST_RACE = { raw, d8, x: x || null, isD, isA, yen: x ? calYen(x) : 0, res: res0 || null };
   $("src").value = raw;
   const d = detect(raw); if (d) $("track").value = d;
   $("run").click();
@@ -3613,6 +3739,9 @@ function raceResOf(place, raceNo) {
   if (PAST_RACE) {
     const day = calDays()[PAST_RACE.d8] || {}, r = day.res && day.res[place + "_" + raceNo];
     if (r) return { f: r[0], s: r[1], t: r[2], p3fpay: r[3], p3pay: r[4], p2pay: r[5] };
+    const q = PAST_RACE.res;   // レースタブの過去の日(res-YYYYMM.json.gz)
+    if (q && q[0] != null) return { f: q[0], s: q[1], t: q[2], p3fpay: q[3], p3pay: q[4], p2pay: q[5] };
+    if (!PAST_RACE.x) return null;
     const o = String(PAST_RACE.x[4] || "").split("-").map(Number);
     return o[0] ? { f: o[0], s: o[1], t: o[2] || null, p3fpay: PAST_RACE.x[5] === 1 ? PAST_RACE.x[6] : null } : null;
   }
@@ -3629,7 +3758,7 @@ function paintRaceRes() {
     '<div class="ord">' + pos(r.f, "1着") + pos(r.s, "2着") + pos(r.t, "3着") + "</div>" +
     '<div class="pays">' + pay("3連複", r.p3fpay) + pay("3連単", r.p3pay) + pay("2車単", r.p2pay) + "</div>";
   // 成績から開いたときは、そのとき出していた買い目(🔥/Ⓓ/Ⓐ)と払戻(買い方の金額ぶん)
-  if (P) {
+  if (P && P.x) {
     const x = P.x, res = x[5] === 1 ? '<span class="r pos">的中 ' + (x[6] != null ? Math.round(x[6] * P.yen / 100).toLocaleString() + "円" : "") + "</span>" : x[5] === 0 ? '<span class="r neg">✗</span>' : '<span class="r" style="color:var(--muted)">結果待ち</span>';
     html += '<div class="mine"><span style="color:var(--muted)">その日の買い目</span>' + (P.isD ? '<span class="kb d">Ⓓ</span>' : P.isA ? '<span class="kb a">Ⓐ</span>' : '<span class="kb hot">🔥</span>') + ticketBalls(x[3], "s") + res + "</div>";
   }
