@@ -35,6 +35,8 @@ const { T, TRACK_NAMES } = require("./bankdata.js");
 const EV = require("./ev.js");
 const FRONT = require("./front.js");
 const DF = require("./datafile.js");
+// 出走表の予想印(記者の ◎○▲△×注)。🔥9車の「朝の自信度」に使う(hotconf.js。2026-11-24〜・hikitsugi §4-67)。Kドリームスのページにだけある(WINTICKET には無い)
+const HOTCONF = require("./hotconf.js");
 // 展開予想の「ラインで前について行けない(離れる)確率」(tenkai.js の detach。hikitsugi §4-25・§4-26)。🔥9車の条件に使う
 let TENKAI = null;
 try { TENKAI = require("./tenkai.js").load(JSON.parse(fs.readFileSync(path.join(__dirname, "tenkai-model.json"), "utf8"))); }
@@ -142,6 +144,7 @@ function parseDayIndex(html) {
   return out;
 }
 
+const MARK_COUNT = { races: 0, withHon: 0, inferred: 0 };   // ログ用(数だけ)
 function buildEntry(text, item) {
   const p = parseCard(text, TRACK_NAMES);
   if (!p || !Array.isArray(p.entries) || p.entries.length < 5) throw new Error("選手データ不足 " + (p?.entries?.length ?? 0));
@@ -195,6 +198,9 @@ function buildEntry(text, item) {
     try { plan.brk = lineBreakOf(p, r, bank, rankBase, plan.trio); } catch (e) { console.error("  離れる確率:", e.message); plan.brk = null; }
     try { plan.b1 = headB1Of(p, plan.trio); } catch (e) { console.error("  B率:", e.message); plan.b1 = null; }
   }
+  // 予想印はページ全体のテキストから読む(短くした raw には1番車の印が入らない)。印が無いページ(WINTICKET・印がまだ)は付けない
+  const mk = HOTCONF.marksFromText(text), cm = HOTCONF.toStr(mk.cm);
+  MARK_COUNT.races++; if (/◎/.test(cm)) MARK_COUNT.withHon++; if (mk.inferred) MARK_COUNT.inferred++;
   const riders = p.entries.map((en) => {
     const sc = (r.scores || []).find((x) => x.car === en.car);
     return [en.car, en.age || 0, parseInt(en.ki, 10) || 0, posOf[en.car] ?? 3, rankBase[en.car] || 9,
@@ -221,6 +227,7 @@ function buildEntry(text, item) {
     // ss: S級S班の選手がいるか(🔥の9車は見送り。engine.js の f3PlanFrom)
     ss: p.entries.some((e) => e.grade === "SS"),
     seri: p.seri && p.seri.length ? p.seri.filter((q) => q.every((c) => cars.has(c))) : undefined,   // 競り [[カッコの前, 後], ...]。2026-09-30 から
+    cm: cm || undefined,   // 出走表の予想印 "◎3○5▲1△7×2"(hotconf.js。2026-11-24〜)。1番車の印は読めなければ推定(◎○▲△× のうち1つだけ空いているとき)
     plan,           // plan.brk: 🔥の3人のラインが切れる確率(lineBreakOf)。2026-10-13 から / plan.b1: 先頭のB率がいちばん(headB1Of)。2026-10-14 から
     // WINTICKET の AI予想の4車(wt.js の aiCars)。Ⓐ(aifav.js)の判定に使う。2026-11-03 から。無いレースは付けない
     ai: Array.isArray(item.ai) && item.ai.length === 4 ? item.ai : undefined,
@@ -234,6 +241,10 @@ async function main() {
   const jst = new Date(Date.now() + 9 * 3600 * 1000);
   // FETCH_DATE=YYYY-MM-DD: 過去の日を作り直す(wtday.js。予想が残っていない日のため)。RACES_OUT と一緒に使う(races.json・scores.json は書かない)
   const FETCH_DATE = process.env.FETCH_DATE || "";
+  // --pending: 今日の races.json にまだ無いレース(ミッドナイトなど、朝は出走表が出ていない)だけを取りに行き、今の races.json に足す
+  //   (2026-11-24〜・hikitsugi §4-67)。live.yml が日中30分おきに呼ぶ。足せるものが無ければ何も書かない。得点ログ(scores.json)には触らない
+  const PENDING_ONLY = process.argv.includes("--pending");
+  if (PENDING_ONLY && (FETCH_DATE || process.env.RACES_OUT)) { console.error("--pending は今日の races.json にだけ使えます"); process.exit(1); }
   if (FETCH_DATE && (!/^\d{4}-\d{2}-\d{2}$/.test(FETCH_DATE) || !process.env.RACES_OUT)) { console.error("FETCH_DATE は YYYY-MM-DD で、RACES_OUT と一緒に指定してください"); process.exit(1); }
   const d = FETCH_DATE || jst.toISOString().slice(0, 10), d8 = d.replace(/-/g, "");
   console.log("========================================");
@@ -299,9 +310,21 @@ async function main() {
   }
   console.log("今日のレース:", list.length, "件");
   if (!list.length) { console.error("レースが1件も見つかりません。開催が無いか、ページ構造が変わっています。"); process.exit(1); }
+  const sameDay = (x) => { const m = String(x.date || "").match(/(\d{4})年(\d{1,2})月(\d{1,2})日/); return !!m && m[1] + m[2].padStart(2, "0") + m[3].padStart(2, "0") === d8; };
+  if (PENDING_ONLY) {
+    let have = null;
+    try { have = new Set((DF.read(path.join(__dirname, "races.json")).races || []).filter(sameDay).map((x) => x.key)); } catch (e) { /* 読めない */ }
+    if (!have || !have.size) { console.log("今日の races.json がまだ無いので、取り直し(全部)に任せます"); return; }
+    list = list.filter((it) => !have.has(it.place + "_" + it.raceNo));
+    console.log("出走表待ちのレース:", list.length, "件");
+    if (!list.length) return;
+  }
 
-  const races = [];
+  const races = [], failed = [];
   await pool(list, async (item) => {
+    try { await buildOne(item); } catch (err) { failed.push(item); throw err; }
+  });
+  async function buildOne(item) {
     let e;
     if (item.src === "kd") {
       // Kドリームス: 並び予想を1行のテキストに直してからページ全体をテキストに(2026-10-22 までと同じ。AI予想・H は無い)
@@ -317,12 +340,15 @@ async function main() {
     if (races.some((x) => x.key === e.key)) return;
     races.push(e);
     console.log("  OK", e.place, e.raceNo, (e.score != null ? e.score + "%" : "ガールズ"), "ライン=" + JSON.stringify(e.lines));
-  });
+  }
+  console.log(" 出走表の予想印: ◎が読めた " + MARK_COUNT.withHon + " / " + MARK_COUNT.races + " レース(1番車の印を推定 " + MARK_COUNT.inferred + ")");
+  if (PENDING_ONLY && !races.length) { console.log("まだ出走表が出ていません(" + failed.length + "件)。次の回でまた見ます"); return; }
+  const builtN = races.length;
 
   // 同じ日の races.json にあって今回取れなかったレース(トップページから消えた場など)は残す
   try {
     const prev = DF.read(process.env.RACES_OUT || path.join(__dirname, "races.json"));
-    const same = (prev.races || []).filter((x) => { const m = String(x.date || "").match(/(\d{4})年(\d{1,2})月(\d{1,2})日/); return m && m[1] + m[2].padStart(2, "0") + m[3].padStart(2, "0") === d8; });
+    const same = (prev.races || []).filter(sameDay);
     const have = new Set(races.map((x) => x.key));
     const kept = same.filter((x) => !have.has(x.key));
     if (kept.length) { races.push(...kept); console.log(" 前回の races.json から残したレース:", kept.length, "件"); }
@@ -339,19 +365,25 @@ async function main() {
     console.error("1件も作れませんでした。races.json はそのままにします。");
     process.exit(1);
   }
+  // 出走表待ち: 今日の一覧にあるのに出走表が取れなかったレース(ミッドナイトなど、朝は出走表が出ていない)。アプリが「出走表待ち」と出す。
+  //   live.yml が日中30分おきに --pending で取りに行く(2026-11-24〜・hikitsugi §4-67)
+  const haveKeys = new Set(races.map((x) => x.key));
+  const pending = failed.filter((it) => !haveKeys.has(it.place + "_" + it.raceNo)).map((it) => ({ place: it.place, raceNo: it.raceNo }));
+  if (pending.length) console.log(" 出走表待ち:", pending.length, "件(" + new Set(pending.map((x) => x.place)).size + "場)");
   // アプリは { updatedAt, count, races } の形を期待している(配列そのままだと読めない)
   // RACES_OUT を指定したときはそこに書き、得点ログ(scores.json)には触らない。
   // PC の予備取得(pc/runner.js)が、GitHub の朝の更新が遅れた日に手元だけで使うため。
   // main のファイルを書き換えると、次に GitHub から取り込むときにぶつかる。
   const outPath = process.env.RACES_OUT || path.join(__dirname, "races.json");
   // races.json は合言葉があれば暗号化して置く(datafile.js・hikitsugi §4-22)。RACES_OUT(PC の手元用・git に入らない)はそのまま
-  const racesObj = { updatedAt: new Date().toISOString(), count: races.length, races };
+  const racesObj = Object.assign({ updatedAt: new Date().toISOString(), count: races.length, races }, pending.length ? { pending } : {});
   if (process.env.RACES_OUT) fs.writeFileSync(outPath, JSON.stringify(racesObj));
   else if (!DF.write(outPath, racesObj, { updatedAt: racesObj.updatedAt })) console.log(" (合言葉が無いので races.json は暗号化していません)");
   // 競走得点の日次ログを更新する(ネットワークには出ない。いま作った races を読み直すだけ)。
   // Kドリームスには前得点が無いので、毎日の得点を貯めて「前回の開催との差」で代用する。
   // ★ここが失敗してもレース取得自体は成功させる(races.json は既に書いてある)。
   if (process.env.RACES_OUT) { console.log(" 書き出し先:", outPath, "(得点ログは更新しない)"); return; }
+  if (PENDING_ONLY) { console.log(" 出走表待ちだったレースを足しました:", builtN, "件(得点ログは次の取り直しで)"); return; }
   try {
     const SL = require("./scorelog.js");
     const store = SL.load();

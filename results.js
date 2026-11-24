@@ -137,6 +137,7 @@ function makeEntry(x, r, d8) {
     seri: Array.isArray(x.seri) && x.seri.length ? x.seri : undefined,   // 競り(並び予想のカッコ)。2026-09-30 から          // S級S班がいる(🔥の判定で使う)。2026-09-28 より前の記録には無い
     front: Array.isArray(x.front) ? x.front : undefined,   // ラインごとの前受け確率(front.js)。2026-09-30 から
     ai: Array.isArray(x.ai) && x.ai.length === 4 ? x.ai : undefined,   // WINTICKET の AI予想の4車(Ⓐ・aifav.js)。2026-11-03 から(それより前は aifill.js が wtai から)
+    cm: typeof x.cm === "string" && x.cm ? x.cm : undefined,   // 出走表の予想印 "◎3○5▲1…"(hotconf.js・🔥9車の朝の自信度)。2026-11-24 から
     // [🔥の買い目, 本命ラインが切れる確率, 先頭のB率1位](fetch.js の plan.brk / plan.b1)。🔥9車は17%未満なら見送り(hikitsugi §4-26)・
     // B率1位とそれ以外で金額を分けられる(§4-32)。確率は 2026-10-13・B率1位は 2026-10-14 から(無ければ null)
     brk: x.plan && x.plan.ticket && (typeof x.plan.brk === "number" || typeof x.plan.b1 === "boolean")
@@ -647,6 +648,13 @@ function evForEntry(dir, e, d, ticket) {
 const EVD = require("./evd.js");
 const HOTS2 = require("./hots2.js");   // 🔥9車の「2人だけ来る組」(2026-11-23〜)
 const HOTLOC = require("./hotloc.js"); // 🔥の本命ラインの地元の位置(2026-11-23〜・hikitsugi §4-66)
+const HOTCONF = require("./hotconf.js"); // 🔥9車の朝の自信度(出走表の予想印の◎の位置。2026-11-24〜・hikitsugi §4-67)
+// history.json に印が無い日(〜2026-11-23)の🔥9車の [買い目, ◎の位置](hot-conf-past.json。印は作り直した出走表、並びは history.json。2025-01〜2026-10)
+let HOT_CONF_PAST = null;
+function hotConfPastOf(dir, id) {
+  if (HOT_CONF_PAST == null) { try { HOT_CONF_PAST = JSON.parse(fs.readFileSync(path.join(dir, "hot-conf-past.json"), "utf8")).pos || {}; } catch (x) { HOT_CONF_PAST = {}; } }
+  return HOT_CONF_PAST[id] || null;
+}
 // history.json に府県が無い日(〜2026-09-25 ごろ)の🔥の [買い目, 地元の位置](hot-loc-past.json。府県は作り直した出走表、並びは history.json)
 let HOT_LOC_PAST = null;
 function hotLocPastOf(dir, id) {
@@ -758,6 +766,12 @@ function writeDaily(dir, byDate, rankedOf) {
       let lc = HOTLOC.codeOf(e.lines, HOTLOC.prefOfRiders(e.riders), e.place, pl.ticket);
       if (lc == null) { const lp = hotLocPastOf(dir, e.id || (d + "_" + e.place + "_" + e.raceNo)); if (lp && lp[0] === pl.ticket) lc = lp[1]; }
       if (lc != null) { while (row.length < 15) row.push(null); row.push(lc); }
+      // 17番目: 🔥9車の出走表の予想印の◎の位置(hotconf.js。1 = 先頭 / 2 = 番手 / 3 = 3番手 / 4 = ほかのライン。§4-67)。印が無い日は hot-conf-past.json(買い目が同じときだけ)
+      if (pl.cars >= 8) {
+        let hp = e.cm ? HOTCONF.posOf(e.lines, pl.ticket, e.cm) : null;
+        if (hp == null) { const cp = hotConfPastOf(dir, e.id || (d + "_" + e.place + "_" + e.raceNo)); if (cp && cp[0] === pl.ticket) hp = cp[1]; }
+        if (hp != null) { while (row.length < 16) row.push(null); row.push(hp); }
+      }
       h.push(row);
       keepRes(e);
     }

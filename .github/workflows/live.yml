@@ -10,6 +10,7 @@ name: 今日の結果(日中)
 #   ・2026-11-16〜 夜も止めずに鎖をつなぐ(1〜5時は待つだけ)。朝5時から AI予想を足し、出走表が来ていなければ main.yml を起動する
 #     (始発 8:30 までに出走表・AI予想をそろえるため。前は 1時に終わり、朝 8:07 の定時実行で起動し直していた)
 #   ・朝の起動は定時実行が飛んでも拾えるよう複数仕込む。動いている最中なら、同じグループで順番待ちになるだけ
+#   ・2026-11-24〜 8〜22時台は30分に1回、出走表待ち(ミッドナイトなど朝は出走表が出ていないレース)を fetch.js --pending で取りに行く
 on:
   schedule:
     - cron: '47 19 * * *'  # 04:47 JST (鎖が切れていたときの予備。2026-11-16〜)
@@ -50,6 +51,7 @@ jobs:
           END=$(( $(date +%s) + 340 * 60 ))
           RELAY=0
           LASTDISP=0
+          LASTPEND=0
           RESDAY=""
           while :; do
             if [ "$(date +%s)" -ge "$END" ]; then echo "5時間40分たったので区切ります"; RELAY=1; break; fi
@@ -69,6 +71,12 @@ jobs:
             if [ "$H" -ge 5 ] && [ "$H" -lt 8 ] && [ $(( $(date +%s) - LASTDISP )) -ge 2700 ] && ! node snap.js --has-races; then
               gh workflow run main.yml --ref main -R "$GITHUB_REPOSITORY" && echo "$(TZ=Asia/Tokyo date +%H:%M) 出走表がまだ今日の分でないので、全レース更新を起動しました" || true
               LASTDISP=$(date +%s)
+            fi
+            # 出走表待ち(ミッドナイトなど、朝は出走表が出ていない)を取りに行き、races.json に足す(8〜22時台・30分に1回。2026-11-24〜・hikitsugi §4-67)。
+            #   今日の races.json に無いレースの出走表だけを取る(日別の一覧1回 + 足りないレースだけ)。足せたものが無ければ何も書かない
+            if [ "$H" -ge 8 ] && [ "$H" -lt 23 ] && [ $(( $(date +%s) - LASTPEND )) -ge 1800 ]; then
+              node fetch.js --pending || echo "出走表待ちのレースを取れませんでした(次の回でまた見ます)"
+              LASTPEND=$(date +%s)
             fi
             # PC が送った今日の AI予想(Ⓐ用)を races.json に足す(2026-11-15〜。WINTICKET が海外から取れないため・hikitsugi §4-58)
             node aimerge.js || echo "AI予想を足せませんでした(次の回でまた見ます)"
