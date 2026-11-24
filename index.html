@@ -460,6 +460,40 @@
   .lock-card p { margin: 12px 0 0; font-size: 13px; color: var(--muted); }
   .lock-card input { width: 100%; margin-top: 12px; padding: 12px; font-size: 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel2); color: var(--text); font-family: inherit; }
   .lock-card input:focus { outline: 2px solid var(--gold); outline-offset: 2px; }
+  /* ===== 2026-11-24 見直し(機能が増えて見づらくなったので整理。hikitsugi §4-71) ===== */
+  .segmini { display: inline-flex; background: var(--panel2); border-radius: 8px; padding: 2px; gap: 2px; margin-left: 8px; flex: none; }
+  .segmini button { border: none; background: none; color: var(--muted); font: inherit; font-size: 10.5px; font-weight: 700; padding: 4px 8px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+  .segmini button.on { background: var(--line); color: var(--text); }
+  .infos:empty { display: none; }
+  .infos { display: flex; flex-direction: column; gap: 4px; margin: 2px 0 8px; }
+  .info { display: flex; gap: 6px; align-items: baseline; font-size: 11px; color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; line-height: 1.5; }
+  .info b { color: var(--text); white-space: nowrap; }
+  .info .ic { flex: none; }
+  .rc .top .rt { margin-left: auto; display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+  .rc .top .rt .st { margin-left: 0; }
+  .rc .top .kb.cf3, .rc .top .kb.cf2, .rc .top .kb.cf1, .rc .top .kb.cf0, .rc .top .kb.cfn { font-size: 11px; padding: 3px 8px; }
+  .heronote { font-size: 10px; color: var(--dim); margin-top: 6px; }
+  .legend { font-size: 10px; color: var(--dim); margin: -4px 2px 8px; }
+  .calviews { display: flex; align-items: center; gap: 8px; margin: 8px 0 2px; }
+  .calviews .segmini { margin-left: 0; }
+  .calviews .segmini button { font-size: 12px; padding: 6px 12px; }
+  .calchg { font-size: 10px; color: var(--gold); font-weight: 700; margin-left: auto; }
+  details.calfilt > summary small { font-weight: 500; color: var(--muted); margin-left: 4px; }
+  .calconds { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
+  .cct { font-size: 11px; color: var(--muted); font-weight: 700; margin: 8px 0 2px; }
+  body.race .racebar { flex-wrap: wrap; row-gap: 6px; }
+  .racebar .jumpnav { flex-basis: 100%; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -12px; padding: 0 12px 2px; }
+  .racebar .jumpnav::-webkit-scrollbar { display: none; }
+  .racebar .jumpnav:empty { display: none; }
+  .racebar .jumpnav button { flex: none; padding: 5px 11px; font-size: 12px; font-weight: 700; border-radius: 999px; color: var(--muted); }
+  .h2row { display: flex; align-items: center; gap: 8px; }
+  .whybtn { margin-left: auto; border: 1px solid var(--line); background: var(--panel2); color: var(--muted); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; letter-spacing: 0; }
+  body:not(.showwhy) #buyBox .buyck .val small, body:not(.showwhy) #buyBox .buynote.why { display: none; }
+  .bgrp { margin: 14px 0 2px; font-size: 12px; font-weight: 900; color: var(--gold); letter-spacing: .04em; }
+  .bgrp:first-child { margin-top: 4px; }
+  .brow .bd { font-size: 10.5px; color: var(--dim); }
+  .rrow .rr .bd { display: flex; gap: 3px; flex-wrap: wrap; justify-content: flex-end; }
+  .rrow .rr .bd:empty { display: none; }
 </style>
 </head>
 <body>
@@ -483,14 +517,11 @@
   <!-- ===== 今日(勝負): これから買うレース → 終わったレース → 参考(🔥7車) ===== -->
   <section class="hero" id="heroBox" data-tab="hot"></section>
   <section id="shoubuCard" data-tab="hot">
-    <!-- 🔥9車の朝の自信度(hotconf.js。2026-11-24〜・hikitsugi §4-67)。出走表の印で朝から出す。表示だけ(買う・見送りは変えない) -->
-    <div id="confSection" class="hidden">
-      <div class="sec-h">今日の自信度<span class="sub" id="confSub"></span></div>
-      <div class="plist" id="confList"></div>
-      <div class="confnote" id="confNote"></div>
-    </div>
+    <!-- お知らせ(出走表待ち・印まだ)。🔥9車の朝の自信度はカードの右上(2026-11-24 の見直しで一覧はカードにまとめた・hikitsugi §4-67・§4-71) -->
+    <div class="infos" id="confNote"></div>
     <div id="nowSection" class="hidden">
-      <div class="sec-h">これから<span class="sub" id="nowSub"></span></div>
+      <div class="sec-h">これから<span class="sub" id="nowSub"></span>
+        <span class="segmini" id="nowSort"><button type="button" data-s="time">時間順</button><button type="button" data-s="conf">自信度順</button></span></div>
       <div id="nowList"></div>
     </div>
     <div id="doneSection" class="hidden">
@@ -504,7 +535,7 @@
     <details class="fold"><summary>この画面の見方</summary>
       <div class="howto">
         <p><b>🔥</b> 9車立て・単騎1人以下の「本命ライン3人」の3連複1点。<b>締切2分前の倍率</b>が <b>5〜15倍</b> のときだけ買う（5年とも回収100%超え）。さらに、本命ラインの番手か3番手が前について行けない（離れる）確率が <b>17%以上</b> のときだけ（5年で回収125%・17%未満は99%）。さらに、🔥の3人のうち2人を含むほかの組（<b>2人だけ来る組</b>）が倍率ごとの目安よりよく買われているときは見送り（5年で回収96%・それ以外は140%。2026/11/23〜）。本命ラインの先頭のB率がレースでいちばんなら <b>B率1位</b> の札（5年で139%・それ以外116%。金額を分けられる）。S級S班がいるレースは見送り。</p>
-        <p><b>今日の自信度</b> 🔥9車を、出走表の記者の印（◎）が本命ラインのどこにいるかと、本命ラインの地元の位置で4つに分けたもの。倍率を使わないので<b>朝から分かります</b>（ミッドナイトなど朝に出走表が出ないレースは、出走表が出たら30分おきの取り直しで入ります）。<b>◎◎ とても自信</b> = ◎が先頭で地元が番手か3番手（5年 137.9%・アプリの記録 154.4%）/ <b>◎ 自信</b> = ◎が先頭（5年 120.4%）/ <b>△ ふつう</b> = ◎がほかのライン（5年 104.8%。当たりにくいが配当が大きい）/ <b>× 見送り</b> = ◎が番手（5年 88.8%・アプリの記録 91.2%）。数字は倍率を見ずに買ったときのもの。<b>× は見送り</b>（2026/11/24〜。自動投票も同じ。今の🔥の条件で 5年 85.6%・アプリの記録 99.5%、それ以外は 138%。右上の 💴 で「買う」にもできる）。◎◎・◎・△ は表示だけで、買うかどうかは今までどおり締切前の倍率で決めます。成績タブの「🔥9車」で自信度ごとの成績を見られます。</p>
+        <p><b>自信度（カードの右上の札）</b> 🔥9車を、出走表の記者の印（◎）が本命ラインのどこにいるかと、本命ラインの地元の位置で4つに分けたもの。「自信度順」で自信度の高い順に並べられます。倍率を使わないので<b>朝から分かります</b>（ミッドナイトなど朝に出走表が出ないレースは、出走表が出たら30分おきの取り直しで入ります）。<b>◎◎ とても自信</b> = ◎が先頭で地元が番手か3番手（5年 137.9%・アプリの記録 154.4%）/ <b>◎ 自信</b> = ◎が先頭（5年 120.4%）/ <b>△ ふつう</b> = ◎がほかのライン（5年 104.8%。当たりにくいが配当が大きい）/ <b>× 見送り</b> = ◎が番手（5年 88.8%・アプリの記録 91.2%）。数字は倍率を見ずに買ったときのもの。<b>× は見送り</b>（2026/11/24〜。自動投票も同じ。今の🔥の条件で 5年 85.6%・アプリの記録 99.5%、それ以外は 138%。右上の 💴 で「買う」にもできる）。◎◎・◎・△ は表示だけで、買うかどうかは今までどおり締切前の倍率で決めます。成績タブの「🔥9車」で自信度ごとの成績を見られます。</p>
         <p><b>Ⓓ モデルD</b> 全レースの3連複の全組から「期待値1.10以上・23倍以下」の組を全部（4年とも回収108%以上）。上限の23倍は締切前の倍率で見たもの（2026/11/11〜。それまでは20倍）。買い目になる組は締切までに倍率が約15%下がるので、検証した「確定で20倍以下」に合わせています。締切15分前から、PC（止まっているときは GitHub）が送る倍率で計算して出ます（締切6分前からは1分おき）。買うかは<b>締切2分前の倍率</b>で決めます（自動投票と同じ）。</p>
         <p><b>Ⓐ AI外しの1番人気</b> S級で、3連複の1番人気が並び予想の同じライン（3人以上）の3人なのに、WINTICKET の AI予想（4車）がその3人をそろえていないとき、その1番人気を1点（4倍以上のときだけ。2026/11/3〜）。確定オッズでさかのぼると 2025年1月〜2026年10月で 1,138R・回収114.7%。</p>
         <p><b>同じ組が重なったら</b> 🔥・Ⓓ・Ⓐ のうち2つ以上が同じレースの同じ組を選んだときは、それぞれの金額を足して買います（2026/11/11〜。例: 🔥100円＋Ⓓ100円 = 200円）。2025年1月〜2026年10月で、重なった組は回収138%（176点）・1つだけの組は120%。右上の 💴 買い方 で「1回だけ買う」にも変えられます。</p>
@@ -527,12 +558,13 @@
     <div class="toolbar">
       <div class="seg" id="searchFilters">
         <button class="sfBtn" data-f="all">すべて</button>
-        <button class="sfBtn" data-f="shoubu">🔥・Ⓓ だけ</button>
+        <button class="sfBtn" data-f="shoubu">🔥・Ⓓ・Ⓐ だけ</button>
       </div>
-      <button class="chipbtn" id="foldAll">場を全部たたむ</button>
+      <button class="chipbtn" id="foldAll">全部たたむ</button>
     </div>
     <p class="err hidden" id="searchErr"></p>
     <p class="subnote" id="shoubuHint"></p>
+    <p class="legend">緑の枠 = 前受けしそう ・ 赤の点線 = 競り ・ ◎◎/◎/△/× = 🔥9車の自信度 ・ 押すと予想（過去の日は結果も）</p>
     <div id="raceListBox"><div class="empty">まだレースがありません</div></div>
     <p class="subnote hidden" id="todayMeta"></p>
     <div class="io-row hidden"><button class="io-btn" id="loadToday">📅 本日の全レースを読み込む</button></div>
@@ -556,11 +588,12 @@
   </section>
 
   <!-- ===== レースの詳細(1レースのページ。開くと下のタブを隠し、上の「戻る」で元の画面へ) ===== -->
-  <div class="racebar" id="raceBar" data-tab="ana"><button id="raceBack" type="button" aria-label="戻る">‹ 戻る</button><span id="raceBarT">レースの詳細</span></div>
+  <div class="racebar" id="raceBar" data-tab="ana"><button id="raceBack" type="button" aria-label="戻る">‹ 戻る</button><span id="raceBarT">レースの詳細</span>
+    <div class="jumpnav" id="jumpNav" aria-label="このページの目次"></div></div>
   <section class="racehead hidden" id="raceHead" data-tab="ana"></section>
   <section class="raceres hidden" id="raceRes" data-tab="ana"></section>
   <div id="anaEmpty" class="empty" data-tab="ana">「今日」「レース」「成績」でレースを押すと、ここに詳しい予想が出ます。</div>
-  <section class="card hidden" id="betCard" data-tab="ana"><h2>買い目（いまの買い方）</h2><div id="buyBox"></div></section>
+  <section class="card hidden" id="betCard" data-tab="ana"><h2 class="h2row">買い目（いまの買い方）<button type="button" class="whybtn" id="whyBtn">理由を見る</button></h2><div id="buyBox"></div></section>
   <section class="card hl hidden" id="tenkaiCard" data-tab="ana"><h2>展開予想</h2><div id="tkBox"></div>
     <details class="more" id="tkOld"><summary>参考: 前の展開コメント（評価値）</summary><p class="tenkai" id="tenkai"></p></details>
 </section>
@@ -595,8 +628,9 @@
       <div id="trendBox"></div>
       <div id="calBox" style="margin-bottom:16px"></div>
       <div id="monthBox" style="margin-bottom:4px"></div>
+      <div id="confBox" style="margin-bottom:4px"></div>
     </div>
-    <p class="note" style="font-size:10px;margin-top:8px">今日の分は10分おきの結果で出し、夜（1時ごろ）に確定集計します。カレンダーの日付を押すと1レースずつ、行を押すとそのレースのページを開きます。</p>
+    <p class="note" style="font-size:10px;margin-top:8px">今日の分は10分おきの速報（夜1時ごろに確定）。日付を押すとその日の一覧、行を押すとレースのページ。</p>
     <p class="err hidden" id="statsErr"></p>
   </section>
   <footer data-tab="hot all stats ana">予想は参考情報で、的中を保証するものではありません。車券の購入は20歳から、余裕資金の範囲で。バンク特性データ: 遠山競輪研究所。</footer>
@@ -1831,14 +1865,19 @@ function renderShoubu() {
   if (!LIVE_ODDS) loadLiveOdds(true);
 }
 
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("#nowSort button"); if (!b) return;
+  NOW_SORT = b.dataset.s === "conf" ? "conf" : "time"; try { localStorage.setItem("keirinNowSort", NOW_SORT); } catch (x) {}
+  paintShoubu();
+});
 let searchFilter = "all";          // 既定はすべて(場ごとにたためる)
 document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".sfBtn").forEach((b) => b.addEventListener("click", () => { searchFilter = b.dataset.f; renderRaceList(); }));
   const fa = document.getElementById("foldAll");
   if (fa) fa.addEventListener("click", () => {
     const venues = [...new Set(PAST_DAY ? PAST_LIST.map((x) => x.place) : raceList.map((x) => (x.label || "").split(" ")[0]))];
-    if (foldedVenues.size) { foldedVenues.clear(); fa.textContent = "場を全部たたむ"; }
-    else { venues.forEach((v) => foldedVenues.add(v)); fa.textContent = "場を全部ひらく"; }
+    if (foldedVenues.size) { foldedVenues.clear(); fa.textContent = "全部たたむ"; }
+    else { venues.forEach((v) => foldedVenues.add(v)); fa.textContent = "全部ひらく"; }
     renderRaceList();
   });
 });
@@ -1875,7 +1914,7 @@ function renderRaceList() {
   const pass = (x) => searchFilter === "all" || shoubuOn(x) || D_KEYS.has(x.key) || A_KEYS.has(x.key);
   document.querySelectorAll(".sfBtn").forEach((b) => b.classList.toggle("on", b.dataset.f === searchFilter));
   const nHot = raceList.filter(shoubuOn).length;
-  $("shoubuHint").textContent = "全" + raceList.length + "レース ・ 🔥 " + nHot + "件" + (D_KEYS.size ? " ・ Ⓓ " + D_KEYS.size + "件" : "") + (A_KEYS.size ? " ・ Ⓐ " + A_KEYS.size + "件" : "") + " ・ 緑の枠 = 前受けしそうなライン ・ 赤の点線 = 競り";
+  $("shoubuHint").textContent = "今日 全" + raceList.length + "レース ・ 🔥 " + nHot + (D_KEYS.size ? " ・ Ⓓ " + D_KEYS.size : "") + (A_KEYS.size ? " ・ Ⓐ " + A_KEYS.size : "");
   const mini = miniLines;
   let html = "";
   for (const v of venueOrder) {
@@ -1886,8 +1925,8 @@ function renderRaceList() {
     if (folded) continue;
     html += '<div class="vbox">' + rs.map((x) => '<div class="rrow' + (shoubuOn(x) ? " hot" : "") + '" onclick="loadRace(\'' + esc2(x.key).replace(/'/g, "\\'") + '\')">' +
       '<span class="rno">' + rnoOf(x) + 'R</span><span class="rt">' + (x.startTime || "") + '</span><span class="rl">' + mini(x) + "</span>" +
-      '<span class="rr">' + (shoubuOn(x) ? '<span class="kb hot">🔥</span>' + confBadge(SHOUBU_ROWS.find((r) => r.key === x.key), false) : "") + (D_KEYS.has(x.key) ? '<span class="kb d">Ⓓ</span>' : "") + (A_KEYS.has(x.key) ? '<span class="kb a">Ⓐ</span>' : "") +
-      (FAV2_MAP[x.key] ? '<span class="kb fav" title="3連複の1番人気(' + FAV2_MAP[x.key].odds + '倍)が当たる見込み。参考・買い方ではない">本命' + Math.round(FAV2_MAP[x.key].p * 100) + "%</span>" : "") + resultChip(x) + "</span></div>").join("") + "</div>";
+      '<span class="rr"><span class="bd">' + (shoubuOn(x) ? '<span class="kb hot">🔥</span>' + confBadge(SHOUBU_ROWS.find((r) => r.key === x.key), false) : "") + (D_KEYS.has(x.key) ? '<span class="kb d">Ⓓ</span>' : "") + (A_KEYS.has(x.key) ? '<span class="kb a">Ⓐ</span>' : "") +
+      (FAV2_MAP[x.key] ? '<span class="kb fav" title="3連複の1番人気(' + FAV2_MAP[x.key].odds + '倍)が当たる見込み。参考・買い方ではない">本命' + Math.round(FAV2_MAP[x.key].p * 100) + "%</span>" : "") + "</span>" + resultChip(x) + "</span></div>").join("") + "</div>";
   }
   box.innerHTML = html || '<div class="empty">' + (searchFilter === "shoubu" ? "🔥・Ⓓ・Ⓐ のレースは今のところありません（「すべて」で全レース。Ⓓ・Ⓐは締切15分前から）" : "該当なし") + "</div>";
 }
@@ -1956,8 +1995,7 @@ function renderPastList() {
   const has = (x) => !!(x.h || x.d.length || x.a.length);
   const pass = (x) => searchFilter === "all" || has(x);
   const nH = PAST_LIST.filter((x) => x.h).length, nD = PAST_LIST.filter((x) => x.d.length).length, nA = PAST_LIST.filter((x) => x.a.length).length;
-  hint.textContent = pastDayLabel(d8) + "（過去の日）全" + PAST_LIST.length + "レース" + (d8 < "20250101" ? "" : " ・ 🔥 " + nH + "件" + (nD ? " ・ Ⓓ " + nD + "件" : "") + (nA ? " ・ Ⓐ " + nA + "件" : "")) +
-    " ・ 押すとその日の出走表から予想（展開予想・印・買い目）と結果" + (d8 < "20250101" ? " ・ その日の🔥・Ⓓ・Ⓐと結果の記録は2025年から" : "");
+  hint.textContent = pastDayLabel(d8) + " 全" + PAST_LIST.length + "レース" + (d8 < "20250101" ? "（🔥・Ⓓ・Ⓐと結果の記録は2025年から）" : " ・ 🔥 " + nH + (nD ? " ・ Ⓓ " + nD : "") + (nA ? " ・ Ⓐ " + nA : "")) ;
   const venues = {};
   for (const x of PAST_LIST) (venues[x.place] = venues[x.place] || []).push(x);
   const first = (g) => g.map((x) => x.startTime || "99:99").sort()[0];
@@ -1973,13 +2011,16 @@ function renderPastList() {
       const cf = cp != null ? confBadge({ isTop: true, cpos: cp, loc: h[15] === 0 || h[15] === 1 || h[15] === 2 ? h[15] : null, cm: "1" }, false) : "";
       return '<div class="rrow' + (is9 ? " hot" : "") + '" onclick="openPastRace(\'' + esc2(x.key).replace(/'/g, "\\'") + '\')">' +
         '<span class="rno">' + x.rno + 'R</span><span class="rt">' + (x.startTime || "") + '</span><span class="rl">' + miniLines(x) + "</span>" +
-        '<span class="rr">' + (h ? '<span class="kb ' + (is9 ? "hot" : "ref") + '">🔥' + (is9 ? "" : "7") + "</span>" + cf : "") + (x.d.length ? '<span class="kb d">Ⓓ</span>' : "") + (x.a.length ? '<span class="kb a">Ⓐ</span>' : "") +
-        pastResChip(x) + "</span></div>";
+        '<span class="rr"><span class="bd">' + (h ? '<span class="kb ' + (is9 ? "hot" : "ref") + '">🔥' + (is9 ? "" : "7") + "</span>" + cf : "") + (x.d.length ? '<span class="kb d">Ⓓ</span>' : "") + (x.a.length ? '<span class="kb a">Ⓐ</span>' : "") +
+        "</span>" + pastResChip(x) + "</span></div>";
     }).join("") + "</div>";
   }
   // 自信度ごとの回収率(🔥9車): この日・この月・全期間(今日の分は入れない。2026-11-24〜・§4-70)
   const days = calDays(), done = Object.keys(days).filter((d) => d < todayD8()).sort(), ym = d8.slice(0, 6);
-  const cs = done.length && typeof HOTCONF !== "undefined" ? '<details class="more confpast"' + (CONF_PAST_OPEN ? " open" : "") + "><summary>自信度ごとの回収率（🔥9車）</summary>" +
+  const ga = done.length && typeof HOTCONF !== "undefined" ? confAgg(days, done, CONF_MODE) : {};
+  const gsum = [3, 2, 1, 0].filter((k) => ga[k] && ga[k].n).map((k) => HOTCONF.LV[k].mk + " " + Math.round(ga[k].pay / ga[k].n) + "%").join("・");
+  const cs = done.length && typeof HOTCONF !== "undefined" ? '<details class="more confpast"' + (CONF_PAST_OPEN ? " open" : "") + "><summary>自信度ごとの回収率" +
+    (gsum ? ' <small style="font-weight:500;color:var(--muted)">全期間 ' + gsum + "</small>" : "") + "</summary>" +
     confStatsHtml(days, [["この日", [d8]], [(ym.slice(0, 4) !== todayD8().slice(0, 4) ? +ym.slice(0, 4) + "年" : "") + +ym.slice(4) + "月", done.filter((d) => d.startsWith(ym))],
       ["全期間<br><small>" + (+done[0].slice(0, 4)) + "年" + (+done[0].slice(4, 6)) + "月〜</small>", done]]) + "</details>" : "";
   box.innerHTML = cs + (html || '<div class="empty">この日は🔥・Ⓓ・Ⓐ のレースがありません（「すべて」で全レース）</div>');
@@ -2261,6 +2302,33 @@ function render(p, tName) {
 
   paintBuy(p, r, b);   // 買い目(いまの買い方: 🔥・Ⓓ。2026-10-15 に作り直し・hikitsugi §4-35)
 }
+// ---- レースのページの目次(上の帯の2行目。出ているカードだけ。2026-11-24 の見直し・hikitsugi §4-71) ----
+const JUMPS = [["betCard", "買い目"], ["tenkaiCard", "展開"], ["markCard", "予想印"], ["evTopCard", "期待値"], ["frontCard", "前受け"], ["parseCard", "並び・選手"], ["dataFold", "データ"]];
+function paintJumpNav() {
+  const nav = $("jumpNav"); if (!nav) return;
+  const on = JUMPS.filter(([id]) => $(id) && !$(id).classList.contains("hidden"));
+  const sig = on.map(([id]) => id).join(",");
+  if (nav.dataset.sig === sig) return;
+  nav.dataset.sig = sig;
+  nav.innerHTML = on.map(([id, t]) => '<button type="button" data-jump="' + id + '">' + t + "</button>").join("");
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("#jumpNav button[data-jump]"); if (!b) return;
+  const el = $(b.dataset.jump); if (!el) return;
+  if (el.tagName === "DETAILS") el.open = true;
+  const bar = $("raceBar"), off = bar ? bar.getBoundingClientRect().height + 8 : 60;
+  window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - off, behavior: "smooth" });
+});
+document.addEventListener("DOMContentLoaded", () => {
+  const mo = new MutationObserver(() => paintJumpNav());
+  JUMPS.forEach(([id]) => { const el = $(id); if (el) mo.observe(el, { attributes: true, attributeFilter: ["class"] }); });
+  paintJumpNav();
+  // 買い目の「理由」(チェックの下の説明・長い注)は既定でしまう。この端末に保存
+  let why = false; try { why = localStorage.getItem("keirinWhy") === "1"; } catch (e) {}
+  const setWhy = (v) => { document.body.classList.toggle("showwhy", v); const b = $("whyBtn"); if (b) b.textContent = v ? "理由をしまう" : "理由を見る"; };
+  setWhy(why);
+  const wb = $("whyBtn"); if (wb) wb.addEventListener("click", () => { why = !why; try { localStorage.setItem("keirinWhy", why ? "1" : "0"); } catch (e) {} setWhy(why); });
+});
 // ===================================================================
 // 画面の組み立て(予想の計算は上の関数を呼ぶだけ。構成は 2026-10-15 に見直し・hikitsugi §4-36)
 //   ・下のタブ(今日 / レース / 成績)。レースを押すとレースのページ(上の「‹ 戻る」で元の画面へ)
@@ -2282,7 +2350,7 @@ const SKIP_V = { skipBand: "帯の外", skip7: "7車", skipBrk: "切れにくい
 //   b1 = 🔥9車で本命ラインの先頭のB率がいちばん(5年 139%) / rest = 🔥9車のそれ以外(116%・B率が分からないレースも) / h7 = 🔥7車 / d = モデルD
 //   a = Ⓐ AI が外した1番人気ライン(aifav.js。2026-11-03〜。bet/ の ai_fav_yen)
 const BUY_DEF = { b1: 100, rest: 100, h7: 0, d: 100, a: 100 };
-const BUY_NAME = { b1: "🔥9車 先頭のB率1位", rest: "🔥9車 それ以外", h7: "🔥7車", d: "Ⓓ モデルD", a: "Ⓐ AI外しの1番人気" };
+const BUY_NAME = { b1: "🔥9車 先頭のB率1位", rest: "🔥9車 それ以外", h7: "🔥7車", d: "Ⓓ モデルD", a: "Ⓐ AI外しの1番人気" };   // 💴 の画面ではグループの下に出す
 const BUY = Object.assign({}, BUY_DEF);
 try { const c = JSON.parse(localStorage.getItem("keirinBuy") || "{}"); for (const k of Object.keys(BUY_DEF)) if (Number.isFinite(c[k]) && c[k] >= 0 && c[k] % 100 === 0) BUY[k] = c[k]; } catch (e) {}
 const saveBuy = () => { try { localStorage.setItem("keirinBuy", JSON.stringify(BUY)); } catch (e) {} };
@@ -2563,7 +2631,7 @@ function raceCard(g, isNext) {
       h.isTop && h.brk != null ? "切れる" + Math.round(h.brk * 100) + "%" : "", fr != null ? "前受け" + (fr >= 0.5 ? "◎" : fr >= 0.3 ? "△" : "×") + Math.round(fr * 100) + "%" : "",
       ei && ei.snap ? (ei.decided ? "締切" + DECIDE_MIN + "分前の倍率で判定" : (ei.snap.upd || String(ei.snap.t || "").slice(0, 5)) + "の倍率") : ""].filter(Boolean).join("・");
     rows.push('<div class="tkr ' + cls + '"><span class="kb ' + (h.isTop ? "hot" : "ref") + '">🔥</span>' +
-      (h.isTop && h.b1 === true ? '<span class="kb b1" title="本命ラインの先頭のB率がレースでいちばん(5年 回収139%)">B率1位</span>' : "") + confBadge(h, false) + '<span class="tb">' + ticketBalls(h.ticket, "") + "</span>" +
+      (h.isTop && h.b1 === true ? '<span class="kb b1" title="本命ラインの先頭のB率がレースでいちばん(5年 回収139%)">B率1位</span>' : "") + '<span class="tb">' + ticketBalls(h.ticket, "") + "</span>" +
       '<span class="mid">' + (ei && ei.odds != null ? "<b>" + ei.odds + "倍</b>" + nowOdds(ei.cur, ei.odds) : "") + "</span>" + '<span class="v">' + v + "</span><small>" + sub + "</small></div>");
   }
   for (const d of g.ds) {
@@ -2590,7 +2658,7 @@ function raceCard(g, isNext) {
   return '<div class="rc' + cls + '" id="rc-' + esc(g.key) + '" onclick="loadRace(\'' + esc2(g.key).replace(/'/g, "\\'") + '\')">' +
     '<div class="top"><span class="time">' + (closeTimeOf(g.startTime) || "--:--") + '</span><span class="where">' + esc(g.place) + " " + esc(g.raceNo) +
       '<small class="start">発走 ' + (g.startTime || "--:--") + " ・ " + g.cars + "車</small></span>" +
-      (st.txt ? '<span class="st ' + st.cls + '">' + st.txt + "</span>" : "") + "</div>" +
+      '<span class="rt">' + (g.hot && g.hot.isTop ? confBadge(g.hot, true) : "") + (st.txt ? '<span class="st ' + st.cls + '">' + st.txt + "</span>" : "") + "</span></div>" +
     lineViz(g.hot ? g.hot.lines : x.lines, trio, g.hot ? g.hot.front : x.front, !g.hot, g.hot ? g.hot.seri : x.seri) +
     rows.join("") + (done ? resBlockOrder(res) : "") + "</div>";
 }
@@ -2624,7 +2692,7 @@ function renderHero(items, done, next) {
       ? '<div class="nextup" onclick="loadRace(\'' + esc2(next.r.key).replace(/'/g, "\\'") + '\')"><span class="lbl">次</span><b>' + closeTimeOf(next.r.startTime) + " " + esc(next.r.place) + esc(next.r.raceNo) + "</b>" +
           '<span class="bl">' + ticketBalls(next.r.ticket, "s") + '</span><span class="rest">' + raceStatus(next.r, null).txt.replace("締切まで", "あと") + "</span></div>"
       : items.length && done.length === items.length ? '<div class="nextup" style="cursor:default">🏁 今日の分はすべて確定しました</div>' : "") +
-    '<div style="font-size:10px;color:var(--dim);margin-top:6px">収支は🔥（帯の外・ラインが切れにくい・買わない設定のものは除く）とⒹ・Ⓐを、右上の 💴 買い方 の金額で買った場合' + (unknown ? "。※配当確認中の的中を含む" : "") + "。Ⓓ・Ⓐは締切15分前から出ます</div>";
+    '<div class="heronote">収支は 💴 の金額で買った分（見送りは除く）' + (unknown ? "・※配当確認中の的中を含む" : "") + "。Ⓓ・Ⓐは締切15分前から出ます</div>";
 }
 // ---- モデルD(evd.js): 全レースから「期待値1.10以上・23倍以下」(evd.js の PICK。締切前の倍率なので上限は oddsHiPre。2026-11-11〜・hikitsugi §4-56)の組を全部(1行=1点) ----
 function dRows() {
@@ -3016,7 +3084,7 @@ function paintBuy(p, r, b) {
       // 過去の日で記録(daily の17番目)が無い・貼り付けた出走表は、出走表のテキストの印から(1番車の印は推定。§4-69)
       const cpos = row ? row.cpos : px && px[16] >= 1 && px[16] <= 4 ? px[16] : !today ? HOTCONF.posOf(p.lines || [], H.ticket, HOTCONF.marksFromText(P ? P.raw : $("src").value || "").cm) : null;
       const lvC = HOTCONF.level(cpos, loc), LC = lvC == null ? null : HOTCONF.LV[lvC];
-      ck.push(ckLi(LC ? (lvC >= 2 ? "✓" : lvC === 0 ? (HON9 ? "✗" : "•") : "•") : "–", "朝の自信度（出走表の印）",
+      ck.push(ckLi(LC ? (lvC >= 2 ? "✓" : lvC === 0 ? (HON9 ? "✗" : "•") : "•") : "–", "朝の自信度",
         LC ? LC.mk + " " + (lvC === 0 && !HON9 ? "見送り候補" : LC.name) + "（" + HOTCONF.POS_NAME[cpos] + (lvC === 3 ? "・地元が番手か3番手" : "") + "）" : row ? (row.cm ? "◎の位置が分からない" : "出走表の印がまだ") : px ? "記録なし" : "分からない",
         (LC ? LC.roi + "。" : "") + (lvC === 0 ? (HON9 ? "◎が番手は見送り（自動投票も同じ。💴 で変えられる）" : "💴 で「買う」にしている") : "◎◎・◎・△は表示だけ（買う・見送りは変えない）・◎が番手は見送り")));
     }
@@ -3028,7 +3096,7 @@ function paintBuy(p, r, b) {
       '<div class="buytk">' + ticketBalls(H.ticket, "l") + '<span class="kind">3連複<br>1点</span></div>' +
       '<ul class="buyck">' + ck.join("") + "</ul>" +
       (res ? buyResLine(res.order, res.hit === true ? 1 : res.hit === false ? 0 : res.pending ? -1 : res.hit, res.pay, bought ? y : 0) : "") +
-      '<div class="buynote">' + (isTop ? HOT9_NOTE + "。" : "7車立ては本命ライン3人を、" + lo + "〜" + hi + "倍（" + (lo === BAND_LO_PRE ? "締切前の倍率。確定までに1〜2割下がるので、確定でおよそ9〜15倍" : "確定オッズ") + "）で2人だけ来る組が少ないときだけ（確定9〜15倍で2022〜26年10月 回収105.0%・2,447点。締切前の倍率で買うと約103%の見込み）。もうけは小さいので、既定では買いません（金額を入れたときだけ買う）。") +
+      '<div class="buynote why">' + (isTop ? HOT9_NOTE + "。" : "7車立ては本命ライン3人を、" + lo + "〜" + hi + "倍（" + (lo === BAND_LO_PRE ? "締切前の倍率。確定までに1〜2割下がるので、確定でおよそ9〜15倍" : "確定オッズ") + "）で2人だけ来る組が少ないときだけ（確定9〜15倍で2022〜26年10月 回収105.0%・2,447点。締切前の倍率で買うと約103%の見込み）。もうけは小さいので、既定では買いません（金額を入れたときだけ買う）。") +
         (P && !px ? " ※この日の成績の記録には、このレースの🔥がありません（いまの計算では🔥になる）。" : "") +
         (px && pl && pl.trio && pl.ticket !== px[3] ? " ※いまの計算では本命ライン3人が " + pl.ticket + " になります（その日の予想と並び・順位が違う）。" : "") + "</div></div>";
   } else {
@@ -3198,8 +3266,15 @@ function paintShoubu() {
     if (!g) groups.push(g = { key: it.r.key, place: it.r.place, raceNo: it.r.raceNo, startTime: it.r.startTime, cars: it.r.cars, hot: null, ds: [], as: [] });
     if (it.k === "hot") g.hot = it.r; else if (it.k === "D") g.ds.push(it.r); else g.as.push(it.r);
   }
+  // 並べ替え: 時間順(既定) / 自信度順(🔥9車の自信度の高い順 → 時間。🔥の無いカードは後ろ)。この端末に保存
+  if (NOW_SORT === "conf") {
+    const lvOf = (g) => (g.hot && g.hot.isTop ? (confOf(g.hot) == null ? -1 : confOf(g.hot)) : -2);
+    groups.sort((a, b) => lvOf(b) - lvOf(a) || (a.startTime || "99:99").localeCompare(b.startTime || "99:99"));
+  }
   $("nowSection").classList.toggle("hidden", !groups.length);
-  $("nowSub").textContent = groups.length ? groups.length + "レース" : "";
+  const cc = confCountText(rows9.filter((r) => !fin({ r })));
+  $("nowSub").textContent = groups.length ? groups.length + "レース" + (cc ? " ・ " + cc : "") : "";
+  document.querySelectorAll("#nowSort button").forEach((b) => b.classList.toggle("on", b.dataset.s === NOW_SORT));
   nowL.innerHTML = groups.map((g) => raceCard(g, !!(next && next.r.key === g.key))).join("");
   $("doneSection").classList.toggle("hidden", !done.length);
   $("doneSub").textContent = done.length ? done.length + "件" : "";
@@ -3212,39 +3287,27 @@ function paintShoubu() {
   if (!items.length) empty.textContent = raceList.length ? "今日は🔥（9車・単騎1人以下）に当てはまるレースがありません。Ⓓ モデルD・Ⓐ AI外しの1番人気は締切15分前から出ます。" : "今日のレースを読み込んでいます…";
 }
 // ---- 今日の自信度(🔥9車・朝の出走表の印で。hotconf.js。2026-11-24〜・hikitsugi §4-67) ----
-//   並び = 自信度の高い順 → 締切の早い順。ミッドナイトなど朝に出走表が出ないレース(races.json の pending)は「出走表待ち」として下に書く
-function paintConf(rows9) {
-  const sec = $("confSection"); if (!sec) return;
-  const pend = RACES_META && Array.isArray(RACES_META.pending) ? RACES_META.pending : [];
-  if (typeof HOTCONF === "undefined" || !raceList.length || (!rows9.length && !pend.length)) { sec.classList.add("hidden"); return; }
-  sec.classList.remove("hidden");
-  const rk = (r) => { const v = confOf(r); return v == null ? -1 : v; };
-  const list = rows9.slice().sort((a, b) => rk(b) - rk(a) || (a.startTime || "99:99").localeCompare(b.startTime || "99:99"));
-  const cnt = {}; for (const r of list) { const v = confOf(r), k = v == null ? "n" : v; cnt[k] = (cnt[k] || 0) + 1; }
-  $("confSub").textContent = "🔥9車 " + [3, 2, 1, 0].filter((v) => cnt[v]).map((v) => HOTCONF.LV[v].mk + cnt[v]).concat(cnt.n ? ["印まだ" + cnt.n] : []).join("・");
-  $("confList").innerHTML = list.length ? list.map(confRow).join("") : '<div class="pr" style="cursor:default;color:var(--dim)">いまのところ🔥9車はありません</div>';
-  const notes = [];
-  if (pend.length) {
-    const bp = {}; for (const q of pend) (bp[q.place] = bp[q.place] || []).push(parseInt(q.raceNo, 10) || 0);
-    notes.push("<b>出走表待ち</b> " + Object.entries(bp).map(([pl, ns]) => { ns.sort((a, b) => a - b); return esc(pl) + " " + (ns.length > 1 ? ns[0] + "〜" + ns[ns.length - 1] : ns[0]) + "R"; }).join("・") +
-      "（ミッドナイトなど、朝は出走表が出ていないレース。出たら30分おきの取り直しで自動で入ります）");
-  }
-  const noCm = list.filter((r) => !r.cm).length;
-  if (noCm) notes.push(!raceList.some((x) => x.cm) ? "いまの出走表には予想印がありません（WINTICKET で取った日など）" : "<b>印まだ</b> " + noCm + "件（出走表に記者の印がまだ付いていない。昼・夕方の取り直しで入ります）");
-  notes.push("出走表の記者の印（◎）が本命ラインのどこにいるかと地元の位置で決めます（倍率は使わない）。" + (HON9 ? "<b>× は見送り</b>（自動投票も同じ）。ほかは表示だけで" : "<b>表示だけ</b>で（× も買う設定）") + "、買うかどうかは今までどおり締切前の倍率で決めます。");
-  $("confNote").innerHTML = notes.join("<br>");
+//   自信度はカードの右上に出す(2026-11-24 の見直しで一覧はカードにまとめた・§4-71)。ここは「これから」の見出しの数と、お知らせ(出走表待ち・印まだ)
+//   出走表待ち = races.json の pending(ミッドナイトなど、朝は出走表が出ていないレース)
+let NOW_SORT = "time";
+try { if (localStorage.getItem("keirinNowSort") === "conf") NOW_SORT = "conf"; } catch (e) {}
+function confCountText(rows9) {
+  if (typeof HOTCONF === "undefined" || !rows9.length) return "";
+  const cnt = {}; for (const r of rows9) { const v = confOf(r), k = v == null ? "n" : v; cnt[k] = (cnt[k] || 0) + 1; }
+  return [3, 2, 1, 0].filter((v) => cnt[v]).map((v) => HOTCONF.LV[v].mk + cnt[v]).join(" ");
 }
-function confRow(r) {
-  const res = f3ResultOf(r.place, r.raceNo, r.ticket);
-  let right;
-  if (res && !res.pending) right = res.hit ? '<span class="rs pos">' + (res.pay != null ? res.pay.toLocaleString() + "円" : "的中") + "</span>" : '<span class="rs neg">✗</span>';
-  else {
-    const ei = evInfo(r), sk = hotSkipOf(r, ei), buy = !sk && ei && ei.verdict === "buy";
-    right = '<span class="rs" style="font-size:10px;color:' + (buy ? "var(--green)" : "var(--dim)") + '">' + (sk ? "見送り（" + SKIP_V[sk] + "）" : buy ? "✓ 買う" : r.bandLo + "〜" + r.bandHi + "倍なら") + "</span>";
+function paintConf(rows9) {
+  const box = $("confNote"); if (!box) return;
+  const pend = RACES_META && Array.isArray(RACES_META.pending) ? RACES_META.pending : [];
+  const out = [];
+  if (pend.length && raceList.length) {
+    const bp = {}; for (const q of pend) (bp[q.place] = bp[q.place] || []).push(parseInt(q.raceNo, 10) || 0);
+    out.push('<div class="info"><span class="ic">⏳</span><span><b>出走表待ち</b> ' + Object.entries(bp).map(([pl, ns]) => { ns.sort((a, b) => a - b); return esc(pl) + " " + (ns.length > 1 ? ns[0] + "〜" + ns[ns.length - 1] : ns[0]) + "R"; }).join("・") +
+      "（ミッドナイトなど。出たら自動で入ります）</span></div>");
   }
-  return '<div class="pr' + (res && !res.pending && res.hit ? " hit" : "") + '" onclick="loadRace(\'' + esc2(r.key).replace(/'/g, "\\'") + '\')">' +
-    '<span class="tm">' + (closeTimeOf(r.startTime) || "") + '</span><span class="nm">' + esc(r.place) + " " + esc(r.raceNo) + "</span>" +
-    confBadge(r, true) + '<span class="tk">' + ticketBalls(r.ticket, "s") + "</span>" + right + "</div>";
+  const noCm = rows9.filter((r) => !r.cm).length;
+  if (noCm && typeof HOTCONF !== "undefined") out.push('<div class="info"><span class="ic">✎</span><span>' + (!raceList.some((x) => x.cm) ? "いまの出走表には記者の印がないので、自信度は出ません" : "<b>印まだ</b> " + noCm + "件（記者の印がまだ。昼・夕方の取り直しで入ります）") + "</span></div>");
+  box.innerHTML = out.join("");
 }
 // 参考(🔥7車)の1行
 function doneRowRef(r) {
@@ -3313,7 +3376,7 @@ function resultChip(x) {
 //   7車は「三連複オッズ 確定で9〜15倍(締切前の倍率で10〜15倍)のときだけ買う」(2026-11-23〜・hikitsugi §4-65)。
 //   15番目(x[14]) = 7車の締切前の倍率(判定と同じ時刻)。あればそれで10〜15倍、無ければ確定オッズ(x[7])で9〜15倍。帯の外は見送り。オッズが無いレースは買った扱い。
 //   16番目(x[15]) = 本命ラインの地元の位置(hotloc.js。0 = 地元なし / 1 = 先頭が地元 / 2 = 番手か3番手が地元。§4-66)。9車は 2 なら金額を LOC9 倍・7車は 1 なら見送り・(H7LOC)2 のときだけ
-//   17番目(x[16]) = 🔥9車の出走表の予想印の◎の位置(hotconf.js。1 = 先頭 / 2 = 番手 / 3 = 3番手 / 4 = ほかのライン。§4-67)。朝の自信度ごとの成績(confTable)に使うだけ
+//   17番目(x[16]) = 🔥9車の出走表の予想印の◎の位置(hotconf.js。1 = 先頭 / 2 = 番手 / 3 = 3番手 / 4 = ほかのライン。§4-67)。朝の自信度ごとの成績(confStatsHtml・成績タブの「自信度」)に使うだけ
 // ===================================================================
 // 7車の帯(hots2.js の BAND7。2026-11-23〜・hikitsugi §4-65): 確定オッズで数えるとき 9〜15倍 / 締切前の倍率(買うとき)は 10〜15倍(確定までに1〜2割下がるぶん)
 const B7 = (typeof HOTS2 !== "undefined" && HOTS2.BAND7) || { lo: 9, hi: 15, loPre: 10, hiPre: 15 };
@@ -3361,13 +3424,13 @@ let DAILY = null, DAILY_AT = "";
 // 絞り込みの既定は「いまの買い方どおり」= 帯の中・切れる確率17%以上(9車)。期待値では絞らない(PC の hot9_use_ev 既定 false と同じ)。
 //   2026-10-15 に既定を変えたので、保存先を keirinCal2 にした(前の keirinCal からは「🔥全部/9車/7車/Ⓓ」だけ引き継ぐ)
 const CAL_DEF = { band: true, ev: false, brk: true, b1: false, s2: true, loc: true, hon: true };
-const CAL = Object.assign({ ym: null, sel: null, kind: "all" }, CAL_DEF);
+const CAL = Object.assign({ ym: null, sel: null, kind: "all", view: "day" }, CAL_DEF);   // view: day = 日ごと(カレンダー) / month = 月ごと(通算の線・月の表) / conf = 自信度ごと(2026-11-24〜・§4-71)
 try {
   const c2 = JSON.parse(localStorage.getItem("keirinCal2") || "null"), c1 = JSON.parse(localStorage.getItem("keirinCal") || "{}");
-  if (c2) { for (const k of Object.keys(CAL_DEF)) if (typeof c2[k] === "boolean") CAL[k] = c2[k]; if (c2.kind) CAL.kind = c2.kind; }
+  if (c2) { for (const k of Object.keys(CAL_DEF)) if (typeof c2[k] === "boolean") CAL[k] = c2[k]; if (c2.kind) CAL.kind = c2.kind; if (["day", "month", "conf"].includes(c2.view)) CAL.view = c2.view; }
   else if (c1.kind) CAL.kind = c1.kind;
 } catch (e) {}
-const saveCal = () => { try { localStorage.setItem("keirinCal2", JSON.stringify({ kind: CAL.kind, band: CAL.band, ev: CAL.ev, brk: CAL.brk, b1: CAL.b1, s2: CAL.s2, loc: CAL.loc, hon: CAL.hon })); } catch (e) {} };
+const saveCal = () => { try { localStorage.setItem("keirinCal2", JSON.stringify({ kind: CAL.kind, view: CAL.view, band: CAL.band, ev: CAL.ev, brk: CAL.brk, b1: CAL.b1, s2: CAL.s2, loc: CAL.loc, hon: CAL.hon })); } catch (e) {} };
 const calIsDefault = () => Object.keys(CAL_DEF).every((k) => CAL[k] === CAL_DEF[k]);
 async function loadDaily() {
   try {
@@ -3509,22 +3572,31 @@ function renderCal() {
   // ---- 上: いまの買い方・種類・条件(既定 = いまの買い方どおり) ----
   const head = $("calHead");
   if (head) {
+    // 2026-11-24 の見直し(§4-71): 種類 → 見方(日ごと・月ごと・自信度) → 「買い方・条件」(たたむ。いまの買い方・種類の説明・条件の切り替え)
+    const confOk = CAL.kind === "9" || CAL.kind === "all";
+    if (CAL.view === "conf" && !confOk) CAL.view = "day";
+    const kindNote = CAL.kind === "D" ? '<div class="note" style="font-size:10px;margin:6px 0">全レースから期待値1.10以上・23倍以下（締切前の倍率で。2026/11/11〜）の組を全部、買い方の金額ずつ（1行=1点。過去の日もこの条件で数え直し）。〜2026/9/25 はさかのぼり計算（その年より前のデータだけで作ったモデル・確定オッズで20倍以下）。年ごと: 2023 109% / 2024 109% / 2025 151% / 2026 110%</div>'
+      : CAL.kind === "all" ? '<div class="note" style="font-size:10px;margin:6px 0">🔥（いまの買い方・下の条件）・Ⓓ モデルD・Ⓐ AI外しを、💴 の金額で全部買った場合。' + (STACK ? "同じレースの同じ組を2つ以上が選んだら、それぞれの金額で買う（金額を足す。2026/11/11〜。過去の日もこの数え方）" : "同じレースの同じ組は1回だけ（🔥を買えばⒹ・Ⓐは重ねない・Ⓓを買えばⒶは重ねない）") + '。🔥7車は買わない設定なら数えない</div>'
+      : CAL.kind === "A" ? '<div class="note" style="font-size:10px;margin:6px 0">S級で、3連複の1番人気が同じライン（3人以上）の3人なのに AI予想（4車）がその3人をそろえていないとき、その1番人気を1点（4倍以上。2026/11/3〜）。🔥・Ⓓと重なる組もここでは数えます。〜2026/11/2 は確定オッズでのさかのぼり計算: 2025年1月〜2026年10月で 1,138R・回収114.7%（2025年 113.9% / 2026年 115.4%）</div>' : "";
     const filt = CAL.kind === "D" || CAL.kind === "A" ? "" :
-      '<details class="more calfilt"' + (CAL.filtOpen ? " open" : "") + '><summary>' + (CAL.kind === "all" ? "🔥の" : "") + "条件を変えて見る（" + (calIsDefault() ? "いまは<b>いまの買い方どおり</b>" : '<b style="color:var(--gold)">条件を変えています</b>') + "）</summary>" +
+      '<div class="calconds"><div class="cct">' + (CAL.kind === "all" ? "🔥の" : "") + "条件（外すと、その条件なしで数え直す）</div>" +
       '<label class="bandsw"><input type="checkbox" id="calBand"' + (CAL.band ? " checked" : "") + ">オッズの帯の中だけ（9車" + BAND9_LO + "〜" + BAND9_HI + "倍・7車" + BAND_LO + "〜" + BAND_HI + "倍。7車は締切前の倍率なら" + BAND_LO_PRE + "〜" + BAND_HI_PRE + "倍）</label>" +
       '<label class="bandsw"><input type="checkbox" id="calBrk"' + (CAL.brk ? " checked" : "") + ">9車は本命ラインが切れやすいレースだけ（離れる確率17%以上）</label>" +
       '<label class="bandsw"><input type="checkbox" id="calS2"' + (CAL.s2 ? " checked" : "") + ">2人だけ来る組で見送る（9車は目安より多いとき・7車は少なくないとき）</label>" +
       '<label class="bandsw"><input type="checkbox" id="calLoc"' + (CAL.loc ? " checked" : "") + ">本命ラインの地元の位置（9車は番手か3番手が地元なら金額" + LOC9 + "倍・7車は先頭が地元なら見送り" + (H7LOC ? "・番手か3番手が地元のときだけ" : "") + "）</label>" +
-      '<label class="bandsw"><input type="checkbox" id="calHon"' + (CAL.hon ? " checked" : "") + ">9車は出走表の◎が本命ラインの番手なら見送り" + (HON9 ? "" : "（💴 で「買う」にしているので効かない）") + "（〜2026/10 は作り直した出走表の印。印の記録が無い日は見送らない）</label>" +
+      '<label class="bandsw"><input type="checkbox" id="calHon"' + (CAL.hon ? " checked" : "") + ">9車は出走表の◎が本命ラインの番手なら見送り" + (HON9 ? "" : "（💴 で「買う」にしているので効かない）") + "（印の記録が無い日は見送らない）</label>" +
       '<label class="bandsw"><input type="checkbox" id="calEv"' + (CAL.ev ? " checked" : "") + ">期待値" + (typeof EVD !== "undefined" ? EVD.PICK.minEv : 1.1).toFixed(2) + "以上だけ（モデルDと同じ期待値・同じ線。いまの買い方では使っていない・参考）</label>" +
       '<label class="bandsw"><input type="checkbox" id="calB1"' + (CAL.b1 ? " checked" : "") + ">9車は先頭のB率1位だけ（B率が分からないレースは数えない）</label>" +
-      (calIsDefault() ? "" : '<button class="chipbtn" id="calReset" style="margin-top:6px">いまの買い方どおりに戻す</button>') + "</details>";
-    head.innerHTML = buyLineHtml() +
+      (calIsDefault() ? "" : '<button class="chipbtn" id="calReset" style="margin-top:6px">いまの買い方どおりに戻す</button>') + "</div>";
+    head.innerHTML =
       '<div class="seg" id="calKind">' + [["all", "合計"], ["9", "🔥9車"], ["7", "🔥7車"], ["D", "Ⓓ モデルD"], ["A", "Ⓐ AI外し"]].map(([k, t]) =>
         '<button data-k="' + k + '" class="' + (CAL.kind === k ? "on" : "") + '">' + t + "</button>").join("") + "</div>" +
-      (CAL.kind === "D" ? '<div class="note" style="font-size:10px;margin:4px 0">全レースから期待値1.10以上・23倍以下（締切前の倍率で。2026/11/11〜）の組を全部、買い方の金額ずつ（1行=1点。過去の日もこの条件で数え直し）。〜2026/9/25 はさかのぼり計算（その年より前のデータだけで作ったモデル・確定オッズで20倍以下）。年ごと: 2023 109% / 2024 109% / 2025 151% / 2026 110%</div>' : "") +
-      (CAL.kind === "all" ? '<div class="note" style="font-size:10px;margin:4px 0">🔥（いまの買い方・下の条件）・Ⓓ モデルD・Ⓐ AI外しを、上の「変える」の金額で全部買った場合。' + (STACK ? "同じレースの同じ組を2つ以上が選んだら、それぞれの金額で買う（金額を足す。2026/11/11〜。過去の日もこの数え方）" : "同じレースの同じ組は1回だけ（🔥を買えばⒹ・Ⓐは重ねない・Ⓓを買えばⒶは重ねない）") + '。🔥7車は買わない設定なら数えない</div>' : "") +
-      (CAL.kind === "A" ? '<div class="note" style="font-size:10px;margin:4px 0">S級で、3連複の1番人気が同じライン（3人以上）の3人なのに AI予想（4車）がその3人をそろえていないとき、その1番人気を1点（4倍以上。2026/11/3〜）。🔥・Ⓓと重なる組もここでは数えます。〜2026/11/2 は確定オッズでのさかのぼり計算: 2025年1月〜2026年10月で 1,138R・回収114.7%（2025年 113.9% / 2026年 115.4%）</div>' : "") + filt;
+      '<div class="calviews"><span class="segmini" id="calView">' + [["day", "日ごと"], ["month", "月ごと"]].concat(confOk ? [["conf", "自信度"]] : []).map(([v, t]) =>
+        '<button type="button" data-v="' + v + '" class="' + (CAL.view === v ? "on" : "") + '">' + t + "</button>").join("") + "</span>" +
+        (calIsDefault() ? "" : '<span class="calchg">条件を変えています</span>') + "</div>" +
+      '<details class="more calfilt"' + (CAL.filtOpen ? " open" : "") + "><summary>買い方・条件 <small>" + (calIsDefault() ? "いまの買い方どおり" : '<b style="color:var(--gold)">条件を変えています</b>') + "</small></summary>" +
+        buyLineHtml() + kindNote + filt + "</details>";
+    head.querySelectorAll("#calView button").forEach((b) => b.addEventListener("click", () => { CAL.view = b.dataset.v; saveCal(); renderCal(); }));
     head.querySelectorAll("#calKind button").forEach((b) => b.addEventListener("click", () => { CAL.kind = b.dataset.k; saveCal(); renderCal(); }));
     const fd = head.querySelector(".calfilt"); if (fd) fd.addEventListener("toggle", () => { CAL.filtOpen = fd.open; });
     for (const [id, k] of [["calBand", "band"], ["calEv", "ev"], ["calBrk", "brk"], ["calS2", "s2"], ["calLoc", "loc"], ["calHon", "hon"], ["calB1", "b1"]]) if ($(id)) $(id).addEventListener("change", (e) => { CAL[k] = e.target.checked; saveCal(); renderCal(); });
@@ -3532,6 +3604,21 @@ function renderCal() {
     const ob = head.querySelector("[data-open-buy]"); if (ob) ob.addEventListener("click", openBuySheet);
   }
   renderTrend(days, keys);
+  ["trendBox", "monthBox"].forEach((id) => { if ($(id)) $(id).classList.toggle("hidden", CAL.view !== "month"); });
+  box.classList.toggle("hidden", CAL.view !== "day");
+  if ($("confBox")) {
+    $("confBox").classList.toggle("hidden", CAL.view !== "conf");
+    if (CAL.view === "conf") {
+      const yrs = [...new Set(keys.map((d) => d.slice(0, 4)))];
+      $("confBox").innerHTML = '<div class="calnav"><button id="confPrev"' + (mi <= 0 ? " disabled" : "") + '>◀</button><b>' + y + "年" + mo + "月</b>" +
+          '<button id="confNext"' + (mi >= months.length - 1 ? " disabled" : "") + ">▶</button></div>" +
+        '<div class="cct">🔥9車の朝の自信度ごとの回収率（出走表の記者の印の◎の位置・地元の位置）</div>' +
+        confStatsHtml(days, [[y + "年" + mo + "月", inMonth], ["全期間<br><small>" + (+keys[0].slice(0, 4)) + "年" + (+keys[0].slice(4, 6)) + "月〜</small>", keys]]) +
+        (yrs.length > 1 ? '<div class="cct" style="margin-top:12px">年ごと</div>' + confStatsHtml(days, yrs.map((yy) => [yy + "年", keys.filter((d) => d.startsWith(yy))]), true) : "");
+      $("confPrev").addEventListener("click", () => { if (mi > 0) { CAL.ym = months[mi - 1]; CAL.sel = null; renderCal(); } });
+      $("confNext").addEventListener("click", () => { if (mi < months.length - 1) { CAL.ym = months[mi + 1]; CAL.sel = null; renderCal(); } });
+    } else $("confBox").innerHTML = "";
+  }
   // ---- カレンダー(1か月) ----
   box.innerHTML =
     '<div class="calnav"><button id="calPrev"' + (mi <= 0 ? " disabled" : "") + '>◀</button><b>' + y + "年" + mo + "月</b>" +
@@ -3539,7 +3626,6 @@ function renderCal() {
     '<div class="kpis">' + kpi(m.n, CAL.kind === "D" || CAL.kind === "all" ? "点" : "レース") + kpi(m.n ? m.hit + '<small style="font-size:11px;color:var(--muted)"> (' + Math.round(m.hit / m.n * 100) + "%)</small>" : "—", "的中") +
       kpi(m.roi != null ? m.roi + "%" : "—", "回収率", m.roi == null ? "" : m.roi >= 100 ? "pos" : "neg") +
       kpi(m.n ? yen(m.pl) : "—", "収支(円)" + (m.unk ? "※" : ""), m.n ? (m.pl >= 0 ? "pos" : "neg") : "") + "</div>" +
-    (CAL.kind === "9" || CAL.kind === "all" ? confTable(days, inMonth, keys, y, mo) : "") +
     '<div class="calgrid">' + "日月火水木金土".split("").map((w, i) => '<div class="wd' + (i === 0 ? " sun" : i === 6 ? " sat" : "") + '">' + w + "</div>").join("") + cells + "</div>" +
     '<div id="calDetail">' + calDetail(CAL.sel, days[CAL.sel]) + "</div>";
   box.onclick = (e) => { const el = e.target.closest(".rh[data-i]"); if (el) openCalRace(+el.dataset.i); };   // 一覧の1行 → そのレースのページ
@@ -3556,7 +3642,7 @@ function renderCal() {
 //   CONF_MODE "now" = いまの条件(成績タブの条件)で「買う」になったレース / "all" = 倍率を見ない(🔥9車で切れる確率17%以上(分からなければ入れる)を全部)
 //   どちらも × (◎が番手)は見送らなかった場合で数える。金額の設定は使わない(自信度どうしを比べるため)。この端末に保存 keirinConfMode
 //   ◎の位置は daily.json の17番目(〜2026/10 は作り直した出走表の印・2026/11/15〜23 はその日の出走表の印・2026/11/24ごろからは朝の出走表の印。2026/11/1〜14 は印が無い)
-let CONF_MODE = "now", CONF_CAL_OPEN = true, CONF_PAST_OPEN = true;
+let CONF_MODE = "now", CONF_CAL_OPEN = true, CONF_PAST_OPEN = false;
 try { if (localStorage.getItem("keirinConfMode") === "all") CONF_MODE = "all"; } catch (e) {}
 function confAgg(days, keys, mode) {
   const g = {};
@@ -3574,29 +3660,23 @@ function confAgg(days, keys, mode) {
   return g;
 }
 // cols = [[見出し, 日の一覧], ...]
-function confStatsHtml(days, cols) {
+function confStatsHtml(days, cols, bare) {
   if (typeof HOTCONF === "undefined") return "";
   const ags = cols.map(([, ks]) => confAgg(days, ks, CONF_MODE));
   const cell = (o) => (o && o.n ? '<b style="color:' + roiColor(Math.round(o.pay / o.n)) + '">' + Math.round(o.pay / o.n) + "%</b><br><small>" + o.n + "点・的中" + o.hit + "</small>" : "—");
   const tot = (a) => Object.values(a).reduce((t, o) => ({ n: t.n + o.n, hit: t.hit + o.hit, pay: t.pay + o.pay }), { n: 0, hit: 0, pay: 0 });
   const name = (k) => (k === "n" ? '<span class="kb cfn">分からない</span>' : '<span class="kb cf' + k + '">' + HOTCONF.LV[k].mk + " " + HOTCONF.LV[k].name + "</span>");
   const lvs = [3, 2, 1, 0, "n"].filter((k) => ags.some((a) => a[k] && a[k].n));
-  return '<div class="seg confmode">' + [["now", "いまの条件"], ["all", "倍率を見ない"]].map(([m, t]) =>
-      '<button type="button" data-confmode="' + m + '" class="' + (CONF_MODE === m ? "on" : "") + '">' + t + "</button>").join("") + "</div>" +
+  return (bare ? "" : '<div class="seg confmode">' + [["now", "いまの条件"], ["all", "倍率を見ない"]].map(([m, t]) =>
+      '<button type="button" data-confmode="' + m + '" class="' + (CONF_MODE === m ? "on" : "") + '">' + t + "</button>").join("") + "</div>") +
     '<table class="conftbl"><tr><th>自信度</th>' + cols.map(([t]) => "<th>" + t + "</th>").join("") + "</tr>" +
     (lvs.length ? lvs.map((k) => "<tr><td>" + name(k) + "</td>" + ags.map((a) => "<td>" + cell(a[k]) + "</td>").join("") + "</tr>").join("") +
       '<tr class="tot"><td>🔥9車 全部</td>' + ags.map((a) => "<td>" + cell(tot(a)) + "</td>").join("") + "</tr>"
       : '<tr><td colspan="' + (cols.length + 1) + '" style="text-align:center;color:var(--dim)">記録がありません</td></tr>') + "</table>" +
-    '<div class="note" style="font-size:10px;margin:2px 0 6px">' +
+    (bare ? "" : '<div class="note" style="font-size:10px;margin:2px 0 6px">' +
     (CONF_MODE === "now" ? "成績タブの条件（5〜15倍・切れる確率・2人だけ来る組など）で「買う」になった🔥9車" : "倍率を見ずに、🔥9車（切れる確率17%以上）を全部") +
     "を100円ずつで数えたもの（金額の設定は使わない）。× は見送りにしているが（2026/11/24〜）、ここでは見送らなかった場合の成績。結果が出たレースだけ。" +
-    "〜2026/10 は作り直した出走表の印、2026/11/15〜23 はその日の出走表の印、2026/11/24ごろからは朝の出走表の印（2026/11/1〜14 は印の無い出走表なので「分からない」）。</div>";
-}
-// 成績タブ(🔥9車・合計)の表: この月・全期間
-function confTable(days, inMonth, keys, y, mo) {
-  if (typeof HOTCONF === "undefined" || !keys.length) return "";
-  return '<details class="more confcal"' + (CONF_CAL_OPEN ? " open" : "") + "><summary>朝の自信度ごとの回収率（🔥9車）</summary>" +
-    confStatsHtml(days, [[y + "年" + mo + "月", inMonth], ["全期間<br><small>" + (+keys[0].slice(0, 4)) + "年" + (+keys[0].slice(4, 6)) + "月〜</small>", keys]]) + "</details>";
+    "〜2026/10 は作り直した出走表の印、2026/11/15〜23 はその日の出走表の印、2026/11/24ごろからは朝の出走表の印（2026/11/1〜14 は印の無い出走表なので「分からない」）。</div>");
 }
 document.addEventListener("click", (e) => {
   const b = e.target.closest("button[data-confmode]"); if (!b) return;
@@ -3653,20 +3733,28 @@ function buyLineHtml() {
 }
 function renderBuyRows() {
   const box = $("buyRows"); if (!box) return;
-  box.innerHTML = Object.keys(BUY_DEF).map((k) => '<div class="brow"><div class="bn">' + BUY_NAME[k] + '</div><div class="bd">' + BUY_DESC[k] + '</div><div class="bopts">' +
-    [0, 100, 200, 300, 500, 1000].map((v) => '<button type="button" data-k="' + k + '" data-v="' + v + '" class="' + (v ? "" : "off") + (BUY[k] === v ? " on" : "") + '">' + (v ? v + "円" : "買わない") + "</button>").join("") +
-    "</div></div>").join("") +
-    // 同じ組が重なったとき(2026-11-11〜。hikitsugi §4-56)
-    '<div class="brow"><div class="bn">同じ組が重なったとき</div><div class="bd">🔥・Ⓓ・Ⓐ のうち2つ以上が同じレースの同じ組を選んだとき。2025年1月〜2026年10月で、重なった組は回収138%（176点）・1つだけの組は120%</div><div class="bopts">' +
-    [[1, "金額を足して買う"], [0, "1回だけ買う"]].map(([v, t]) => '<button type="button" data-stack="' + v + '" class="' + ((STACK ? 1 : 0) === v ? "on" : "") + '">' + t + "</button>").join("") + "</div></div>" +
-    // 本命ラインの地元の位置(2026-11-23〜。hikitsugi §4-66。自動投票の hot9_local_mult / hot7_local_only と同じ)
-    '<div class="brow"><div class="bn">🔥9車 地元の番手・3番手</div><div class="bd">本命ラインの番手か3番手が地元（先頭は地元でない）なら、上の🔥9車の金額を何倍にするか。5年で回収175%（119点）・アプリの記録で223%（45点）。地元なしは135%</div><div class="bopts">' +
-    [1, 2, 3].map((v) => '<button type="button" data-loc9="' + v + '" class="' + (LOC9 === v ? "on" : "") + '">' + (v === 1 ? "そのまま" : v + "倍") + "</button>").join("") + "</div></div>" +
-    '<div class="brow"><div class="bn">🔥7車 地元</div><div class="bd">7車で本命ラインの先頭が地元なら、いつも見送り（5年 87%・アプリの記録 54%）。番手か3番手が地元のときだけ買うと 5年 139%・アプリの記録 131%（全部なら105%）</div><div class="bopts">' +
-    [[1, "地元の番手・3番手のときだけ"], [0, "地元に関係なく買う"]].map(([v, t]) => '<button type="button" data-h7loc="' + v + '" class="' + ((H7LOC ? 1 : 0) === v ? "on" : "") + '">' + t + "</button>").join("") + "</div></div>" +
+  // 2026-11-24 の見直し(§4-71): 🔥9車 / 🔥7車 / Ⓓ・Ⓐ / 重なったとき に分ける
+  const amt = (k) => '<div class="brow"><div class="bn">' + BUY_NAME[k] + '</div><div class="bd">' + BUY_DESC[k] + '</div><div class="bopts">' +
+    [0, 100, 200, 300, 500, 1000].map((v) => '<button type="button" data-k="' + k + '" data-v="' + v + '" class="' + (v ? "" : "off") + (BUY[k] === v ? " on" : "") + '">' + (v ? v + "円" : "買わない") + "</button>").join("") + "</div></div>";
+  const opt = (name, desc, attr, list, cur) => '<div class="brow"><div class="bn">' + name + '</div><div class="bd">' + desc + '</div><div class="bopts">' +
+    list.map(([v, t]) => '<button type="button" ' + attr + '="' + v + '" class="' + (cur === v ? "on" : "") + '">' + t + "</button>").join("") + "</div></div>";
+  const grp = (t) => '<div class="bgrp">' + t + "</div>";
+  box.innerHTML =
+    grp("🔥9車") + amt("b1") + amt("rest") +
+    // 本命ラインの地元の位置(2026-11-23〜。hikitsugi §4-66。自動投票の hot9_local_mult と同じ)
+    opt("地元の番手・3番手のとき", "本命ラインの番手か3番手が地元（先頭は地元でない）なら、上の金額を何倍にするか。5年で回収175%（119点）・アプリの記録で223%（45点）", "data-loc9",
+      [[1, "そのまま"], [2, "2倍"], [3, "3倍"]], LOC9) +
     // 出走表の◎が本命ラインの番手(2026-11-24〜。hikitsugi §4-68。自動投票の hot9_skip_hon_bante と同じ)
-    '<div class="brow"><div class="bn">🔥9車 出走表の◎が番手</div><div class="bd">出走表の記者の印の◎が本命ラインの番手にいるレース（朝の自信度 ×）。今の🔥の条件で 5年 85.6%（193点）・アプリの記録 99.5%（76点）、それ以外は 138%。印が無いレースは見送らない</div><div class="bopts">' +
-    [[1, "見送る"], [0, "買う"]].map(([v, t]) => '<button type="button" data-hon9="' + v + '" class="' + ((HON9 ? 1 : 0) === v ? "on" : "") + '">' + t + "</button>").join("") + "</div></div>";
+    opt("出走表の◎が番手のとき（自信度 ×）", "今の🔥の条件で 5年 85.6%（193点）・アプリの記録 99.5%（76点）、それ以外は 138%。印が無いレースは見送らない", "data-hon9",
+      [[1, "見送る"], [0, "買う"]], HON9 ? 1 : 0) +
+    grp("🔥7車") + amt("h7") +
+    opt("地元", "先頭が地元なら、いつも見送り（5年 87%・アプリの記録 54%）。番手か3番手が地元のときだけ買うと 5年 139%・アプリの記録 131%（全部なら105%）", "data-h7loc",
+      [[1, "地元の番手・3番手のときだけ"], [0, "地元に関係なく買う"]], H7LOC ? 1 : 0) +
+    grp("Ⓓ・Ⓐ") + amt("d") + amt("a") +
+    // 同じ組が重なったとき(2026-11-11〜。hikitsugi §4-56)
+    grp("同じ組が重なったとき") +
+    opt("🔥・Ⓓ・Ⓐ のうち2つ以上が同じ組", "2025年1月〜2026年10月で、重なった組は回収138%（176点）・1つだけの組は120%", "data-stack",
+      [[1, "金額を足して買う"], [0, "1回だけ買う"]], STACK ? 1 : 0);
 }
 function openBuySheet() { renderBuyRows(); $("buySheet").classList.remove("hidden"); }
 function closeBuySheet() { $("buySheet").classList.add("hidden"); }
