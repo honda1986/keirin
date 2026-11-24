@@ -315,6 +315,10 @@
   .conftbl th, .conftbl td { padding: 5px 4px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
   .conftbl th:first-child, .conftbl td:first-child { text-align: left; }
   .conftbl th { color: var(--muted); font-weight: 700; font-size: 10px; }
+  .conftbl td small { color: var(--muted); font-size: 9px; font-weight: 500; }
+  .conftbl tr.tot td { border-top: 2px solid var(--line); font-weight: 700; }
+  .seg.confmode { margin: 8px 0 2px; }
+  details.confpast { margin: 0 0 10px; }
   .buyset { margin: 0 0 10px; font-size: 12px; }
   .buyset .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line, rgba(127,127,127,.15)); }
   .buyset .row > span { flex: 1; min-width: 0; }
@@ -1973,7 +1977,12 @@ function renderPastList() {
         pastResChip(x) + "</span></div>";
     }).join("") + "</div>";
   }
-  box.innerHTML = html || '<div class="empty">この日は🔥・Ⓓ・Ⓐ のレースがありません（「すべて」で全レース）</div>';
+  // 自信度ごとの回収率(🔥9車): この日・この月・全期間(今日の分は入れない。2026-11-24〜・§4-70)
+  const days = calDays(), done = Object.keys(days).filter((d) => d < todayD8()).sort(), ym = d8.slice(0, 6);
+  const cs = done.length && typeof HOTCONF !== "undefined" ? '<details class="more confpast"' + (CONF_PAST_OPEN ? " open" : "") + "><summary>自信度ごとの回収率（🔥9車）</summary>" +
+    confStatsHtml(days, [["この日", [d8]], [(ym.slice(0, 4) !== todayD8().slice(0, 4) ? +ym.slice(0, 4) + "年" : "") + +ym.slice(4) + "月", done.filter((d) => d.startsWith(ym))],
+      ["全期間<br><small>" + (+done[0].slice(0, 4)) + "年" + (+done[0].slice(4, 6)) + "月〜</small>", done]]) + "</details>" : "";
+  box.innerHTML = cs + (html || '<div class="empty">この日は🔥・Ⓓ・Ⓐ のレースがありません（「すべて」で全レース）</div>');
 }
 window.openPastRace = (key) => {
   const it = PAST_LIST.find((y) => y.key === key); if (!it) return;
@@ -3530,7 +3539,7 @@ function renderCal() {
     '<div class="kpis">' + kpi(m.n, CAL.kind === "D" || CAL.kind === "all" ? "点" : "レース") + kpi(m.n ? m.hit + '<small style="font-size:11px;color:var(--muted)"> (' + Math.round(m.hit / m.n * 100) + "%)</small>" : "—", "的中") +
       kpi(m.roi != null ? m.roi + "%" : "—", "回収率", m.roi == null ? "" : m.roi >= 100 ? "pos" : "neg") +
       kpi(m.n ? yen(m.pl) : "—", "収支(円)" + (m.unk ? "※" : ""), m.n ? (m.pl >= 0 ? "pos" : "neg") : "") + "</div>" +
-    (CAL.kind === "9" ? confTable(days, inMonth, keys, y, mo) : "") +
+    (CAL.kind === "9" || CAL.kind === "all" ? confTable(days, inMonth, keys, y, mo) : "") +
     '<div class="calgrid">' + "日月火水木金土".split("").map((w, i) => '<div class="wd' + (i === 0 ? " sun" : i === 6 ? " sat" : "") + '">' + w + "</div>").join("") + cells + "</div>" +
     '<div id="calDetail">' + calDetail(CAL.sel, days[CAL.sel]) + "</div>";
   box.onclick = (e) => { const el = e.target.closest(".rh[data-i]"); if (el) openCalRace(+el.dataset.i); };   // 一覧の1行 → そのレースのページ
@@ -3543,31 +3552,61 @@ function renderCal() {
   }));
   renderMonths(days, months);
 }
-// 🔥9車の朝の自信度ごとの成績(hotconf.js。2026-11-24〜・hikitsugi §4-67)。いまの条件で「買う」になったレースを100円ずつで数える(自信度どうしを比べるため・金額の設定は使わない)
-//   ◎の位置は daily.json の17番目(〜2026-10 は作り直した出走表の印 hot-conf-past.json・2026-11-24〜 は出走表の印)。2026-11 の 1〜23日は印の記録が無い(分からない)
-function confTable(days, inMonth, keys, y, mo) {
-  if (typeof HOTCONF === "undefined") return "";
-  const agg = (ds) => {
-    const g = {}, h0 = CAL.hon;
-    CAL.hon = false;   // × (◎が番手)も、見送らなかった場合の成績を出す
-    try {
-      for (const d of ds) for (const x of calList(days[d])) {
-        if (x[2] < 8 || calPick(x) !== "buy") continue;
-        const lv = HOTCONF.level(x[19], x[18]), k = lv == null ? "n" : lv, o = g[k] || (g[k] = { n: 0, hit: 0, pay: 0 });
-        o.n++; if (x[5] === 1) { o.hit++; o.pay += x[6] || 0; }
-      }
-    } finally { CAL.hon = h0; }
-    return g;
-  };
-  const a = agg(inMonth), b = agg(keys);
-  const cell = (o) => o && o.n ? o.n + "点 " + o.hit + "的中 <b style=\"color:" + roiColor(Math.round(o.pay / o.n)) + "\">" + Math.round(o.pay / o.n) + "%</b>" : "—";
-  const rowsH = [3, 2, 1, 0, "n"].filter((k) => (a[k] && a[k].n) || (b[k] && b[k].n)).map((k) =>
-    "<tr><td>" + (k === "n" ? '<span class="kb cfn">分からない</span>' : '<span class="kb cf' + k + '">' + HOTCONF.LV[k].mk + " " + HOTCONF.LV[k].name + "</span>") + "</td><td>" + cell(a[k]) + "</td><td>" + cell(b[k]) + "</td></tr>").join("");
-  if (!rowsH) return "";
-  return '<details class="more"><summary>朝の自信度ごと（出走表の印の◎の位置・地元の位置）</summary>' +
-    '<table class="conftbl"><tr><th>自信度</th><th>' + y + "年" + mo + "月</th><th>全期間（" + (+keys[0].slice(0, 4)) + "年" + (+keys[0].slice(4, 6)) + "月〜）</th></tr>" + rowsH + "</table>" +
-    '<div class="note" style="font-size:10px;margin:2px 0 6px">上の条件で「買う」になったレースを100円ずつで数えたもの（金額の設定は使わない）。× は見送りにしているが（2026/11/24〜）、ここでは見送らなかった場合の成績。〜2026/10 は作り直した出走表の印、2026/11/15〜23 はその日の出走表の印、2026/11/24ごろからは朝の出走表の印（2026/11/1〜14 は印の無い出走表なので「分からない」）。</div></details>';
+// ---- 🔥9車の朝の自信度ごとの回収率(100円ずつ。hotconf.js。2026-11-24〜・hikitsugi §4-67・§4-70) ----
+//   CONF_MODE "now" = いまの条件(成績タブの条件)で「買う」になったレース / "all" = 倍率を見ない(🔥9車で切れる確率17%以上(分からなければ入れる)を全部)
+//   どちらも × (◎が番手)は見送らなかった場合で数える。金額の設定は使わない(自信度どうしを比べるため)。この端末に保存 keirinConfMode
+//   ◎の位置は daily.json の17番目(〜2026/10 は作り直した出走表の印・2026/11/15〜23 はその日の出走表の印・2026/11/24ごろからは朝の出走表の印。2026/11/1〜14 は印が無い)
+let CONF_MODE = "now", CONF_CAL_OPEN = true, CONF_PAST_OPEN = true;
+try { if (localStorage.getItem("keirinConfMode") === "all") CONF_MODE = "all"; } catch (e) {}
+function confAgg(days, keys, mode) {
+  const g = {};
+  if (typeof HOTCONF === "undefined") return g;
+  const k0 = CAL.kind, h0 = CAL.hon;
+  CAL.kind = "9"; CAL.hon = false;
+  try {
+    for (const d of keys) for (const x of calList(days[d])) {
+      if (x[2] < 8 || (x[5] !== 0 && x[5] !== 1)) continue;
+      if (mode === "all" ? x[11] != null && x[11] < HOT9_BRK : calPick(x) !== "buy") continue;
+      const lv = HOTCONF.level(x[19], x[18]), k = lv == null ? "n" : lv, o = g[k] || (g[k] = { n: 0, hit: 0, pay: 0 });
+      o.n++; if (x[5] === 1) { o.hit++; o.pay += x[6] || 0; }
+    }
+  } finally { CAL.kind = k0; CAL.hon = h0; }
+  return g;
 }
+// cols = [[見出し, 日の一覧], ...]
+function confStatsHtml(days, cols) {
+  if (typeof HOTCONF === "undefined") return "";
+  const ags = cols.map(([, ks]) => confAgg(days, ks, CONF_MODE));
+  const cell = (o) => (o && o.n ? '<b style="color:' + roiColor(Math.round(o.pay / o.n)) + '">' + Math.round(o.pay / o.n) + "%</b><br><small>" + o.n + "点・的中" + o.hit + "</small>" : "—");
+  const tot = (a) => Object.values(a).reduce((t, o) => ({ n: t.n + o.n, hit: t.hit + o.hit, pay: t.pay + o.pay }), { n: 0, hit: 0, pay: 0 });
+  const name = (k) => (k === "n" ? '<span class="kb cfn">分からない</span>' : '<span class="kb cf' + k + '">' + HOTCONF.LV[k].mk + " " + HOTCONF.LV[k].name + "</span>");
+  const lvs = [3, 2, 1, 0, "n"].filter((k) => ags.some((a) => a[k] && a[k].n));
+  return '<div class="seg confmode">' + [["now", "いまの条件"], ["all", "倍率を見ない"]].map(([m, t]) =>
+      '<button type="button" data-confmode="' + m + '" class="' + (CONF_MODE === m ? "on" : "") + '">' + t + "</button>").join("") + "</div>" +
+    '<table class="conftbl"><tr><th>自信度</th>' + cols.map(([t]) => "<th>" + t + "</th>").join("") + "</tr>" +
+    (lvs.length ? lvs.map((k) => "<tr><td>" + name(k) + "</td>" + ags.map((a) => "<td>" + cell(a[k]) + "</td>").join("") + "</tr>").join("") +
+      '<tr class="tot"><td>🔥9車 全部</td>' + ags.map((a) => "<td>" + cell(tot(a)) + "</td>").join("") + "</tr>"
+      : '<tr><td colspan="' + (cols.length + 1) + '" style="text-align:center;color:var(--dim)">記録がありません</td></tr>') + "</table>" +
+    '<div class="note" style="font-size:10px;margin:2px 0 6px">' +
+    (CONF_MODE === "now" ? "成績タブの条件（5〜15倍・切れる確率・2人だけ来る組など）で「買う」になった🔥9車" : "倍率を見ずに、🔥9車（切れる確率17%以上）を全部") +
+    "を100円ずつで数えたもの（金額の設定は使わない）。× は見送りにしているが（2026/11/24〜）、ここでは見送らなかった場合の成績。結果が出たレースだけ。" +
+    "〜2026/10 は作り直した出走表の印、2026/11/15〜23 はその日の出走表の印、2026/11/24ごろからは朝の出走表の印（2026/11/1〜14 は印の無い出走表なので「分からない」）。</div>";
+}
+// 成績タブ(🔥9車・合計)の表: この月・全期間
+function confTable(days, inMonth, keys, y, mo) {
+  if (typeof HOTCONF === "undefined" || !keys.length) return "";
+  return '<details class="more confcal"' + (CONF_CAL_OPEN ? " open" : "") + "><summary>朝の自信度ごとの回収率（🔥9車）</summary>" +
+    confStatsHtml(days, [[y + "年" + mo + "月", inMonth], ["全期間<br><small>" + (+keys[0].slice(0, 4)) + "年" + (+keys[0].slice(4, 6)) + "月〜</small>", keys]]) + "</details>";
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-confmode]"); if (!b) return;
+  CONF_MODE = b.dataset.confmode; try { localStorage.setItem("keirinConfMode", CONF_MODE); } catch (x) {}
+  renderCal(); if (PAST_DAY) renderRaceList();
+});
+document.addEventListener("toggle", (e) => {
+  const t = e.target; if (!t || !t.classList) return;
+  if (t.classList.contains("confcal")) CONF_CAL_OPEN = t.open; else if (t.classList.contains("confpast")) CONF_PAST_OPEN = t.open;
+}, true);
 // 通算の収支(いま選んでいる種類・条件で、日ごとの収支を足していった線)。月をまたいだ流れと、いちばん落ち込んだ幅が一目で分かる
 function renderTrend(days, keys) {
   const tb = $("trendBox"); if (!tb) return;
