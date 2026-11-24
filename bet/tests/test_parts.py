@@ -675,6 +675,32 @@ class TestHotLineBreak(unittest.TestCase):
         self.assertEqual(settings.show({}, "hot9_local_mult", settings.MULT), "2倍")
         self.assertEqual(settings.show({"hot9_local_mult": 1}, "hot9_local_mult", settings.MULT), "今まで通り（1倍）")
 
+    def test_出走表の印で本命が番手の9車は見送る(self):
+        x = self._race(brk=0.21, ok=True); x["cpos"] = 2
+        r = self.sel(plan(x), cfg())
+        self.assertEqual(r.bets, []); self.assertIn("◎が本命ラインの番手", r.skips[0][1])
+        self.assertEqual(self.sel(plan(x), cfg(hot9_mode="all")).bets, [])                  # 全部でも見送る
+        self.assertEqual(len(self.sel(plan(x), cfg(hot9_skip_hon_bante=False)).bets), 1)  # 設定を切れば買う
+        x["loc"] = 2                                                                         # 地元の番手(2倍)でも見送る
+        self.assertEqual(self.sel(plan(x), cfg()).bets, [])
+        for pos in (1, 3, 4, None):                                                          # ◎が先頭・3番手・ほかのライン・印が無い → 今までどおり
+            y = self._race(brk=0.21, ok=True); y["cpos"] = pos
+            self.assertEqual(len(self.sel(plan(y), cfg()).bets), 1, pos)
+        y = self._race(brk=0.21, ok=True); y.pop("cpos", None)                               # 古い betplan(cpos が無い)も今までどおり
+        self.assertEqual(len(self.sel(plan(y), cfg()).bets), 1)
+        z = self._race(cars=7); z["cpos"] = 2                                                # 7車には効かない
+        self.assertEqual(len(self.sel(plan(z), cfg(hot7_mode="band")).bets), 1)
+        r = self.sel(plan(self._race(brk=0.21, ok=True, close="15:10") | {"cpos": 2}), cfg())   # 決める時刻までは見送りも出さない
+        self.assertEqual((r.bets, r.skips), ([], []))
+
+    def test_予想印の設定(self):
+        import settings
+        self.assertIs(cfg().hot9_skip_hon_bante, True)
+        self.assertIs(cfg(hot9_skip_hon_bante=False).hot9_skip_hon_bante, False)
+        with self.assertRaises(config_mod.ConfigError):
+            cfg(hot9_skip_hon_bante="yes")
+        self.assertIn("hot9_skip_hon_bante", [k for _, k, _ in settings.ITEMS])
+
     def test_7車を買わない設定なら今日の数に入れない(self):
         p = plan(self._race(brk=0.21, ok=True), dict(self._race(cars=7), place="別府", rno=4, close="15:04"))
         self.assertEqual(selector.summary(p, NOW)[0], 2)

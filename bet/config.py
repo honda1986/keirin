@@ -46,6 +46,9 @@ DEFAULTS = {
     "hot9_local_mult": 2,          # 🔥9車で loc 2 なら金額を何倍にするか（1 = 今まで通り・2・3）。0円（買わない）の種類は0円のまま
     "hot7_skip_local_head": True,  # 🔥7車で先頭が地元（loc 1）なら見送る
     "hot7_local_only": True,       # 🔥7車は loc 2（番手か3番手が地元）のときだけ買う（地元が分からないレースも見送る）。7車を買うかは今までどおり hot7_mode・hot7_yen
+    # 🔥9車で出走表の記者の予想印の◎が本命ラインの番手なら見送る（2026-11-24〜。hikitsugi §4-67・§4-68・keirin の hotconf.js。betplan.js が cpos に書く: 2 = 番手）
+    #   5年（倍率を見ない）591点 88.8%・アプリの記録 254点 91.2% / 今の🔥の条件で 193点 85.6%・アプリの記録 76点 99.5%（それ以外は 138%）。印が無いレースは見送らない
+    "hot9_skip_hon_bante": True,
     # 1点の金額をレースの種類ごとに（2026-10-14〜。hikitsugi §4-32）。null = bet_yen と同じ・0 = 買わない・100円単位
     #   🔥9車は「本命ラインの先頭のB率がレースでいちばん」（5年 139%）とそれ以外（116%）で分ける。B率が分からないレースは「それ以外」
     "hot9_b1_yen": None,
@@ -108,6 +111,7 @@ class Config:
     hot9_local_mult: int = 2
     hot7_skip_local_head: bool = True
     hot7_local_only: bool = True
+    hot9_skip_hon_bante: bool = True
     hot9_b1_yen: "int | None" = None
     hot9_rest_yen: "int | None" = None
     hot7_yen: "int | None" = None
@@ -289,6 +293,7 @@ def from_dict(d, base_dir="."):
         hot9_local_mult=_as_int(d, "hot9_local_mult", lo=1, hi=3),
         hot7_skip_local_head=_as_bool(d, "hot7_skip_local_head"),
         hot7_local_only=_as_bool(d, "hot7_local_only"),
+        hot9_skip_hon_bante=_as_bool(d, "hot9_skip_hon_bante"),
         hot9_b1_yen=_as_yen_opt(d, "hot9_b1_yen"),
         hot9_rest_yen=_as_yen_opt(d, "hot9_rest_yen"),
         hot7_yen=_as_yen_opt(d, "hot7_yen"),
