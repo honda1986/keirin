@@ -163,6 +163,25 @@ class TestBetplan(unittest.TestCase):
         r = race(); r["riders"] = [x_[:7] for x_ in r["riders"]]
         self.assertIsNone(self.hot(self.run_plan([r], snaps("岐阜_3R")))[0]["loc"])
 
+    def test_出走表の予想印の本命の位置(self):
+        # races.json の cm(出走表の予想印)。岐阜の 1=2=3(ライン[1,2,3]・先頭が地元 loc 1)。◎が 2 → 番手(cpos 2・自信度 0)
+        snaps = lambda k: [{"t": "15:00:10", "k": k, "left": 4.8, "n": 9, "o": self.odds(9, 6.0)}]
+        go = lambda cm: (lambda r: self.hot(self.run_plan([r], snaps("岐阜_3R")))[0])(dict(race(), **({"cm": cm} if cm is not None else {})))
+        x = go("◎2○1▲3")
+        self.assertEqual((x["cpos"], x["conf"]), (2, 0))
+        x = go("◎1○5")
+        self.assertEqual((x["cpos"], x["conf"]), (1, 2))
+        x = go("○1▲4◎5")
+        self.assertEqual((x["cpos"], x["conf"]), (4, 1))
+        x = go(None)                                       # 印が無い(WINTICKET の出走表など)
+        self.assertEqual((x["cpos"], x["conf"]), (None, None))
+        r = dict(race("名古屋_3R"), cm="◎1")               # 名古屋: 番手が地元(loc 2)・◎が先頭 → 3
+        x = self.hot(self.run_plan([r], snaps("名古屋_3R")))[0]
+        self.assertEqual((x["loc"], x["cpos"], x["conf"]), (2, 1, 3))
+        r = dict(race(cars=7, need=True), cm="◎2")          # 7車には付けない
+        x = self.hot(self.run_plan([r], [{"t": "15:00:10", "k": "岐阜_3R", "left": 4.8, "n": 7, "o": self.odds(7, 12.0, base=200.0)}]))[0]
+        self.assertEqual((x["cpos"], x["conf"]), (None, None))
+
     def test_7車は帯の外なら見送り(self):
         # 7車の帯は締切前の倍率で 10〜15倍（2026-11-23〜。hots2.js の BAND7）。races.json の plan が古い 4〜15倍でも置き換える
         r = race(cars=7, need=True)

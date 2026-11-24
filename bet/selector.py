@@ -321,6 +321,11 @@ def select(plan, done_keys, spent_yen, races_bought, cfg, at, bought_keys=()):
             pct = f"{brk * 100:.0f}%・" if isinstance(brk, (int, float)) else ""
             res.skips.append((_bet(r, cfg, minutes), f"本命ラインが切れにくい（離れる確率{pct}17%未満）"))
             continue
+        if not is7 and cfg.hot9_skip_hon_bante and r.get("cpos") == 2:
+            # 出走表の記者の予想印の◎が本命ラインの番手（keirin の hotconf.js・betplan.js の cpos。2026-11-24〜・hikitsugi §4-68）
+            #   記者が「先頭は残らず番手が差す」と見ているレースで、3人そろって残りにくい。今の🔥の条件で 5年 85.6%・アプリの記録 99.5% → 見送り
+            res.skips.append((_bet(r, cfg, minutes), "出走表の◎が本命ラインの番手（見送り）"))
+            continue
         s2_skip = r.get("s2Skip") if r.get("s2Skip") is not None else (r.get("s2Many") if not is7 else None)
         if (cfg.hot7_share2 if is7 else cfg.hot9_share2) and s2_skip is True:
             # 2人だけ来る組（🔥の3人のうち2人を含むほかの組）の人気（keirin の hots2.js・betplan.js の s2Skip）

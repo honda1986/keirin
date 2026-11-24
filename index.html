@@ -495,7 +495,7 @@
     <details class="fold"><summary>この画面の見方</summary>
       <div class="howto">
         <p><b>🔥</b> 9車立て・単騎1人以下の「本命ライン3人」の3連複1点。<b>締切2分前の倍率</b>が <b>5〜15倍</b> のときだけ買う（5年とも回収100%超え）。さらに、本命ラインの番手か3番手が前について行けない（離れる）確率が <b>17%以上</b> のときだけ（5年で回収125%・17%未満は99%）。さらに、🔥の3人のうち2人を含むほかの組（<b>2人だけ来る組</b>）が倍率ごとの目安よりよく買われているときは見送り（5年で回収96%・それ以外は140%。2026/11/23〜）。本命ラインの先頭のB率がレースでいちばんなら <b>B率1位</b> の札（5年で139%・それ以外116%。金額を分けられる）。S級S班がいるレースは見送り。</p>
-        <p><b>今日の自信度</b> 🔥9車を、出走表の記者の印（◎）が本命ラインのどこにいるかと、本命ラインの地元の位置で4つに分けたもの。倍率を使わないので<b>朝から分かります</b>（ミッドナイトなど朝に出走表が出ないレースは、出走表が出たら30分おきの取り直しで入ります）。<b>◎◎ とても自信</b> = ◎が先頭で地元が番手か3番手（5年 137.9%・アプリの記録 154.4%）/ <b>◎ 自信</b> = ◎が先頭（5年 120.4%）/ <b>△ ふつう</b> = ◎がほかのライン（5年 104.8%。当たりにくいが配当が大きい）/ <b>× 見送り候補</b> = ◎が番手（5年 88.8%・アプリの記録 91.2%）。数字は倍率を見ずに買ったときのもの。<b>表示だけ</b>で、買う・見送りは今までどおり締切前の倍率で決めます（自動投票も変わりません）。成績タブの「🔥9車」で自信度ごとの成績を見られます。</p>
+        <p><b>今日の自信度</b> 🔥9車を、出走表の記者の印（◎）が本命ラインのどこにいるかと、本命ラインの地元の位置で4つに分けたもの。倍率を使わないので<b>朝から分かります</b>（ミッドナイトなど朝に出走表が出ないレースは、出走表が出たら30分おきの取り直しで入ります）。<b>◎◎ とても自信</b> = ◎が先頭で地元が番手か3番手（5年 137.9%・アプリの記録 154.4%）/ <b>◎ 自信</b> = ◎が先頭（5年 120.4%）/ <b>△ ふつう</b> = ◎がほかのライン（5年 104.8%。当たりにくいが配当が大きい）/ <b>× 見送り</b> = ◎が番手（5年 88.8%・アプリの記録 91.2%）。数字は倍率を見ずに買ったときのもの。<b>× は見送り</b>（2026/11/24〜。自動投票も同じ。今の🔥の条件で 5年 85.6%・アプリの記録 99.5%、それ以外は 138%。右上の 💴 で「買う」にもできる）。◎◎・◎・△ は表示だけで、買うかどうかは今までどおり締切前の倍率で決めます。成績タブの「🔥9車」で自信度ごとの成績を見られます。</p>
         <p><b>Ⓓ モデルD</b> 全レースの3連複の全組から「期待値1.10以上・23倍以下」の組を全部（4年とも回収108%以上）。上限の23倍は締切前の倍率で見たもの（2026/11/11〜。それまでは20倍）。買い目になる組は締切までに倍率が約15%下がるので、検証した「確定で20倍以下」に合わせています。締切15分前から、PC（止まっているときは GitHub）が送る倍率で計算して出ます（締切6分前からは1分おき）。買うかは<b>締切2分前の倍率</b>で決めます（自動投票と同じ）。</p>
         <p><b>Ⓐ AI外しの1番人気</b> S級で、3連複の1番人気が並び予想の同じライン（3人以上）の3人なのに、WINTICKET の AI予想（4車）がその3人をそろえていないとき、その1番人気を1点（4倍以上のときだけ。2026/11/3〜）。確定オッズでさかのぼると 2025年1月〜2026年10月で 1,138R・回収114.7%。</p>
         <p><b>同じ組が重なったら</b> 🔥・Ⓓ・Ⓐ のうち2つ以上が同じレースの同じ組を選んだときは、それぞれの金額を足して買います（2026/11/11〜。例: 🔥100円＋Ⓓ100円 = 200円）。2025年1月〜2026年10月で、重なった組は回収138%（176点）・1つだけの組は120%。右上の 💴 買い方 で「1回だけ買う」にも変えられます。</p>
@@ -602,7 +602,7 @@
 <script src="aifav.js"></script>
 <script src="hots2.js?v=20261123b"></script>
 <script src="hotloc.js?v=20261123"></script>
-<script src="hotconf.js?v=20261124"></script>
+<script src="hotconf.js?v=20261124b"></script>
 <script src="fav2.js?v=20261123"></script>
 <script src="front.js"></script>
 <script src="tenkai.js"></script>
@@ -2147,7 +2147,7 @@ let SHOUBU_ROWS = [];      // 🔥レースの計算結果。毎分の表示更�
 const HOT9_BRK = 0.17;
 const brkSkip = (row) => !!(row.isTop && row.brk != null && row.brk < HOT9_BRK);
 const SKIP_V = { skipBand: "帯の外", skip7: "7車", skipBrk: "切れにくい", skipS2: "2人だけ来る組が多い", skipS2f: "2人だけ来る組が少なくない", skipSet: "設定で買わない",
-  skipLocH: "先頭が地元", skipLocO: "地元の番手なし" };   // カードの状態の札(短く)
+  skipLocH: "先頭が地元", skipLocO: "地元の番手なし", skipHon: "◎が番手" };   // カードの状態の札(短く)
 // 買い方(1点の金額。0 = 買わない)。アプリの表示・今日のまとめ・成績タブの収支に使う(この端末に保存)。hikitsugi §4-32
 //   自動投票の金額は PC の run.bat 7)(設定)で同じ種類ごとに決める(bet/ の hot9_b1_yen / hot9_rest_yen / hot7_yen / model_d_yen)
 //   b1 = 🔥9車で本命ラインの先頭のB率がいちばん(5年 139%) / rest = 🔥9車のそれ以外(116%・B率が分からないレースも) / h7 = 🔥7車 / d = モデルD
@@ -2171,22 +2171,30 @@ let LOC9 = 2, H7LOC = true;
 try { const v = +localStorage.getItem("keirinLoc9"); if (v >= 1 && v <= 3) LOC9 = v; if (localStorage.getItem("keirinH7loc") === "0") H7LOC = false; } catch (e) {}
 const saveLoc = () => { try { localStorage.setItem("keirinLoc9", String(LOC9)); localStorage.setItem("keirinH7loc", H7LOC ? "1" : "0"); } catch (e) {} };
 const locMult = (cars, loc, y) => (cars >= 8 && loc === 2 && y > 0 ? LOC9 : 1);
+// 🔥9車で出走表の◎が本命ラインの番手(hotconf.js の pos 2・朝の自信度 ×)なら見送る(2026-11-24〜・hikitsugi §4-68。自動投票の hot9_skip_hon_bante と同じ)。
+//   HON9 = 見送るか(既定 true・この端末に保存 keirinHon9)。印が無い・◎の位置が分からないレースは見送らない
+let HON9 = true;
+try { if (localStorage.getItem("keirinHon9") === "0") HON9 = false; } catch (e) {}
+const saveHon = () => { try { localStorage.setItem("keirinHon9", HON9 ? "1" : "0"); } catch (e) {} };
+const honSkip = (cars, pos) => !!(HON9 && cars >= 8 && pos === 2);
 // 7車の地元の見送り(先頭が地元 → skipLocH / 地元のときだけの設定で地元の番手がいない → skipLocO)。null = 見送らない
 const loc7Skip = (loc) => (loc === 1 ? "skipLocH" : H7LOC && loc !== 2 ? "skipLocO" : null);
 const hotYen = (row) => { const y = row.isTop ? (row.b1 === true ? BUY.b1 : BUY.rest) : BUY.h7; return y * locMult(row.cars, row.loc, y); };
-// 🔥9車の朝の自信度(hotconf.js。2026-11-24〜・hikitsugi §4-67)。3 = ◎◎ とても自信 / 2 = ◎ 自信 / 1 = △ ふつう / 0 = × 見送り候補 / null = 印が無い。
-//   出走表の記者の印(◎)の本命ラインでの位置 × 本命ラインの地元の位置。倍率を使わないので朝から分かる。表示だけ(買う・見送り・金額は変えない)
+// 🔥9車の朝の自信度(hotconf.js。2026-11-24〜・hikitsugi §4-67)。3 = ◎◎ とても自信 / 2 = ◎ 自信 / 1 = △ ふつう / 0 = × 見送り / null = 印が無い。
+//   出走表の記者の印(◎)の本命ラインでの位置 × 本命ラインの地元の位置。倍率を使わないので朝から分かる。
+//   ◎◎・◎・△ は表示だけ。0(◎が番手)は 2026-11-24 から見送り(HON9・honSkip。§4-68)
 const confOf = (row) => (row && row.isTop && typeof HOTCONF !== "undefined" ? HOTCONF.level(row.cpos, row.loc) : null);
 function confBadge(r, long) {
   if (typeof HOTCONF === "undefined" || !r || !r.isTop) return "";
   const lv = confOf(r), L = lv == null ? null : HOTCONF.LV[lv];
   const why = L ? HOTCONF.POS_NAME[r.cpos] + (lv === 3 ? "・地元が番手か3番手" : "") + "。" + L.roi : r.cm ? "◎が本命ラインと合わない" : "出走表の予想印がまだ";
-  return '<span class="kb cf' + (L ? lv : "n") + '" title="朝の自信度: ' + esc(why) + '">' + (L ? L.mk + (long ? " " + L.name : "") : r.cm ? "–" : "印まだ") + "</span>";
+  return '<span class="kb cf' + (L ? lv : "n") + '" title="朝の自信度: ' + esc(why) + '">' + (L ? L.mk + (long ? " " + (lv === 0 && !HON9 ? "見送り候補" : L.name) : "") : r.cm ? "–" : "印まだ") + "</span>";
 }
 // 🔥1件の見送りの理由(SKIP_V のキー)。倍率が無くてもラインの条件だけで見送りが決まる
 function hotSkipOf(row, ei) {
   if (ei && SKIP_V[ei.verdict]) return ei.verdict;
   if (brkSkip(row)) return "skipBrk";
+  if (honSkip(row.cars, row.cpos)) return "skipHon";                          // 9車: 出走表の◎が本命ラインの番手(§4-68。倍率が無くても決まる)
   if (!row.isTop && BUY.h7 && loc7Skip(row.loc)) return loc7Skip(row.loc);   // 7車の地元(倍率が無くても決まる)
   return hotYen(row) === 0 ? "skipSet" : null;
 }
@@ -2393,6 +2401,7 @@ function evInfo(row) {
   let verdict = null;   // "buy" | "skipBand" | "skip7" | "skipBrk"(ラインが切れにくい) | "skipS2"(2人だけ来る組が多い) | null(判定できない)
   if (row.skip7 && !BUY.h7) verdict = "skip7";   // 7車は「買い方」で金額を入れたときだけ帯(締切前の倍率で10〜15倍)で判定
   else if (brkSkip(row)) verdict = "skipBrk";
+  else if (honSkip(row.cars, row.cpos)) verdict = "skipHon";   // 9車: 出走表の◎が本命ラインの番手(2026-11-24〜・§4-68)
   else if (e.odds != null) verdict = !inBand ? "skipBand" : s2 && s2.skip ? (row.isTop ? "skipS2" : "skipS2f") : !row.isTop && loc7Skip(row.loc) ? loc7Skip(row.loc) : "buy";
   return { ...e, inBand, verdict, s2 };
 }
@@ -2829,7 +2838,7 @@ function paintBuy(p, r, b) {
       else if (!isTop) { lo = BAND_LO; hi = BAND_HI; }
       const dm = (day.d || []).find((z) => z[0] === place && z[1] === rno && z[3] === H.ticket);
       if (dm && typeof dm[8] === "number") ev = dm[8]; else evLow = true;
-      verdict = odds != null && (odds < lo || odds > hi) ? "skipBand" : isTop && brk != null && brk < HOT9_BRK ? "skipBrk" : isTop && px[13] === 1 ? "skipS2" :
+      verdict = odds != null && (odds < lo || odds > hi) ? "skipBand" : isTop && brk != null && brk < HOT9_BRK ? "skipBrk" : isTop && honSkip(H.cars, px[16]) ? "skipHon" : isTop && px[13] === 1 ? "skipS2" :
         !y ? (isTop ? "skipSet" : "skip7") : !isTop && px[13] === 1 ? "skipS2f" : !isTop && loc7Skip(loc) ? loc7Skip(loc) : "buy";
       res = px[4] ? { order: px[4], hit: px[5] === 1 ? 1 : px[5] === 0 ? 0 : -1, pay: px[6] } : null;
     } else if (isTop && brk != null && brk < HOT9_BRK) verdict = "skipBrk";
@@ -2877,9 +2886,9 @@ function paintBuy(p, r, b) {
     if (isTop && typeof HOTCONF !== "undefined") {
       const cpos = row ? row.cpos : px ? (px[16] >= 1 && px[16] <= 4 ? px[16] : null) : null;
       const lvC = HOTCONF.level(cpos, loc), LC = lvC == null ? null : HOTCONF.LV[lvC];
-      ck.push(ckLi(LC ? (lvC >= 2 ? "✓" : lvC === 0 ? "✗" : "•") : "–", "朝の自信度（出走表の印）",
-        LC ? LC.mk + " " + LC.name + "（" + HOTCONF.POS_NAME[cpos] + (lvC === 3 ? "・地元が番手か3番手" : "") + "）" : row ? (row.cm ? "◎の位置が分からない" : "出走表の印がまだ") : px ? "記録なし" : "分からない",
-        (LC ? LC.roi + "。" : "") + "表示だけ（買う・見送りは変えない）"));
+      ck.push(ckLi(LC ? (lvC >= 2 ? "✓" : lvC === 0 ? (HON9 ? "✗" : "•") : "•") : "–", "朝の自信度（出走表の印）",
+        LC ? LC.mk + " " + (lvC === 0 && !HON9 ? "見送り候補" : LC.name) + "（" + HOTCONF.POS_NAME[cpos] + (lvC === 3 ? "・地元が番手か3番手" : "") + "）" : row ? (row.cm ? "◎の位置が分からない" : "出走表の印がまだ") : px ? "記録なし" : "分からない",
+        (LC ? LC.roi + "。" : "") + (lvC === 0 ? (HON9 ? "◎が番手は見送り（自動投票も同じ。💴 で変えられる）" : "💴 で「買う」にしている") : "◎◎・◎・△は表示だけ（買う・見送りは変えない）・◎が番手は見送り")));
     }
     ck.push(ckLi(y ? "✓" : "✗", "金額", y ? y + "円" + (y !== y0 ? "（地元の番手で" + LOC9 + "倍）" : "") : "買わない設定", "右上の 💴 買い方 で変えられる（この端末だけ）"));
     if (ev != null || evLow) { const em = typeof EVD !== "undefined" ? EVD.PICK.minEv : 1.1;
@@ -3092,7 +3101,7 @@ function paintConf(rows9) {
   }
   const noCm = list.filter((r) => !r.cm).length;
   if (noCm) notes.push(!raceList.some((x) => x.cm) ? "いまの出走表には予想印がありません（WINTICKET で取った日など）" : "<b>印まだ</b> " + noCm + "件（出走表に記者の印がまだ付いていない。昼・夕方の取り直しで入ります）");
-  notes.push("出走表の記者の印（◎）が本命ラインのどこにいるかと地元の位置で決めます（倍率は使わない）。<b>表示だけ</b>で、買うかどうかは今までどおり締切前の倍率で決めます。");
+  notes.push("出走表の記者の印（◎）が本命ラインのどこにいるかと地元の位置で決めます（倍率は使わない）。" + (HON9 ? "<b>× は見送り</b>（自動投票も同じ）。ほかは表示だけで" : "<b>表示だけ</b>で（× も買う設定）") + "、買うかどうかは今までどおり締切前の倍率で決めます。");
   $("confNote").innerHTML = notes.join("<br>");
 }
 function confRow(r) {
@@ -3221,14 +3230,14 @@ const calKindOf = (x) => (x[14] === "D" || x[14] === "A" ? x[14] : "h");
 let DAILY = null, DAILY_AT = "";
 // 絞り込みの既定は「いまの買い方どおり」= 帯の中・切れる確率17%以上(9車)。期待値では絞らない(PC の hot9_use_ev 既定 false と同じ)。
 //   2026-10-15 に既定を変えたので、保存先を keirinCal2 にした(前の keirinCal からは「🔥全部/9車/7車/Ⓓ」だけ引き継ぐ)
-const CAL_DEF = { band: true, ev: false, brk: true, b1: false, s2: true, loc: true };
+const CAL_DEF = { band: true, ev: false, brk: true, b1: false, s2: true, loc: true, hon: true };
 const CAL = Object.assign({ ym: null, sel: null, kind: "all" }, CAL_DEF);
 try {
   const c2 = JSON.parse(localStorage.getItem("keirinCal2") || "null"), c1 = JSON.parse(localStorage.getItem("keirinCal") || "{}");
   if (c2) { for (const k of Object.keys(CAL_DEF)) if (typeof c2[k] === "boolean") CAL[k] = c2[k]; if (c2.kind) CAL.kind = c2.kind; }
   else if (c1.kind) CAL.kind = c1.kind;
 } catch (e) {}
-const saveCal = () => { try { localStorage.setItem("keirinCal2", JSON.stringify({ kind: CAL.kind, band: CAL.band, ev: CAL.ev, brk: CAL.brk, b1: CAL.b1, s2: CAL.s2, loc: CAL.loc })); } catch (e) {} };
+const saveCal = () => { try { localStorage.setItem("keirinCal2", JSON.stringify({ kind: CAL.kind, band: CAL.band, ev: CAL.ev, brk: CAL.brk, b1: CAL.b1, s2: CAL.s2, loc: CAL.loc, hon: CAL.hon })); } catch (e) {} };
 const calIsDefault = () => Object.keys(CAL_DEF).every((k) => CAL[k] === CAL_DEF[k]);
 async function loadDaily() {
   try {
@@ -3309,6 +3318,7 @@ function calPick1(x) {
   if (CAL.band && x[2] === 7 && out7(x[17], x[7])) return "skip";   // 7車: 締切前の倍率があれば10〜15倍・無ければ確定で9〜15倍(§4-65)
   if (CAL.band && x[2] >= 8 && x[7] != null && (x[7] < BAND9_LO || x[7] > BAND9_HI)) return "skip";
   if (CAL.brk && x[2] >= 8 && x[11] != null && x[11] < HOT9_BRK) return "skipBrk";
+  if (CAL.hon && honSkip(x[2], x[19])) return "skipHon";   // 9車: 出走表の◎が本命ラインの番手(§4-68。◎の位置が分からない件は見送らない)
   if (CAL.s2 && x[16] === 1) return "skipS2";     // 2人だけ来る組で見送り(9車 = 多い・7車 = 少なくない。分からない件は見送らない。2026-11-23〜)
   if (CAL.loc && x[2] === 7 && loc7Skip(x[18])) return loc7Skip(x[18]);   // 7車: 先頭が地元は見送り・(設定)地元の番手・3番手のときだけ(§4-66)
   if (CAL.b1 && x[2] >= 8 && x[12] !== 1) return "skipB1";     // B率1位だけ(B率が分からない件も数えない)
@@ -3375,6 +3385,7 @@ function renderCal() {
       '<label class="bandsw"><input type="checkbox" id="calBrk"' + (CAL.brk ? " checked" : "") + ">9車は本命ラインが切れやすいレースだけ（離れる確率17%以上）</label>" +
       '<label class="bandsw"><input type="checkbox" id="calS2"' + (CAL.s2 ? " checked" : "") + ">2人だけ来る組で見送る（9車は目安より多いとき・7車は少なくないとき）</label>" +
       '<label class="bandsw"><input type="checkbox" id="calLoc"' + (CAL.loc ? " checked" : "") + ">本命ラインの地元の位置（9車は番手か3番手が地元なら金額" + LOC9 + "倍・7車は先頭が地元なら見送り" + (H7LOC ? "・番手か3番手が地元のときだけ" : "") + "）</label>" +
+      '<label class="bandsw"><input type="checkbox" id="calHon"' + (CAL.hon ? " checked" : "") + ">9車は出走表の◎が本命ラインの番手なら見送り" + (HON9 ? "" : "（💴 で「買う」にしているので効かない）") + "（〜2026/10 は作り直した出走表の印。印の記録が無い日は見送らない）</label>" +
       '<label class="bandsw"><input type="checkbox" id="calEv"' + (CAL.ev ? " checked" : "") + ">期待値" + (typeof EVD !== "undefined" ? EVD.PICK.minEv : 1.1).toFixed(2) + "以上だけ（モデルDと同じ期待値・同じ線。いまの買い方では使っていない・参考）</label>" +
       '<label class="bandsw"><input type="checkbox" id="calB1"' + (CAL.b1 ? " checked" : "") + ">9車は先頭のB率1位だけ（B率が分からないレースは数えない）</label>" +
       (calIsDefault() ? "" : '<button class="chipbtn" id="calReset" style="margin-top:6px">いまの買い方どおりに戻す</button>') + "</details>";
@@ -3386,7 +3397,7 @@ function renderCal() {
       (CAL.kind === "A" ? '<div class="note" style="font-size:10px;margin:4px 0">S級で、3連複の1番人気が同じライン（3人以上）の3人なのに AI予想（4車）がその3人をそろえていないとき、その1番人気を1点（4倍以上。2026/11/3〜）。🔥・Ⓓと重なる組もここでは数えます。〜2026/11/2 は確定オッズでのさかのぼり計算: 2025年1月〜2026年10月で 1,138R・回収114.7%（2025年 113.9% / 2026年 115.4%）</div>' : "") + filt;
     head.querySelectorAll("#calKind button").forEach((b) => b.addEventListener("click", () => { CAL.kind = b.dataset.k; saveCal(); renderCal(); }));
     const fd = head.querySelector(".calfilt"); if (fd) fd.addEventListener("toggle", () => { CAL.filtOpen = fd.open; });
-    for (const [id, k] of [["calBand", "band"], ["calEv", "ev"], ["calBrk", "brk"], ["calS2", "s2"], ["calLoc", "loc"], ["calB1", "b1"]]) if ($(id)) $(id).addEventListener("change", (e) => { CAL[k] = e.target.checked; saveCal(); renderCal(); });
+    for (const [id, k] of [["calBand", "band"], ["calEv", "ev"], ["calBrk", "brk"], ["calS2", "s2"], ["calLoc", "loc"], ["calHon", "hon"], ["calB1", "b1"]]) if ($(id)) $(id).addEventListener("change", (e) => { CAL[k] = e.target.checked; saveCal(); renderCal(); });
     if ($("calReset")) $("calReset").addEventListener("click", () => { Object.assign(CAL, CAL_DEF); saveCal(); renderCal(); });
     const ob = head.querySelector("[data-open-buy]"); if (ob) ob.addEventListener("click", openBuySheet);
   }
@@ -3416,12 +3427,15 @@ function renderCal() {
 function confTable(days, inMonth, keys, y, mo) {
   if (typeof HOTCONF === "undefined") return "";
   const agg = (ds) => {
-    const g = {};
-    for (const d of ds) for (const x of calList(days[d])) {
-      if (x[2] < 8 || calPick(x) !== "buy") continue;
-      const lv = HOTCONF.level(x[19], x[18]), k = lv == null ? "n" : lv, o = g[k] || (g[k] = { n: 0, hit: 0, pay: 0 });
-      o.n++; if (x[5] === 1) { o.hit++; o.pay += x[6] || 0; }
-    }
+    const g = {}, h0 = CAL.hon;
+    CAL.hon = false;   // × (◎が番手)も、見送らなかった場合の成績を出す
+    try {
+      for (const d of ds) for (const x of calList(days[d])) {
+        if (x[2] < 8 || calPick(x) !== "buy") continue;
+        const lv = HOTCONF.level(x[19], x[18]), k = lv == null ? "n" : lv, o = g[k] || (g[k] = { n: 0, hit: 0, pay: 0 });
+        o.n++; if (x[5] === 1) { o.hit++; o.pay += x[6] || 0; }
+      }
+    } finally { CAL.hon = h0; }
     return g;
   };
   const a = agg(inMonth), b = agg(keys);
@@ -3431,7 +3445,7 @@ function confTable(days, inMonth, keys, y, mo) {
   if (!rowsH) return "";
   return '<details class="more"><summary>朝の自信度ごと（出走表の印の◎の位置・地元の位置）</summary>' +
     '<table class="conftbl"><tr><th>自信度</th><th>' + y + "年" + mo + "月</th><th>全期間（" + (+keys[0].slice(0, 4)) + "年" + (+keys[0].slice(4, 6)) + "月〜）</th></tr>" + rowsH + "</table>" +
-    '<div class="note" style="font-size:10px;margin:2px 0 6px">上の条件で「買う」になったレースを100円ずつで数えたもの（金額の設定は使わない）。表示だけで、買い方は変わりません。〜2026/10 は作り直した出走表の印、2026/11/24ごろからは朝の出走表の印（その間の11月は記録が無いので「分からない」）。</div></details>';
+    '<div class="note" style="font-size:10px;margin:2px 0 6px">上の条件で「買う」になったレースを100円ずつで数えたもの（金額の設定は使わない）。× は見送りにしているが（2026/11/24〜）、ここでは見送らなかった場合の成績。〜2026/10 は作り直した出走表の印、2026/11/24ごろからは朝の出走表の印（その間の11月は記録が無いので「分からない」）。</div></details>';
 }
 // 通算の収支(いま選んでいる種類・条件で、日ごとの収支を足していった線)。月をまたいだ流れと、いちばん落ち込んだ幅が一目で分かる
 function renderTrend(days, keys) {
@@ -3474,7 +3488,7 @@ const BUY_DESC = {
 };
 function buyLineHtml() {
   const t = (k) => (BUY[k] ? "<b>" + BUY[k] + "円</b>" : "<b style=\"color:var(--dim)\">買わない</b>");
-  return '<div class="buyline"><span class="bl">💴 いまの買い方　🔥B率1位 ' + t("b1") + "・🔥それ以外 " + t("rest") + "（地元の番手は<b>×" + LOC9 + "</b>）・🔥7車 " + t("h7") + (BUY.h7 && H7LOC ? "（地元の番手だけ）" : "") +
+  return '<div class="buyline"><span class="bl">💴 いまの買い方　🔥B率1位 ' + t("b1") + "・🔥それ以外 " + t("rest") + "（地元の番手は<b>×" + LOC9 + "</b>" + (HON9 ? "・◎が番手は<b>見送り</b>" : "") + "）・🔥7車 " + t("h7") + (BUY.h7 && H7LOC ? "（地元の番手だけ）" : "") +
     "・Ⓓ " + t("d") + "・Ⓐ " + t("a") + "・同じ組 <b>" + (STACK ? "足す" : "1回だけ") + '</b></span><button type="button" data-open-buy>変える</button></div>';
 }
 function renderBuyRows() {
@@ -3489,7 +3503,10 @@ function renderBuyRows() {
     '<div class="brow"><div class="bn">🔥9車 地元の番手・3番手</div><div class="bd">本命ラインの番手か3番手が地元（先頭は地元でない）なら、上の🔥9車の金額を何倍にするか。5年で回収175%（119点）・アプリの記録で223%（45点）。地元なしは135%</div><div class="bopts">' +
     [1, 2, 3].map((v) => '<button type="button" data-loc9="' + v + '" class="' + (LOC9 === v ? "on" : "") + '">' + (v === 1 ? "そのまま" : v + "倍") + "</button>").join("") + "</div></div>" +
     '<div class="brow"><div class="bn">🔥7車 地元</div><div class="bd">7車で本命ラインの先頭が地元なら、いつも見送り（5年 87%・アプリの記録 54%）。番手か3番手が地元のときだけ買うと 5年 139%・アプリの記録 131%（全部なら105%）</div><div class="bopts">' +
-    [[1, "地元の番手・3番手のときだけ"], [0, "地元に関係なく買う"]].map(([v, t]) => '<button type="button" data-h7loc="' + v + '" class="' + ((H7LOC ? 1 : 0) === v ? "on" : "") + '">' + t + "</button>").join("") + "</div></div>";
+    [[1, "地元の番手・3番手のときだけ"], [0, "地元に関係なく買う"]].map(([v, t]) => '<button type="button" data-h7loc="' + v + '" class="' + ((H7LOC ? 1 : 0) === v ? "on" : "") + '">' + t + "</button>").join("") + "</div></div>" +
+    // 出走表の◎が本命ラインの番手(2026-11-24〜。hikitsugi §4-68。自動投票の hot9_skip_hon_bante と同じ)
+    '<div class="brow"><div class="bn">🔥9車 出走表の◎が番手</div><div class="bd">出走表の記者の印の◎が本命ラインの番手にいるレース（朝の自信度 ×）。今の🔥の条件で 5年 85.6%（193点）・アプリの記録 99.5%（76点）、それ以外は 138%。印が無いレースは見送らない</div><div class="bopts">' +
+    [[1, "見送る"], [0, "買う"]].map(([v, t]) => '<button type="button" data-hon9="' + v + '" class="' + ((HON9 ? 1 : 0) === v ? "on" : "") + '">' + t + "</button>").join("") + "</div></div>";
 }
 function openBuySheet() { renderBuyRows(); $("buySheet").classList.remove("hidden"); }
 function closeBuySheet() { $("buySheet").classList.add("hidden"); }
@@ -3500,6 +3517,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.target.closest("[data-close]")) return closeBuySheet();
     const sb = e.target.closest("button[data-stack]");
     if (sb) { STACK = sb.dataset.stack === "1"; saveStack(); renderBuyRows(); renderCal(); paintShoubu(); return; }
+    const hb = e.target.closest("button[data-hon9]");
+    if (hb) { HON9 = hb.dataset.hon9 === "1"; saveHon(); renderBuyRows(); renderCal(); paintShoubu(); return; }
     const lb = e.target.closest("button[data-loc9],button[data-h7loc]");
     if (lb) { if (lb.dataset.loc9) LOC9 = +lb.dataset.loc9; else H7LOC = lb.dataset.h7loc === "1"; saveLoc(); renderBuyRows(); renderCal(); paintShoubu(); return; }
     const b = e.target.closest("button[data-k]"); if (!b) return;
@@ -3526,7 +3545,7 @@ function calDetail(d8, day) {
     const order = x[4] ? x[4].split("-").map((c) => (c === "?" ? "?" : ball(+c, "s"))).join("") : "";
     let right;
     // 見送りの理由は左の倍率(帯の外)か赤い期待値で分かるので、ここは短く(スマホの幅に収める)
-    if (k.startsWith("skip")) right = '<span class="pay" style="color:var(--muted);font-size:11px;font-weight:700" title="' + ({ skip: "帯の外", skipEv: "モデルDの期待値が" + (typeof EVD !== "undefined" ? EVD.PICK.minEv : 1.1).toFixed(2) + "未満", skipBrk: "本命ラインが切れにくい(離れる確率17%未満)", skipS2: "2人だけ来る組で見送り(9車は目安より多い・7車は少なくない)", skipSet: "買い方の設定で買わない", skipB1: "先頭のB率1位ではない(分からないレースも)", skipDup: (x[15] === "D" ? "Ⓓ" : "🔥") + "と同じ組(重ねて買わない)" })[k] + '">' + (k === "skipDup" ? "重ねない" : "見送り") + "</span>";
+    if (k.startsWith("skip")) right = '<span class="pay" style="color:var(--muted);font-size:11px;font-weight:700" title="' + ({ skip: "帯の外", skipEv: "モデルDの期待値が" + (typeof EVD !== "undefined" ? EVD.PICK.minEv : 1.1).toFixed(2) + "未満", skipBrk: "本命ラインが切れにくい(離れる確率17%未満)", skipHon: "出走表の◎が本命ラインの番手", skipLocH: "本命ラインの先頭が地元(7車)", skipLocO: "本命ラインの番手・3番手に地元がいない(7車)", skipS2: "2人だけ来る組で見送り(9車は目安より多い・7車は少なくない)", skipSet: "買い方の設定で買わない", skipB1: "先頭のB率1位ではない(分からないレースも)", skipDup: (x[15] === "D" ? "Ⓓ" : "🔥") + "と同じ組(重ねて買わない)" })[k] + '">' + (k === "skipDup" ? "重ねない" : "見送り") + "</span>";
     else if (x[5] == null) right = '<span class="pay" style="color:var(--muted);font-size:11px;font-weight:700">' + (x[8] ? "発走 " + x[8] : "結果待ち") + "</span>";
     else if (x[5] === -1) right = '<span class="pay" style="color:var(--muted);font-size:11px;font-weight:700">3着確認中</span>';
     else if (x[5] === 1) right = '<span class="pay pos">' + (x[6] != null ? Math.round(x[6] * calYen(x) / 100).toLocaleString() + "円" : "的中") + "</span>";

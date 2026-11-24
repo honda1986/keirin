@@ -49,6 +49,7 @@ ITEMS = [
     ("🔥9車で本命ラインの番手か3番手が地元（先頭は地元でない）なら金額を何倍に", "hot9_local_mult", MULT),
     ("🔥7車で本命ラインの先頭が地元なら見送る", "hot7_skip_local_head", ONOFF),
     ("🔥7車は本命ラインの番手か3番手が地元のときだけ買う", "hot7_local_only", ONOFF),
+    ("🔥9車で出走表の◎が本命ラインの番手なら見送る", "hot9_skip_hon_bante", ONOFF),
     ("🔥9車（先頭のB率1位）を買う・金額", "hot9_b1_yen", YENOPT),
     ("🔥9車（B率1位以外）を買う・金額", "hot9_rest_yen", YENOPT),
     ("🔥7車を買う・金額（買い方が「買わない」なら買わない）", "hot7_yen", YENOPT),
