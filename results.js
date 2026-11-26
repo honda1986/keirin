@@ -734,12 +734,16 @@ function writeDaily(dir, byDate, rankedOf) {
       // 7車は 2026-11-23 から本命ライン3人を全部🔥にした(1日30R以上)。成績には帯の中のレースだけ残す(帯の外はどのみち見送り)
       //   帯(hots2.js の BAND7。§4-65): 締切前の記録がある日はその倍率(判定と同じ時刻)で 10〜15倍 / 無い日は確定オッズで 9〜15倍。
       //   どちらの倍率も無いレースは残さない(帯が狭いので、買ったかどうか分からない。前は「買った扱い」で成績を下げていた: 2025年に92件・回収19%)
+      //   ★2026-11-26(§4-72): 本命ラインの番手か3番手が地元(loc 2)なら 締切前5〜15倍 / 確定4〜15倍(hots2.js の BAND7L)
+      // 本命ラインの地元の位置(hotloc.js。0 = 地元なし / 1 = 先頭が地元 / 2 = 番手か3番手が地元。§4-66)。府県が無い日は hot-loc-past.json(買い目が同じときだけ)
+      let lc = HOTLOC.codeOf(e.lines, HOTLOC.prefOfRiders(e.riders), e.place, pl.ticket);
+      if (lc == null) { const lp = hotLocPastOf(dir, e.id || (d + "_" + e.place + "_" + e.raceNo)); if (lp && lp[0] === pl.ticket) lc = lp[1]; }
       let so7 = null;
       if (pl.cars === 7) {
         const sn7 = snapOdds(d, e.place + "_" + e.raceNo);
         if (sn7 && Array.isArray(sn7.o) && (sn7.n || 7) === 7) { const i7 = HOTS2.trioCombos(7).findIndex((c) => c.join("=") === pl.ticket), v7 = i7 >= 0 ? sn7.o[i7] : null; so7 = v7 > 0 && v7 < 9999 ? v7 : null; }
         const fo7 = oddsOf(dir, e.id || (d + "_" + e.place + "_" + e.raceNo), trio);
-        if (so7 != null ? !HOTS2.inBand7(so7, true) : !HOTS2.inBand7(fo7, false)) continue;
+        if (so7 != null ? !HOTS2.inBand7(so7, true, lc) : !HOTS2.inBand7(fo7, false, lc)) continue;
       }
       const [ev, evSrc] = evForEntry(dir, e, d, pl.ticket);
       const row = [e.place, e.raceNo, pl.cars, pl.ticket, e.f + "-" + e.s + "-" + (done ? e.t : "?"), hit,
@@ -762,9 +766,7 @@ function writeDaily(dir, byDate, rankedOf) {
       }
       // 15番目: 7車の買い目の締切前の倍率(判定と同じ時刻。§4-65)。アプリの成績はこれがあれば 10〜15倍、無ければ8番目(確定オッズ)で 9〜15倍を見る
       if (so7 != null) { while (row.length < 14) row.push(null); row.push(so7); }
-      // 16番目: 本命ラインの地元の位置(hotloc.js。0 = 地元なし / 1 = 先頭が地元 / 2 = 番手か3番手が地元。§4-66)。府県が無い日は hot-loc-past.json(買い目が同じときだけ)
-      let lc = HOTLOC.codeOf(e.lines, HOTLOC.prefOfRiders(e.riders), e.place, pl.ticket);
-      if (lc == null) { const lp = hotLocPastOf(dir, e.id || (d + "_" + e.place + "_" + e.raceNo)); if (lp && lp[0] === pl.ticket) lc = lp[1]; }
+      // 16番目: 本命ラインの地元の位置(上で出した lc)
       if (lc != null) { while (row.length < 15) row.push(null); row.push(lc); }
       // 17番目: 🔥9車の出走表の予想印の◎の位置(hotconf.js。1 = 先頭 / 2 = 番手 / 3 = 3番手 / 4 = ほかのライン。§4-67)。印が無い日は hot-conf-past.json(買い目が同じときだけ)
       if (pl.cars >= 8) {
