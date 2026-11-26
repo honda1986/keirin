@@ -32,6 +32,7 @@
 //     races.json の plan が古い帯(4〜15倍)のままでも、ここで置き換える(9車の HOT9_BAND と同じ)
 //   ★2026-11-23(hikitsugi §4-66): 🔥に loc(本命ラインの地元の位置。hotloc.js。1 = 先頭が地元 / 2 = 番手か3番手が地元(先頭は違う) / 0 = 地元なし / null = 分からない)。
 //     verdict は変えない。bet/ が使う: 9車は loc 2 なら金額を hot9_local_mult 倍 / 7車は loc 1 なら見送り(hot7_skip_local_head)・loc 2 のときだけ買う(hot7_local_only)
+//   ★2026-11-26(hikitsugi §4-72): 7車の帯は地元の位置で変える。loc 2(番手か3番手が地元)なら締切前5〜15倍(hots2.js の BAND7L)・それ以外は10〜15倍
 //   ★2026-11-24(hikitsugi §4-68): 🔥9車に cpos(出走表の予想印の◎の本命ラインでの位置。hotconf.js。1 = 先頭 / 2 = 番手 / 3 = 3番手 / 4 = ほかのライン / null = 印が無い)と
 //     conf(朝の自信度 3/2/1/0)。verdict は変えない。bet/ は cpos 2(◎が番手)なら見送る(hot9_skip_hon_bante)
 //   ★2026-11-03(hikitsugi §4-50): Ⓐ「AI が外した1番人気ライン」(aifav.js)。kind:"A"・S級で AI予想(races.json の ai)があるレースだけ。
@@ -252,8 +253,9 @@ function main() {
   });
   const hotOut = hot.map((r) => {
     const p = { ...r.plan }, c = closeOf(r), s = snapOf(r);
+    const loc = HOTLOC.codeOf(r.lines, HOTLOC.prefOfRiders(r.riders), r.place, p.ticket);   // 本命ラインの地元の位置(0/1/2・分からなければ null)
     if (p.cars >= 8) { p.needOdds = true; p.bandLo = HOT9_BAND[0]; p.bandHi = HOT9_BAND[1]; }
-    else if (p.cars === 7) { p.needOdds = true; p.bandLo = HOTS2.BAND7.loPre; p.bandHi = HOTS2.BAND7.hiPre; }
+    else if (p.cars === 7) { const B7 = HOTS2.band7Of(loc); p.needOdds = true; p.bandLo = B7.loPre; p.bandHi = B7.hiPre; }   // 地元の番手なら5〜15倍(§4-72)
     const delta = EV.deltaFromRiders(r.riders, r.lines, r.place);
     const j = judge(p, delta, s);
     const brk = typeof p.brk === "number" ? p.brk : null;
@@ -262,7 +264,6 @@ function main() {
     // 2人だけ来る組の人気(hots2.js。9車と7車)。見送りなら s2Skip: true(bet/ が見送る)。倍率が無ければ null
     const h2 = p.cars >= 7 && s && Array.isArray(s.o) ? HOTS2.judge(s.o, s.n || p.cars, p.ticket) : null;
     const s2 = h2 ? Math.round(h2.s2 * 10000) / 10000 : null, s2Skip = h2 ? h2.skip : null, s2Many = h2 && p.cars >= 8 ? h2.many : null;
-    const loc = HOTLOC.codeOf(r.lines, HOTLOC.prefOfRiders(r.riders), r.place, p.ticket);   // 本命ラインの地元の位置(0/1/2・分からなければ null)
     // 出走表の予想印の◎の位置(9車だけ。races.json の cm。印が無ければ null)と朝の自信度
     const cpos = p.cars >= 8 && r.cm ? HOTCONF.posOf(r.lines, p.ticket, r.cm) : null, conf = cpos != null ? HOTCONF.level(cpos, loc) : null;
     return { kind: "hot", ...base(r, c, s), cars: p.cars, ticket: p.ticket, needOdds: !!p.needOdds, bandLo: p.bandLo, bandHi: p.bandHi, brk, brkOk, b1, s2, s2Many, s2Skip, loc, cpos, conf, ...j };

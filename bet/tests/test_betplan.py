@@ -195,6 +195,20 @@ class TestBetplan(unittest.TestCase):
             self.assertTrue(x["inBand"])
             self.assertIn(x["verdict"], ("buy", "skipEv"))
 
+    def test_7車の地元の番手は帯を5から15倍に(self):
+        # 名古屋(愛知): 先頭(1)は岐阜・番手(2)が愛知 → 地元の番手(loc 2)。帯は締切前5〜15倍(2026-11-26〜・hots2.js の BAND7L・hikitsugi §4-72)
+        r = race("名古屋_3R", cars=7, need=True)
+        go = lambda v: self.hot(self.run_plan([r], [{"t": "15:00:10", "k": "名古屋_3R", "left": 4.8, "n": 7, "o": self.odds(7, v, base=200.0)}]))[0]
+        x = go(6.0)
+        self.assertEqual((x["loc"], x["bandLo"], x["bandHi"], x["inBand"]), (2, 5, 15, True))
+        self.assertIn(x["verdict"], ("buy", "skipEv"))
+        self.assertEqual((go(4.9)["verdict"], go(15.5)["verdict"]), ("skipBand", "skipBand"))
+        self.assertTrue(go(5.0)["inBand"])
+        # 岐阜(先頭が地元 loc 1)・広島(地元なし loc 0)は今までどおり 10〜15倍
+        for key, lc in (("岐阜_3R", 1), ("広島_3R", 0)):
+            x = self.hot(self.run_plan([race(key, cars=7, need=True)], [{"t": "15:00:10", "k": key, "left": 4.8, "n": 7, "o": self.odds(7, 6.0, base=200.0)}]))[0]
+            self.assertEqual((x["loc"], x["bandLo"], x["bandHi"], x["inBand"]), (lc, 10, 15, False))
+
     def test_票が薄い_倍率なし_本命でないレース(self):
         o = [9999.9] * 84
         o[0] = 3.0

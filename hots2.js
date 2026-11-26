@@ -24,7 +24,12 @@
   const RULE7 = { A: 0.5679384083863769, B: -0.07853322957752044, TH: -0.05164880051609013 };    // 7車: over < TH(少ない)のときだけ買う
   // 7車の倍率の帯: 確定オッズで数えるとき lo〜hi / 締切前の倍率(買うとき)で決めるとき loPre〜hiPre(2026-11-23〜・hikitsugi §4-65)
   const BAND7 = { lo: 9, hi: 15, loPre: 10, hiPre: 15 };
-  const inBand7 = (odds, pre) => odds != null && odds >= (pre ? BAND7.loPre : BAND7.lo) && odds <= (pre ? BAND7.hiPre : BAND7.hi);
+  // ★2026-11-26(hikitsugi §4-72): 本命ラインの番手か3番手が地元(hotloc.js の code 2・先頭は地元でない)の7車は 締切前5〜15倍(確定で数えるとき 4〜15倍)。
+  //   2人だけ来る組が少ない・地元の番手の7車は 5〜9倍でもプラス(確定4〜15倍: 2022〜24 116.6%・2025〜26 134.8%)。
+  //   倍率の動きを当てはめて締切前の帯をまねると: 10〜15倍 104.5%(215点)/149.4%(70点) → 5〜15倍 106.5%(677点)/132.0%(259点)。点数は約3倍
+  const BAND7L = { lo: 4, hi: 15, loPre: 5, hiPre: 15 };
+  const band7Of = (loc) => (loc === 2 ? BAND7L : BAND7);
+  const inBand7 = (odds, pre, loc) => { const B = band7Of(loc); return odds != null && odds >= (pre ? B.loPre : B.lo) && odds <= (pre ? B.hiPre : B.hi); };
   const COMBOS = {};
   function trioCombos(n) {
     if (!COMBOS[n]) { const o = []; for (let a = 1; a <= n; a++) for (let b = a + 1; b <= n; b++) for (let c = b + 1; c <= n; c++) o.push([a, b, c]); COMBOS[n] = o; }
@@ -62,7 +67,7 @@
     const many = over >= RULE.TH && n >= 8, few = n === 7 && over < RULE7.TH;
     return { s2, exp, over, many, few, skip: n >= 8 ? many : !few, odds };
   }
-  const api = { RULE, RULE7, BAND7, inBand7, share2, judge, trioCombos };
+  const api = { RULE, RULE7, BAND7, BAND7L, band7Of, inBand7, share2, judge, trioCombos };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.HOTS2 = api;
 })(typeof window !== "undefined" ? window : this);
