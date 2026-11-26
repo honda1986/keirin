@@ -489,7 +489,7 @@ class TestAiFav(unittest.TestCase):
 
     def test_設定メニューと見本(self):
         import settings
-        keys = [k for _, k, _ in settings.ITEMS]
+        keys = settings.KEYS
         self.assertIn("buy_ai_fav", keys)
         self.assertIn("ai_fav_yen", keys)
         self.assertIn("stack_same_ticket", keys)
@@ -569,6 +569,93 @@ class TestYenByKind(unittest.TestCase):
                 self.assertEqual(v, want)
         finally:
             builtins.input = orig
+
+
+class TestSettingsMenu(unittest.TestCase):
+    """設定の画面: まとめ → 種類ごと・買うかと金額を1つに・おすすめに戻す(2026-11-26〜・hikitsugi §4-73)"""
+
+    def typed(self, inputs, fn, *a):
+        import builtins
+        it = iter(inputs)
+        orig = builtins.input
+        builtins.input = lambda *_a: next(it)
+        try:
+            with open(os.devnull, "w") as dn:
+                so = sys.stdout; sys.stdout = dn
+                try:
+                    return fn(*a)
+                finally:
+                    sys.stdout = so
+        finally:
+            builtins.input = orig
+
+    def test_項目が種類ごとに分かれている(self):
+        import settings
+        keys = [k for _, k, _ in settings.ITEMS if k]
+        self.assertEqual(len(keys), len(set(keys)))                       # 同じ設定が2か所に出ない
+        self.assertEqual([t for t, _ in settings.GROUPS], ["🔥9車", "🔥7車", "Ⓓ・Ⓐ", "お金・上限", "通知", "くわしい設定"])
+        for k in ("hot9_b1_yen", "hot9_rest_yen", "hot7_yen", "model_d_yen", "ai_fav_yen", "bet_yen", "max_yen_per_day", "ntfy_topic",
+                  "hot9_mode", "hot7_mode", "decide_at_minutes", "i_have_read_the_terms", "hot9_skip_hon_bante", "hot7_local_only"):
+            self.assertIn(k, keys)
+        for k in ("buy_model_d", "buy_ai_fav"):
+            self.assertIn(k, settings.KEYS)
+        for k in settings.RECOMMEND:
+            self.assertIn(k, keys)
+        config_mod.from_dict(dict(settings.RECOMMEND))                   # おすすめの値は検査を通る
+
+    def test_買うかと金額を1つに(self):
+        import settings
+        S = settings
+        self.assertEqual(S.show({}, "hot7_yen", S.H7BUY), "買わない")    # 🔥7車は既定で買わない
+        self.assertEqual(S.show({"hot7_mode": "band", "hot7_yen": 200}, "hot7_yen", S.H7BUY), "買う・200 円")
+        self.assertEqual(S.show({"hot7_mode": "band", "hot7_yen": 0}, "hot7_yen", S.H7BUY), "買わない")
+        self.assertEqual(S.show({"buy_model_d": False, "model_d_yen": 300}, "model_d_yen", S.DBUY), "買わない")
+        self.assertEqual(S.show({"bet_yen": 300}, "ai_fav_yen", S.ABUY), "買う・300 円（1点あたりの金額と同じ）")
+        ask = lambda t, kind, d=None: self.typed([t], S.ask, "x", kind, "", d)[0]
+        self.assertEqual(ask("0", S.H7BUY), {"hot7_mode": "off"})
+        self.assertEqual(ask("200", S.H7BUY, {}), {"hot7_mode": "band", "hot7_yen": 200})
+        self.assertEqual(ask("200", S.H7BUY, {"hot7_mode": "both"}), {"hot7_mode": "both", "hot7_yen": 200})   # ほかの買い方を選んでいればそのまま
+        self.assertEqual(ask("-", S.DBUY), {"buy_model_d": True, "model_d_yen": None})
+        self.assertEqual(ask("0", S.ABUY), {"buy_ai_fav": False})
+        for bad in ("abc", "-100", ""):
+            self.assertIsNone(ask(bad, S.DBUY))
+
+    def test_まとめ(self):
+        import settings
+        L = "\n".join(settings.summary({}))
+        self.assertIn("🔥9車  B率1位 100円・それ以外 100円（地元の番手×2・◎が番手は見送り）", L)
+        self.assertIn("🔥7車  買わない", L)
+        self.assertIn("Ⓓ 100円 ／ Ⓐ 100円 ／ 同じ組は金額を足す", L)
+        self.assertIn("1日 2,500円・25レース", L)
+        L = "\n".join(settings.summary({"hot7_mode": "band", "hot7_yen": 200, "buy_ai_fav": False, "max_yen_per_day": None}))
+        self.assertIn("🔥7車  200円（地元の番手のときだけ）", L)
+        self.assertIn("Ⓐ 買わない", L)
+        self.assertIn("1日 無制限", L)
+
+    def test_画面で変えておすすめに戻す(self):
+        import json as js
+        import settings
+        tmp = os.path.join(tempfile.mkdtemp(), "config.json")
+        with open(tmp, "w", encoding="utf-8") as f:
+            js.dump({"hot9_share2": False, "hot9_local_mult": 3, "bet_yen": 300, "notify_dummy": None}, f)
+        orig = settings.PATH
+        settings.PATH = tmp
+        try:
+            # 2) 🔥7車 → 1) 買う・金額 → 200 → 0) 戻る → 0) 終わる
+            self.assertEqual(self.typed(["2", "1", "200", "0", "0"], settings.main), 0)
+            d = js.load(open(tmp, encoding="utf-8"))
+            self.assertEqual((d["hot7_mode"], d["hot7_yen"], d["bet_yen"]), ("band", 200, 300))
+            self.assertIn("★おすすめ", settings.rec_note(d, "hot9_share2", settings.ONOFF))
+            # 7) おすすめに戻す → y → 0) 終わる。金額・🔥7車を買うかは変えない
+            self.assertEqual(self.typed(["7", "y", "0"], settings.main), 0)
+            d = js.load(open(tmp, encoding="utf-8"))
+            self.assertEqual((d["hot9_share2"], d["hot9_local_mult"], d["bet_yen"], d["hot7_mode"], d["hot7_yen"]), (True, 2, 300, "band", 200))
+            self.assertEqual(settings.rec_note(d, "hot9_share2", settings.ONOFF), "")
+            # 1) 🔥9車 → 1) B率1位の金額 → abc(読めない) → 0 → 0
+            self.assertEqual(self.typed(["1", "1", "abc", "0", "0"], settings.main), 0)
+            self.assertNotIn("hot9_b1_yen", js.load(open(tmp, encoding="utf-8")))
+        finally:
+            settings.PATH = orig
 
 
 class TestHotLineBreak(unittest.TestCase):

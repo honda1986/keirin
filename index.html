@@ -640,7 +640,7 @@
   <div class="sheet-card">
     <div class="sheet-h"><b id="buySheetT">💴 買い方（1点の金額・重なったとき）</b><button class="iconbtn" type="button" data-close aria-label="閉じる">✕</button></div>
     <div id="buyRows"></div>
-    <p class="note" style="font-size:11px;margin-top:10px">ここの金額は、この端末の表示（今日のまとめ・レースの買い目・成績の収支）に使います。<b>自動投票の金額と「同じ組が重なったとき」は PC の run.bat の 7)（設定）</b>で同じように決めてください（ここを変えても自動投票は変わりません）。</p>
+    <p class="note" style="font-size:11px;margin-top:10px">ここの金額は、この端末の表示（今日のまとめ・レースの買い目・成績の収支）に使います。<b>自動投票の金額と「同じ組が重なったとき」は PC の run.bat の 4)（設定）</b>で同じように決めてください（ここを変えても自動投票は変わりません）。</p>
   </div>
 </div>
 <nav class="tabbar" id="tabbar">
@@ -2347,7 +2347,7 @@ const brkSkip = (row) => !!(row.isTop && row.brk != null && row.brk < HOT9_BRK);
 const SKIP_V = { skipBand: "帯の外", skip7: "7車", skipBrk: "切れにくい", skipS2: "2人だけ来る組が多い", skipS2f: "2人だけ来る組が少なくない", skipSet: "設定で買わない",
   skipLocH: "先頭が地元", skipLocO: "地元の番手なし", skipHon: "◎が番手" };   // カードの状態の札(短く)
 // 買い方(1点の金額。0 = 買わない)。アプリの表示・今日のまとめ・成績タブの収支に使う(この端末に保存)。hikitsugi §4-32
-//   自動投票の金額は PC の run.bat 7)(設定)で同じ種類ごとに決める(bet/ の hot9_b1_yen / hot9_rest_yen / hot7_yen / model_d_yen)
+//   自動投票の金額は PC の run.bat 4)(設定)で同じ種類ごとに決める(bet/ の hot9_b1_yen / hot9_rest_yen / hot7_yen / model_d_yen)
 //   b1 = 🔥9車で本命ラインの先頭のB率がいちばん(5年 139%) / rest = 🔥9車のそれ以外(116%・B率が分からないレースも) / h7 = 🔥7車 / d = モデルD
 //   a = Ⓐ AI が外した1番人気ライン(aifav.js。2026-11-03〜。bet/ の ai_fav_yen)
 const BUY_DEF = { b1: 100, rest: 100, h7: 0, d: 100, a: 100 };

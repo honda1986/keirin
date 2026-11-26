@@ -41,7 +41,7 @@ TERMS_NG = """live は起動できません。
 config.json の i_have_read_the_terms が false のままです。
 
 オッズパークの利用規約を、自分で読むこと。自動操作の扱いはそこに書かれています。
-読んで、問題ないと自分で判断したときだけ true にしてください（run.bat の 7) からも変えられます）。
+読んで、問題ないと自分で判断したときだけ true にしてください（run.bat の 4) 設定 → 6) くわしい設定 からも変えられます）。
 判断できないなら false のままで構いません。dry なら、購入を押す直前まで全部動きます。"""
 
 
@@ -391,12 +391,12 @@ def main(argv=None):
         print(f"（🔥の買い方: 9車立て={config_mod.HOT_MODE_LABEL[cfg.hot9_mode]} / 7車立て={config_mod.HOT_MODE_LABEL[cfg.hot7_mode]}。"
               f"Ⓐ（AIが外した1番人気ライン）: {'買う' if cfg.buy_ai_fav and config_mod.yen_for(cfg, 'A', 0, None)[0] else '買わない'}。"
               f"同じ組が重なったとき: {'金額を足して買う' if cfg.stack_same_ticket else '1回だけ買う'}。"
-              "run.bat の 7)（設定）で変えられます）")
+              "run.bat の 4)（設定）で変えられます）")
         if cfg.buy_model_d and ((cfg.max_races_per_day is not None and cfg.max_races_per_day < 20)
                                 or (cfg.max_yen_per_day is not None and cfg.max_yen_per_day < 20 * cfg.bet_yen)):
             print(f"（モデルDは「期待値1.10以上・締切前の倍率で23倍以下の組を全部」（上限23倍は2026-11-11〜）。🔥と合わせて1日平均4〜5点・多い日で20点ほど買います。"
                   f"いまの1日の上限（{cfg.max_yen_per_day or '無制限'}円・{cfg.max_races_per_day or '無制限'}点）だと多い日は後半のレースを買えません。"
-                  "run.bat の 7) で上限を 2500円・25点 くらいにしてください）")
+                  "run.bat の 4) 設定 → 4) お金・上限 で上限を 2500円・25点 くらいにしてください）")
     except Exception:
         pass
     if args.notify_test:

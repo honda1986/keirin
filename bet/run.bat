@@ -3,42 +3,59 @@ setlocal
 set PYTHONUTF8=1
 cd /d "%~dp0"
 
+rem 2026-11-26: メニューを5つにした（keirin の hikitsugi §4-73）。check・ためす・記録・ログ・テストは「5) そのほか」
+
 :MENU
 cls
 echo.
 echo    競輪 自動購入（オッズパーク）
 echo    ------------------------------------------------------
-echo     1) check   買う／見送るの判定を見るだけ（ブラウザ無し）
-echo     2) dry     ブラウザを開き、確認画面まで進んで押さない
-echo     3) live    実際に購入する
-echo     4) ためす   疑似の買い目で dry を試す（買い目が無い時間用）
-echo.
-echo     5) 今日の勝負レースと判定を一覧で見る
-echo     6) 画面操作を記録する（手で投票した手順を残す。作り直し用）
-echo     7) 金額や上限の設定を変える
-echo     8) ログの最後の30行を見る
-echo     9) テスト（サイトを触らずに確かめる）
+echo     1) 本番を始める   実際に購入する（live。y を入れて確認してから）
+echo     2) 練習           ブラウザを開き、確認画面まで進んで押さない（dry）
+echo     3) 今日の買い目   今日の残りのレースと、買う／見送るの判定を一覧で見る
+echo     4) 設定           金額・買う種類・上限・通知
+echo     5) そのほか       判定だけ見る・ためす・画面の記録・ログ・テスト
 echo     0) 終わる
 echo    ------------------------------------------------------
 echo.
 set N=
 set /p N="番号を入れて Enter: "
 
-if "%N%"=="1" goto CHECK
+if "%N%"=="1" goto LIVE
 if "%N%"=="2" goto DRY
-if "%N%"=="3" goto LIVE
-if "%N%"=="4" goto FAKE
-if "%N%"=="5" goto PLAN
-if "%N%"=="6" goto RECORD
-if "%N%"=="7" goto SETTINGS
-if "%N%"=="8" goto LOG
-if "%N%"=="9" goto TEST
+if "%N%"=="3" goto PLAN
+if "%N%"=="4" goto SETTINGS
+if "%N%"=="5" goto MORE
 if "%N%"=="0" goto END
 goto MENU
 
+:MORE
+cls
+echo.
+echo    そのほか
+echo    ------------------------------------------------------
+echo     1) 判定だけ見る   買う／見送るの判定を見るだけ（check。ブラウザ無し）
+echo     2) ためす         疑似の買い目で dry を試す（買い目が無い時間用）
+echo     3) 画面を記録する 手で投票した手順を残す（作り直し用）
+echo     4) ログを見る     ログの最後の30行
+echo     5) テスト         サイトを触らずに確かめる
+echo     0) 戻る
+echo    ------------------------------------------------------
+echo.
+set M=
+set /p M="番号を入れて Enter: "
+
+if "%M%"=="1" goto CHECK
+if "%M%"=="2" goto FAKE
+if "%M%"=="3" goto RECORD
+if "%M%"=="4" goto LOG
+if "%M%"=="5" goto TEST
+if "%M%"=="0" goto MENU
+goto MORE
+
 :CHECK
 call :RUN check
-goto MENU
+goto MORE
 
 :DRY
 call :RUN dry
@@ -64,8 +81,8 @@ set R=
 set /p R="レース番号（例 1）: "
 set C=
 set /p C="買い目（例 3-4-6。何も入れなければ 1-2-3）: "
-if "%P%"=="" goto MENU
-if "%R%"=="" goto MENU
+if "%P%"=="" goto MORE
+if "%R%"=="" goto MORE
 echo.
 echo    dry で試します。止めるときは Ctrl+C。
 echo.
@@ -76,7 +93,7 @@ if "%C%"=="" (
 )
 echo.
 pause
-goto MENU
+goto MORE
 
 :PLAN
 echo.
@@ -89,7 +106,7 @@ goto MENU
 echo.
 echo    Chrome が開くので、手でログインして、ためしたい投票画面で1レースぶん操作してください。
 echo    押したところと画面が records フォルダに残ります（ID・パスワード・暗証番号は残しません）。
-echo    自動購入（2 や 3）を動かしている間は使えません。先に止めてください。
+echo    自動購入（本番や練習）を動かしている間は使えません。先に止めてください。
 echo.
 set U=
 set /p U="最初に開くURL（何も入れなければオッズパークのトップ）: "
@@ -102,7 +119,7 @@ echo.
 echo    records フォルダを開きます。
 start "" "%~dp0records"
 pause
-goto MENU
+goto MORE
 
 :SETTINGS
 python settings.py
@@ -117,14 +134,14 @@ if exist "logs\keirin_bet.log" (
 )
 echo.
 pause
-goto MENU
+goto MORE
 
 :TEST
 echo.
 python run_tests.py
 echo.
 pause
-goto MENU
+goto MORE
 
 :RUN
 echo.
