@@ -2341,6 +2341,28 @@ PC にしかできないのは**買うこと（bet/）と、その通知**だけ
 - 説明の「run.bat の 7)」を「4) 設定」に直した（bet/README・config.example.json・keirin_bet.py のメッセージ・アプリの 💴）。
 - **確かめたこと**: bet/ のテスト 158件 OK（設定の画面のテスト4件を足した: 種類分け・買うかと金額・まとめ・画面で変えて戻す）。画面を作り物の入力で動かして見た。
 
+## 4-74. run.bat を開くたびに GitHub から最新を取り込む（2026-11-29）
+
+- **きっかけ**: はむさん「PC新しくなってないんだけど」。PC のタスク keirin_snap が **2026-11-22 21時ごろから止まっていた**（odds-snap への最後の送信が 11-22 20:59・以後は GitHub の snap.yml が代わりに記録）。
+  コードの取り込みはタスク（pc/runner.js の pullMain）だけがしていたので、§4-62〜§4-73（2人だけ来る組・7車の帯・地元の位置・×の見送り・新しいメニュー）が PC に届いていなかった。
+  自動投票は出走表と倍率を GitHub から取れる（betplan.js の予備）ので動くが、古いルールのままだった。
+- **bet/update.py（新）**: run.bat が最初に呼ぶ。pullMain と同じ考え方で、取れなければいまのまま動かす（メニューは止めない）。
+  1. `git fetch --no-write-fetch-head --refmap= origin +refs/heads/main:refs/betupdate/main`（タスクや betplan.js の FETCH_HEAD とぶつけない）。git に「人に聞く」をさせない（GIT_TERMINAL_PROMPT=0 など）
+  2. races.json の手元の差分は捨てる（`checkout HEAD -- races.json`。タスクが「races.json だけ新しくした」形も戻す）
+  3. 手で変えたファイル（`git diff --name-status HEAD`・races.json 以外）があれば一覧を出して聞く。y なら `C:\keirin\backup\日時\` に写してから戻す（足しかけ A は git から外すだけ）。Enter なら取り込まない
+  4. PC で作ったコミットがあれば取り込まない（`merge-base --is-ancestor`）。あとは `merge --ff-only`
+  5. いまの版（bet/ を最後に変えたコミットと日時。keirin_bet.py の「版」と同じ）を bet/logs/version.txt に書く → run.bat のメニューの上に出す
+  6. 取り込んだら PR の題名（`(#番号)` で終わるもの）を10件まで出す。データだけのコミットは出さない
+  7. タスクが止まっていそうなら知らせる: snapwork/runner.json（タスクが毎分書く）が15分より古い・08:10〜23:59 のとき。runner.json が無い PC（タスクを使っていない）は出さない
+  - 終了コード 0 = 最新だった（run.bat は止まらずメニューへ）/ 1 = 取り込んだ・取り込めなかった・知らせがある（run.bat が pause）
+- **run.bat**: `cd` の次に、かっこの中で `python update.py` → `if errorlevel 1 pause` → `"%~f0" --no-update`（自分を最初から開き直す）。
+  ★取り込みで run.bat 自身が書き換わると、cmd は続きを新しいファイルの同じ位置から読んでしまう。かっこの中は先に全部読んでから動くので安全で、最後に自分を開き直す（call を付けないので元には戻らない）。
+  取り込まずに開くときは `run.bat --no-update`。
+- **pc/install.ps1**: 取り込み（`git pull --ff-only`）に失敗しても「最新にしました」と出ていたのを、失敗なら × で出すようにした（成功なら版も出す）。pull の前に races.json の手元の差分を捨てる（タスクが「races.json だけ新しくした」ままだと pull が止まるため）。
+- ★この仕組みは PC の run.bat が新しくなってから効く。**最初の1回だけ**は PowerShell でセットアップの1行（pc/install.ps1）を貼って取り込む（タスクも登録し直される）。
+- **確かめたこと**: bet/ のテスト 171件 OK（test_update.py 13件: 最新・取り込み・FETCH_HEAD を変えない・races.json・手で変えたファイル（Enter / y・足しかけ）・PC のコミット・届かない・git でないフォルダ・タスクの知らせ3件。手元に作った「GitHub の代わり」の git で試す）。
+  run.bat は Windows で動かしていない（この環境に cmd が無い）。
+
 ## 5. 次にやること
 
 ### 保留中（データが貯まってから判断する）
