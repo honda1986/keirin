@@ -70,8 +70,10 @@ if ((git config --global core.autocrlf) -ne "false") { git config --global core.
 New-Item -ItemType Directory -Force -Path $ROOT, $LOGS | Out-Null
 $env:GIT_TERMINAL_PROMPT = "0"
 if (Test-Path (Join-Path $REPO ".git")) {
+    # races.json の手元の差分は捨てる(GitHub のものが正。タスクが「races.json だけ新しくした」ままだと pull が止まる・hikitsugi §4-74)
+    git -C $REPO checkout -q HEAD -- races.json 2>&1 | Out-Null
     git -C $REPO pull --ff-only --quiet 2>&1 | Out-Host
-    Ok "最新にしました"
+    if ($LASTEXITCODE -eq 0) { Ok ("最新にしました(コード " + (git -C $REPO log -1 '--format=%h %cd' '--date=format-local:%m/%d %H:%M' -- bet) + ")") } else { Ng "最新にできませんでした(上の字をそのまま貼って相談してください。いまのまま続けます)" }
 } else {
     git clone --quiet https://github.com/honda1986/keirin.git $REPO 2>&1 | Out-Host
     if (-not (Test-Path (Join-Path $REPO ".git"))) { Ng "リポジトリを取れませんでした(ネットにつながっているか確認)"; Done 1 }

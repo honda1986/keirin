@@ -3,12 +3,26 @@ setlocal
 set PYTHONUTF8=1
 cd /d "%~dp0"
 
+rem 2026-11-29: 開くたびに GitHub から最新を取り込む（update.py。keirin の hikitsugi §4-74）
+rem   それまでは PC のタスク keirin_snap だけが取り込んでいて、タスクが止まると古いままだった
+rem   取り込みで run.bat 自身も書き換わることがあるので、そのあと自分を最初から開き直す（--no-update を付けて）
+rem   ★このかっこの中は、cmd が先に全部読んでから動かす。途中でファイルが変わっても、かっこの中は最後まで動く
+rem   取り込まずに開きたいとき（ネットが無いときなど）は run.bat --no-update
+if /i not "%~1"=="--no-update" (
+  python update.py
+  if errorlevel 1 pause
+  "%~f0" --no-update
+)
+set VER=
+if exist "logs\version.txt" set /p VER=<"logs\version.txt"
+
 rem 2026-11-26: メニューを5つにした（keirin の hikitsugi §4-73）。check・ためす・記録・ログ・テストは「5) そのほか」
 
 :MENU
 cls
 echo.
 echo    競輪 自動購入（オッズパーク）
+if defined VER echo    コード %VER%（開くたびに GitHub から最新を取り込みます）
 echo    ------------------------------------------------------
 echo     1) 本番を始める   実際に購入する（live。y を入れて確認してから）
 echo     2) 練習           ブラウザを開き、確認画面まで進んで押さない（dry）
